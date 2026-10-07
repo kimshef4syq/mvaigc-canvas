@@ -454,4 +454,33 @@ mod tests {
         assert_eq!(state.port(), Some(free));
         assert!(!state.try_reserve(free).unwrap());
     }
+
+    /// Live smoke test (ignored by default). Exercises the full chain:
+    /// axum route → login → mvaigc getImgModel → JSON back. Read-only on the
+    /// proxy side, but it DOES log in to mvaigc with the account below.
+    /// Run: MVAIGC_SMOKE_AUTH='account:password' cargo test smoke_models -- --ignored --nocapture
+    #[tokio::test]
+    #[ignore]
+    async fn smoke_models() {
+        let auth = std::env::var("MVAIGC_SMOKE_AUTH").expect("set MVAIGC_SMOKE_AUTH");
+        let (account, password) = auth.split_once(':').expect("account:password");
+        let state = Arc::new(ProxyState::new());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, router(state)).await.ok();
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        let response = reqwest::Client::new()
+            .get(format!("http://{addr}/v1/models"))
+            .header("Authorization", format!("Bearer {account}:{password}"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let body: Value = response.json().await.unwrap();
+        let count = body["data"].as_array().map(|list| list.len()).unwrap_or(0);
+        println!("smoke_models → {count} models");
+        assert!(count > 0, "expected at least one model");
+    }
 }
