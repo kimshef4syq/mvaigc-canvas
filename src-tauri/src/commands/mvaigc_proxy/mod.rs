@@ -17,10 +17,13 @@ pub mod mapping;
 /// Default local port the proxy listens on.
 pub const DEFAULT_PORT: u16 = 8787;
 
+/// Max accepted request body (base64 reference media can be large).
+const MAX_REQUEST_BODY_BYTES: usize = 128 * 1024 * 1024;
+
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
+    extract::{DefaultBodyLimit, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -366,6 +369,9 @@ pub fn router(state: SharedState) -> Router {
         .route("/v1/images/generations", post(image_generations))
         .route("/v1/videos", post(video_generations))
         .route("/v1/tasks/{id}", get(task_status))
+        // Reference images/videos arrive as base64 inside the JSON body and
+        // can exceed axum's 2 MB default, which would reject them with 413.
+        .layer(DefaultBodyLimit::max(MAX_REQUEST_BODY_BYTES))
         .with_state(state)
 }
 
@@ -457,6 +463,35 @@ mod tests {
         assert!(state.is_running());
         assert_eq!(state.port(), Some(free));
         assert!(!state.try_reserve(free).unwrap());
+    }
+
+    /// Large bodies (reference images/videos as base64) must not be rejected
+    /// by axum's default 2 MB limit. An unauthenticated large request should
+    /// reach the handler and fail auth (401), never 413.
+    #[tokio::test]
+    async fn large_request_body_is_accepted() {
+        let state = Arc::new(ProxyState::new());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, router(state)).await.ok();
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        // ~5 MB JSON body.
+        let big = "a".repeat(5 * 1024 * 1024);
+        let body = format!("{{\"model\":\"gpt_image2\",\"prompt\":\"{big}\"}}");
+        let response = reqwest::Client::new()
+            .post(format!("http://{addr}/v1/images/generations"))
+            .header("Content-Type", "application/json")
+            .body(body)
+            .send()
+            .await
+            .unwrap();
+        assert_ne!(
+            response.status().as_u16(),
+            413,
+            "large body must not be rejected with 413"
+        );
     }
 
     /// Live smoke test (ignored by default). Exercises the full chain:

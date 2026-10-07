@@ -41,21 +41,37 @@ fn resolve_image_resolution_ratio(openai: &Value) -> (String, String) {
     ("2K".to_string(), ratio)
 }
 
+/// Reference-image URLs from an OSC request. OSC sends `reference_images`
+/// (an array); the OpenAI `image` field (string or array) is also accepted.
+fn reference_image_urls(openai: &Value) -> Vec<String> {
+    let from_array = |value: &Value| -> Vec<String> {
+        value
+            .as_array()
+            .map(|list| list.iter().filter_map(Value::as_str).map(str::to_string).collect())
+            .unwrap_or_default()
+    };
+    if let Some(list) = openai.get("reference_images") {
+        let urls = from_array(list);
+        if !urls.is_empty() {
+            return urls;
+        }
+    }
+    match openai.get("image") {
+        Some(Value::String(url)) if !url.trim().is_empty() => vec![url.clone()],
+        Some(list) => from_array(list),
+        None => Vec::new(),
+    }
+}
+
 /// Map an OpenAI Images request to mvaigc's `imgToImage` body.
 pub fn map_image_request(openai: &Value, model_name: &str) -> Value {
     let (resolution, ratio) = resolve_image_resolution_ratio(openai);
     let count = openai.get("n").and_then(Value::as_i64).unwrap_or(1).max(1);
-    let images: Vec<Value> = openai
-        .get("image")
-        .and_then(Value::as_array)
-        .map(|list| {
-            list.iter()
-                .filter_map(Value::as_str)
-                .enumerate()
-                .map(|(index, url)| json!({"url": url, "name": format!("图{}", index + 1)}))
-                .collect()
-        })
-        .unwrap_or_default();
+    let images: Vec<Value> = reference_image_urls(openai)
+        .into_iter()
+        .enumerate()
+        .map(|(index, url)| json!({"url": url, "name": format!("图{}", index + 1)}))
+        .collect();
     json!({
         "model": str_field(openai, "model").unwrap_or_default(),
         "modelName": model_name,
@@ -80,17 +96,11 @@ pub fn map_video_request(openai: &Value, api_name: &str) -> Value {
         .and_then(Value::as_i64)
         .unwrap_or(5)
         .max(1);
-    let images: Vec<Value> = openai
-        .get("image")
-        .and_then(Value::as_array)
-        .map(|list| {
-            list.iter()
-                .filter_map(Value::as_str)
-                .enumerate()
-                .map(|(index, url)| json!({"imageUrl": url, "name": format!("图{}", index + 1)}))
-                .collect()
-        })
-        .unwrap_or_default();
+    let images: Vec<Value> = reference_image_urls(openai)
+        .into_iter()
+        .enumerate()
+        .map(|(index, url)| json!({"imageUrl": url, "name": format!("图{}", index + 1)}))
+        .collect();
     json!({
         "api": str_field(openai, "model").unwrap_or_default(),
         "apiName": api_name,
@@ -152,5 +162,30 @@ mod tests {
         let out = map_video_request(&openai, "MiniMax-H3-2K");
         assert_eq!(out["ratio"], "9:16");
         assert_eq!(out["duration"], 5);
+    }
+
+    #[test]
+    fn image_request_maps_reference_images() {
+        // OSC sends `reference_images` (an array), not `image`.
+        let openai = serde_json::json!({
+            "model": "gpt_image2", "prompt": "改成夜景",
+            "size": "1024x1024", "reference_images": ["data:image/png;base64,AAA", "data:image/png;base64,BBB"]
+        });
+        let out = map_image_request(&openai, "GPT-Image-2");
+        let images = out["images"].as_array().unwrap();
+        assert_eq!(images.len(), 2);
+        assert_eq!(images[0]["url"], "data:image/png;base64,AAA");
+    }
+
+    #[test]
+    fn video_request_maps_reference_images() {
+        let openai = serde_json::json!({
+            "model": "minimax_h3", "prompt": "让它动起来", "size": "16:9",
+            "seconds": 5, "reference_images": ["data:image/png;base64,AAA"]
+        });
+        let out = map_video_request(&openai, "MiniMax-H3-2K");
+        let images = out["images"].as_array().unwrap();
+        assert_eq!(images.len(), 1);
+        assert_eq!(images[0]["imageUrl"], "data:image/png;base64,AAA");
     }
 }
