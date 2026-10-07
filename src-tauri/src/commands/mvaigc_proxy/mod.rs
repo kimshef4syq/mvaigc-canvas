@@ -27,7 +27,6 @@ use axum::{
     Json, Router,
 };
 use serde_json::{json, Value};
-use tauri::Emitter;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
@@ -107,23 +106,15 @@ impl Default for MvaigcProxyState {
 /// Start the proxy on `port` if not already running. Returns `Ok(true)` when a
 /// server was spawned, `Ok(false)` when that port is already running. Errors
 /// are reported to the caller; startup callers should log and continue.
-pub fn ensure_started(app_handle: tauri::AppHandle, state: &SharedState, port: u16) -> Result<bool, String> {
+pub fn ensure_started(state: &SharedState, port: u16) -> Result<bool, String> {
     if state.try_reserve(port)? {
         let state = state.clone();
         tauri::async_runtime::spawn(async move {
             run_proxy(port, state).await;
         });
-        let _ = app_handle; // reserved for future readiness signalling
         return Ok(true);
     }
     Ok(false)
-}
-
-/// Tell the OSC frontend to (re)configure its mvaigc custom providers.
-fn emit_auto_configure(app_handle: &tauri::AppHandle, port: u16) {
-    if let Err(err) = app_handle.emit("mvaigc-proxy-ready", port) {
-        warn!("mvaigc 反代就绪事件发送失败: {err}");
-    }
 }
 
 type SharedState = Arc<ProxyState>;
@@ -403,7 +394,6 @@ pub async fn run_proxy(port: u16, state: SharedState) {
 /// Called by the OSC settings panel when the user saves account/password.
 #[tauri::command]
 pub async fn mvaigc_set_credentials(
-    app: tauri::AppHandle,
     state: tauri::State<'_, MvaigcProxyState>,
     account: String,
     password: String,
@@ -413,11 +403,8 @@ pub async fn mvaigc_set_credentials(
         .state
         .set_credentials(account, password)
         .await;
-    match ensure_started(app.clone(), &state.state, port) {
-        Ok(_) => {
-            emit_auto_configure(&app, port);
-            Ok(format!("running:{port}"))
-        }
+    match ensure_started(&state.state, port) {
+        Ok(_) => Ok(format!("running:{port}")),
         Err(err) => Err(err),
     }
 }

@@ -109,7 +109,6 @@ pub fn run() {
             {
                 let proxy = app.state::<commands::mvaigc_proxy::MvaigcProxyState>();
                 if let Err(error) = commands::mvaigc_proxy::ensure_started(
-                    app.handle().clone(),
                     &proxy.state,
                     commands::mvaigc_proxy::DEFAULT_PORT,
                 ) {
