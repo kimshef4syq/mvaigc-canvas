@@ -10,6 +10,8 @@ import {
 } from '@/features/canvas/application/canvasServices';
 import { prepareNodeImage } from '@/features/canvas/application/imageData';
 import { captureVideoThumbnail } from '@/features/canvas/application/videoUpload';
+import { buildCompletedImagePatch } from '@/features/canvas/application/generatedImageHistory';
+import type { GeneratedImageEntry } from '@/features/canvas/domain/canvasNodes';
 import {
   buildGenerationErrorReport,
   CURRENT_RUNTIME_SESSION_ID,
@@ -361,6 +363,7 @@ async function prepareCompletedImageResult(
   let finalPreviewImageUrl = previewWithMetadata;
   let generatedFileName = extractFileNameFromPath(imageWithMetadata);
   const generatedNamingMode = customName ? 'custom' : 'default';
+  const currentNode = useCanvasStore.getState().nodes.find((node) => node.id === nodeId);
   const currentGenerationWarning = typeof currentData.generationWarning === 'string'
     ? currentData.generationWarning.trim()
     : '';
@@ -387,6 +390,19 @@ async function prepareCompletedImageResult(
     });
   }
 
+  // exportImage nodes keep a history of every generated image; other node
+  // types that share this function (panorama) get the plain single-image patch.
+  const historyPatch = currentNode?.type === CANVAS_NODE_TYPES.exportImage
+    ? buildCompletedImagePatch({
+        currentImages: currentData.images as GeneratedImageEntry[] | undefined,
+        imageUrl: finalImageUrl,
+        previewImageUrl: finalPreviewImageUrl,
+        aspectRatio: prepared.aspectRatio,
+        generatedFileName,
+        sourcePrompt,
+      })
+    : null;
+
   updateNodeData(nodeId, {
     imageUrl: finalImageUrl,
     previewImageUrl: finalPreviewImageUrl,
@@ -412,6 +428,7 @@ async function prepareCompletedImageResult(
     generationDebugContext: undefined,
     generationRetryResultUrl: null,
     generationRetryRequestedAt: null,
+    ...(historyPatch ?? {}),
   });
   return true;
 }

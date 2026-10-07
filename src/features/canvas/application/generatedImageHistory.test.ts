@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   appendGeneratedImageEntry,
+  buildCompletedImagePatch,
   createGeneratedImageEntry,
   migrateLegacyExportImageData,
   resolveMainImageEntry,
@@ -110,5 +111,42 @@ describe('migrateLegacyExportImageData', () => {
     expect(result.images).toHaveLength(1);
     expect(result.images[0].imageUrl).toBe('legacy.png');
     expect(result.mainImageIndex).toBe(0);
+  });
+});
+
+describe('buildCompletedImagePatch', () => {
+  it('appends a completed image and mirrors it as the main image (imageUrl stays the main)', () => {
+    const current = { images: [entry({ id: 'a', imageUrl: 'a.png' })], mainImageIndex: 0 };
+    const patch = buildCompletedImagePatch({
+      currentImages: current.images,
+      imageUrl: 'new.png',
+      previewImageUrl: 'new.p.png',
+      aspectRatio: '1:1',
+      sourcePrompt: 'p',
+      now: 5,
+    });
+
+    const images = patch.images as GeneratedImageEntry[];
+    expect(images).toHaveLength(2);
+    expect(patch.mainImageIndex).toBe(1);
+    // Review Focus #2: imageUrl must mirror the main image so @图N / reference
+    // resolution reading imageUrl gets the main.
+    expect(patch.imageUrl).toBe('new.png');
+    expect(patch.previewImageUrl).toBe('new.p.png');
+    expect(images[1].imageUrl).toBe('new.png');
+  });
+
+  it('starts a history from empty node data', () => {
+    const patch = buildCompletedImagePatch({
+      currentImages: undefined,
+      imageUrl: 'only.png',
+      previewImageUrl: null,
+      aspectRatio: '3:4',
+      sourcePrompt: null,
+      now: 9,
+    });
+    expect((patch.images as GeneratedImageEntry[])).toHaveLength(1);
+    expect(patch.mainImageIndex).toBe(0);
+    expect(patch.imageUrl).toBe('only.png');
   });
 });

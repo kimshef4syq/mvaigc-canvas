@@ -66,6 +66,38 @@ export function resolveMainImageEntry(
 }
 
 /**
+ * Patch a completed generation writes onto a node: append the new image to the
+ * history and make it the main image. `imageUrl`/`previewImageUrl` mirror the
+ * main entry so downstream consumers (edges, @图N resolution, export) keep
+ * reading the main without knowing about history.
+ */
+export function buildCompletedImagePatch(input: {
+  currentImages: GeneratedImageEntry[] | undefined;
+  imageUrl: string;
+  previewImageUrl: string | null;
+  aspectRatio: string;
+  generatedFileName?: string | null;
+  sourcePrompt?: string | null;
+  now?: number;
+}): { images: GeneratedImageEntry[]; mainImageIndex: number; imageUrl: string; previewImageUrl: string | null } {
+  const entry = createGeneratedImageEntry({
+    imageUrl: input.imageUrl,
+    previewImageUrl: input.previewImageUrl,
+    aspectRatio: input.aspectRatio,
+    generatedFileName: input.generatedFileName,
+    sourcePrompt: input.sourcePrompt,
+    now: input.now,
+  });
+  const images = appendGeneratedImageEntry(input.currentImages, entry);
+  return {
+    images,
+    mainImageIndex: images.length - 1,
+    imageUrl: entry.imageUrl ?? input.imageUrl,
+    previewImageUrl: entry.previewImageUrl,
+  };
+}
+
+/**
  * Normalize a persisted export-image node into the history shape. Nodes saved
  * before history existed carry a single `imageUrl`; they become a one-entry
  * history. Nodes that already have `images` are returned as-is.
