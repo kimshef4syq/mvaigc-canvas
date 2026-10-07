@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Send, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,7 +13,12 @@ import {
 import { acquireGenerationSubmitLock, generationSubmitLockKey } from '@/features/canvas/application/generationSubmitLock';
 import { ModelConfigPicker, type ModelConfigValue } from '@/features/canvas/ui/ModelConfigPicker';
 import { canvasAiGateway } from '@/features/canvas/application/canvasServices';
+import { findRelatedCanvasNodePositions } from '@/features/canvas/application/canvasNodePlacement';
+import { selectInputImageSignature, parseInputImageSignature } from '@/features/canvas/application/canvasGraphSelectors';
+import { EXPORT_RESULT_NODE_DEFAULT_WIDTH, EXPORT_RESULT_NODE_LAYOUT_HEIGHT } from '@/features/canvas/domain/canvasNodes';
 import { useCanvasStore } from '@/stores/canvasStore';
+
+const PROMPT_COMMIT_DELAY_MS = 400;
 
 interface ImageNodePromptPanelProps {
   nodeId: string;
@@ -30,10 +35,21 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
   const { t } = useTranslation();
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const addNode = useCanvasStore((state) => state.addNode);
+  const nodes = useCanvasStore((state) => state.nodes);
   const [mode, setMode] = useState<ImageGenerationMode>('overwrite');
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [count, setCount] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [promptDraft, setPromptDraft] = useState(() => (typeof data.prompt === 'string' ? data.prompt : ''));
+  const promptCommitTimer = useRef<number | null>(null);
+
+  const incomingImageSignature = useCanvasStore((state) =>
+    selectInputImageSignature(nodeId, state.nodes, state.edges)
+  );
+  const referenceImages = useMemo(
+    () => parseInputImageSignature(incomingImageSignature),
+    [incomingImageSignature]
+  );
 
   const modelConfig = (data.modelConfig ?? null) as ModelConfigValue | null;
   const resolved = useMemo(
@@ -41,8 +57,35 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
     [modelConfig]
   );
 
-  const prompt = typeof data.prompt === 'string' ? data.prompt : '';
+  const prompt = promptDraft;
   const canSubmit = prompt.trim().length > 0 && !submitting && resolved.modelForGateway.length > 0;
+
+  // Commit the draft on a debounce so typing doesn't push a canvas history
+  // snapshot (and bump revision) on every keystroke — same pattern as
+  // ImageEditNode's prompt box.
+  const commitPromptDraft = (value: string) => {
+    if (promptCommitTimer.current !== null) {
+      window.clearTimeout(promptCommitTimer.current);
+    }
+    promptCommitTimer.current = window.setTimeout(() => {
+      promptCommitTimer.current = null;
+      updateNodeData(nodeId, { prompt: value });
+    }, PROMPT_COMMIT_DELAY_MS);
+  };
+
+  const flushPromptDraft = () => {
+    if (promptCommitTimer.current !== null) {
+      window.clearTimeout(promptCommitTimer.current);
+      promptCommitTimer.current = null;
+      updateNodeData(nodeId, { prompt: promptDraft });
+    }
+  };
+
+  useEffect(() => () => {
+    if (promptCommitTimer.current !== null) {
+      window.clearTimeout(promptCommitTimer.current);
+    }
+  }, []);
 
   const handleSubmit = async () => {
     if (!canSubmit) {
@@ -70,7 +113,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
           model: resolved.modelForGateway,
           size: geometry.requestSize,
           aspectRatio: geometry.requestAspectRatio,
-          referenceImages: [],
+          referenceImages: [...referenceImages],
           extraParams: { ...resolved.extraParams },
         },
         deps: {
@@ -82,7 +125,13 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
             extraParams: { ...payload.extraParams },
           }),
         },
-        position: { x: 100, y: 100 },
+        position: findRelatedCanvasNodePositions({
+          nodes,
+          relatedNodeId: nodeId,
+          desired: { x: 0, y: 0 },
+          size: { width: EXPORT_RESULT_NODE_DEFAULT_WIDTH, height: EXPORT_RESULT_NODE_LAYOUT_HEIGHT },
+          count: 1,
+        })[0] ?? { x: 100, y: 100 },
       });
     } finally {
       setSubmitting(false);
@@ -94,7 +143,12 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
     <div className="nodrag nowheel mt-2 shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2">
       <textarea
         value={prompt}
-        onChange={(event) => updateNodeData(nodeId, { prompt: event.target.value })}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          setPromptDraft(nextValue);
+          commitPromptDraft(nextValue);
+        }}
+        onBlur={flushPromptDraft}
         onMouseDown={(event) => event.stopPropagation()}
         placeholder={t('node.imageEdit.promptPlaceholder')}
         className="ui-scrollbar nodrag nowheel h-16 w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-2 py-1 text-sm leading-6 text-text-dark outline-none placeholder:text-text-muted/80"
