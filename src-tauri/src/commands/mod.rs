@@ -5,6 +5,7 @@ mod dreamina_cli;
 pub mod external_agent;
 pub mod http;
 pub mod image;
+pub mod mvaigc_proxy;
 pub mod portability;
 pub mod project_state;
 pub mod system;
