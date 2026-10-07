@@ -34,7 +34,7 @@ use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 
-use client::{is_auth_error, MvaigcClient, TaskState};
+use client::{is_auth_error, parse_data_url, MvaigcClient, TaskState};
 use mapping::{decode_task_id, encode_task_id, map_image_request, map_video_request};
 
 /// Shared proxy state: the mvaigc client plus the credentials configured via
@@ -152,6 +152,44 @@ fn error_response(status: StatusCode, message: impl Into<String>) -> Response {
     (status, Json(json!({ "error": { "message": message.into() } }))).into_response()
 }
 
+/// The field holding an inline media URL: video/audio entries use
+/// `imageUrl`/`videoUrl`/`audioUrl`; image entries use `url`.
+fn inline_media_url_key(entry: &Value) -> Option<&'static str> {
+    ["imageUrl", "videoUrl", "audioUrl", "url"]
+        .into_iter()
+        .find(|key| entry.get(key).is_some())
+}
+
+/// Replace base64 `data:` URLs in `url` fields with a short static URL by
+/// uploading them to mvaigc first. mvaigc stores the request's `oper_info` in
+/// a DB column, so base64 payloads blow past its length limit.
+async fn upload_inline_media(state: &SharedState, token: &str, payload: &mut Value) -> Result<(), String> {
+    for field in ["images", "videos", "audios"] {
+        let Some(list) = payload.get_mut(field).and_then(Value::as_array_mut) else {
+            continue;
+        };
+        for entry in list.iter_mut() {
+            let Some(url_key) = inline_media_url_key(entry) else {
+                continue;
+            };
+            let Some(raw) = entry.get(url_key).and_then(Value::as_str) else {
+                continue;
+            };
+            let Some((mime, bytes)) = parse_data_url(raw) else {
+                continue;
+            };
+            let ext = mime.rsplit('/').next().unwrap_or("bin").to_string();
+            let url = state
+                .client
+                .upload_media(token.to_string(), &format!("ref.{ext}"), &mime, bytes)
+                .await
+                .map_err(|err| err.to_string())?;
+            entry[url_key] = Value::String(url);
+        }
+    }
+    Ok(())
+}
+
 /// Run `op` with a valid token; on an auth error, re-login once and retry once.
 /// The stale-token removal is conditional (`forget_token_if`) so that when two
 /// requests hit 401 concurrently, the second one does not wipe the fresh token
@@ -254,8 +292,9 @@ async fn image_generations(
     let payload = map_image_request(&body, &model_name);
     let result = with_token(&state, &account, &password, |token| {
         let state = state.clone();
-        let payload = payload.clone();
+        let mut payload = payload.clone();
         async move {
+            upload_inline_media(&state, &token, &mut payload).await?;
             state
                 .client
                 .submit_image(token, payload)
@@ -299,8 +338,9 @@ async fn video_generations(
     let payload = map_video_request(&body, &api_name);
     let result = with_token(&state, &account, &password, |token| {
         let state = state.clone();
-        let payload = payload.clone();
+        let mut payload = payload.clone();
         async move {
+            upload_inline_media(&state, &token, &mut payload).await?;
             state
                 .client
                 .submit_video(token, payload, frames)
@@ -431,6 +471,20 @@ pub fn mvaigc_proxy_status(state: tauri::State<'_, MvaigcProxyState>) -> String 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inline_media_url_key_covers_image_and_video_shapes() {
+        // Image entries use `url`; video/audio entries use `*Url`.
+        assert_eq!(
+            inline_media_url_key(&json!({"url": "x", "name": "图1"})),
+            Some("url")
+        );
+        assert_eq!(
+            inline_media_url_key(&json!({"imageUrl": "x", "name": "图1"})),
+            Some("imageUrl")
+        );
+        assert_eq!(inline_media_url_key(&json!({"name": "x"})), None);
+    }
 
     #[test]
     fn occupied_port_does_not_panic() {

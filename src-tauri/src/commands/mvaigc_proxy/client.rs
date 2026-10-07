@@ -21,6 +21,27 @@ pub struct CachedToken {
     pub user_id: String,
 }
 
+/// Decode a `data:<mime>;base64,<payload>` URL into `(mime, bytes)`.
+/// Returns `None` for anything that is not a base64 data URL.
+pub fn parse_data_url(url: &str) -> Option<(String, Vec<u8>)> {
+    use base64::Engine;
+    let rest = url.trim().strip_prefix("data:")?;
+    let (meta, payload) = rest.split_once(',')?;
+    if !meta.to_ascii_lowercase().contains("base64") {
+        return None;
+    }
+    let mime = meta
+        .split(';')
+        .next()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("application/octet-stream")
+        .to_string();
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(payload.trim())
+        .ok()?;
+    Some((mime, bytes))
+}
+
 /// True when an error message means the token is missing/expired
 /// (mvaigc codes 401 and 103), i.e. a re-login may fix it. Scans every
 /// colon-separated segment so it still matches when the message arrives
@@ -130,6 +151,62 @@ impl MvaigcClient {
         if cache.get(account).map(|cached| cached.token.as_str()) == Some(token) {
             cache.remove(account);
         }
+    }
+
+    /// Upload raw bytes to mvaigc's OSS and return the short static URL.
+    /// The 3-step flow: `getUploadUrl` → `PUT` bytes → `getDownloadUrl`.
+    pub async fn upload_media(
+        &self,
+        token: String,
+        file_name: &str,
+        content_type: &str,
+        bytes: Vec<u8>,
+    ) -> Result<String, AIError> {
+        let presign = self
+            .http
+            .post(format!("{}/ma/v1/fileTransfer/getUploadUrl", self.base))
+            .header("X-User-Token", token.clone())
+            .json(&json!({ "fileName": file_name, "contentType": content_type }))
+            .send()
+            .await?;
+        let presign_body: Value = presign.json().await?;
+        let upload_url = parse_envelope(presign_body)
+            .map_err(AIError::Provider)?
+            .get("uploadUrl")
+            .and_then(Value::as_str)
+            .ok_or_else(|| AIError::Provider("getUploadUrl missing uploadUrl".to_string()))?
+            .to_string();
+
+        // Content-Type must match what getUploadUrl declared (it is part of
+        // the OSS signature).
+        let put = self
+            .http
+            .put(&upload_url)
+            .header("Content-Type", content_type)
+            .body(bytes)
+            .send()
+            .await?;
+        if !put.status().is_success() {
+            return Err(AIError::Provider(format!(
+                "OSS upload failed: HTTP {}",
+                put.status().as_u16()
+            )));
+        }
+
+        let download = self
+            .http
+            .post(format!("{}/ma/v1/fileTransfer/getDownloadUrl", self.base))
+            .header("X-User-Token", token)
+            .json(&json!({ "url": upload_url }))
+            .send()
+            .await?;
+        let download_body: Value = download.json().await?;
+        parse_envelope(download_body)
+            .map_err(AIError::Provider)?
+            .get("downloadUrl")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| AIError::Provider("getDownloadUrl missing downloadUrl".to_string()))
     }
 
     pub async fn list_image_models(&self, token: String) -> Result<Value, AIError> {
@@ -414,5 +491,19 @@ mod tests {
         assert!(client.tokens.lock().unwrap().contains_key("acct"));
         client.forget_token_if("acct", "T1"); // match → removed
         assert!(!client.tokens.lock().unwrap().contains_key("acct"));
+    }
+
+    #[test]
+    fn data_url_is_decoded_to_mime_and_bytes() {
+        // "hi" == aGk=
+        let (mime, bytes) = parse_data_url("data:image/png;base64,aGk=").unwrap();
+        assert_eq!(mime, "image/png");
+        assert_eq!(bytes, b"hi");
+    }
+
+    #[test]
+    fn non_data_url_is_not_decoded() {
+        assert!(parse_data_url("https://static.mvaigc.cn/a/b.png").is_none());
+        assert!(parse_data_url("data:image/png,notbase64").is_none());
     }
 }
