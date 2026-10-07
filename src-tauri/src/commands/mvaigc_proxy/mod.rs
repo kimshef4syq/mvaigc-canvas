@@ -149,8 +149,12 @@ fn error_response(status: StatusCode, message: impl Into<String>) -> Response {
     (status, Json(json!({ "error": { "message": message.into() } }))).into_response()
 }
 
-/// Run `op` with a valid token; on an auth error, drop the cached token,
-/// re-login once, and retry once.
+/// Run `op` with a valid token; on an auth error, re-login once and retry once.
+/// The stale-token removal is conditional (`forget_token_if`) so that when two
+/// requests hit 401 concurrently, the second one does not wipe the fresh token
+/// the first one just cached (mvaigc is single-session per account, so a second
+/// login would also invalidate the first — the retry reuses the fresh token
+/// instead of logging in again).
 async fn with_token<T, F, Fut>(
     state: &SharedState,
     account: &str,
@@ -166,10 +170,10 @@ where
         .ensure_token(account, password)
         .await
         .map_err(|err| err.to_string())?;
-    match op(token).await {
+    match op(token.clone()).await {
         Ok(value) => Ok(value),
         Err(err) if is_auth_error(&err) => {
-            state.client.forget_token(account);
+            state.client.forget_token_if(account, &token);
             let token = state
                 .client
                 .ensure_token(account, password)

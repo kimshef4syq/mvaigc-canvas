@@ -122,6 +122,16 @@ impl MvaigcClient {
             .remove(account);
     }
 
+    /// Drop the cached token only if it still equals `token`. Used on a 401
+    /// retry so a concurrent request that already re-logged in and cached a
+    /// fresh token is not wiped out.
+    pub fn forget_token_if(&self, account: &str, token: &str) {
+        let mut cache = self.tokens.lock().expect("token cache poisoned");
+        if cache.get(account).map(|cached| cached.token.as_str()) == Some(token) {
+            cache.remove(account);
+        }
+    }
+
     pub async fn list_image_models(&self, token: String) -> Result<Value, AIError> {
         let response = self
             .http
@@ -388,5 +398,21 @@ mod tests {
         assert_eq!(resolve_image_oper_type(&with_type), "imgToImage");
         let without = serde_json::json!({"operId":"1"});
         assert_eq!(resolve_image_oper_type(&without), "imageImg");
+    }
+
+    #[test]
+    fn forget_token_if_only_removes_matching_token() {
+        // Two concurrent requests both hit 401. The first re-logs in and caches
+        // a fresh token; the second's stale-token removal must NOT wipe it.
+        let client = MvaigcClient::new();
+        client
+            .tokens
+            .lock()
+            .unwrap()
+            .insert("acct".into(), CachedToken { token: "T1".into(), user_id: "u".into() });
+        client.forget_token_if("acct", "T2"); // mismatch → no-op
+        assert!(client.tokens.lock().unwrap().contains_key("acct"));
+        client.forget_token_if("acct", "T1"); // match → removed
+        assert!(!client.tokens.lock().unwrap().contains_key("acct"));
     }
 }
