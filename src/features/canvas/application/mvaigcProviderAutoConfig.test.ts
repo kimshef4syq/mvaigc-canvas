@@ -19,6 +19,20 @@ describe('buildMvaigcProviders', () => {
     expect(asyncTask.pendingValues).toContain('processing');
   });
 
+  it('exposes every mvaigc image model in the picker', () => {
+    const [image] = buildMvaigcProviders(8787, 'user:pass');
+    for (const key of ['doubao5.0_Pro', 'doubao', 'gpt_image2', 'wan2_7_Image', 'Nano-Banana', 'qwen']) {
+      expect(image.models).toContain(key);
+    }
+  });
+
+  it('exposes every mvaigc video model in the picker', () => {
+    const [, video] = buildMvaigcProviders(8787, 'user:pass');
+    for (const key of ['botsmart_seedance_2_5', 'veo_3_1', 'minimax_h3', 'kling_v3_omni', 'wan_2_7']) {
+      expect(video.models).toContain(key);
+    }
+  });
+
   it('video provider uses the video* polling fields', () => {
     const [, video] = buildMvaigcProviders(8787, 'user:pass');
     expect(video.mediaType).toBe('video');

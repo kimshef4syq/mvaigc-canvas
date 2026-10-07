@@ -4,8 +4,32 @@ import type { CustomProviderConfig } from '@/stores/customProvidersStore';
 export const MVAIGC_IMAGE_PROVIDER_ID = 'mvaigc-image';
 export const MVAIGC_VIDEO_PROVIDER_ID = 'mvaigc-video';
 
-const IMAGE_MODEL_HINT = ['gpt_image2'];
-const VIDEO_MODEL_HINT = ['minimax_h3'];
+// The mvaigc model ids surfaced in OSC's pickers. These are mvaigc's own
+// model keys (from imgPlatform/getImgModel and videoPlatform/getVideoApi).
+const IMAGE_MODEL_HINT = [
+  'doubao5.0_Pro',   // Seedream-5.0-Pro
+  'doubao',          // Seedream-4.5
+  'gpt_image2',      // GPT-Image-2
+  'wan2_7_Image',    // WAN-2.7
+  'wan2_7_Image-pro',// WAN-2.7-Pro
+  'Nano-Banana',     // Nano-Banana-2
+  'Nano-Banana-Pro', // Nano-Banana-Pro
+  'qwen',            // Qwen-2.0-Pro
+];
+const VIDEO_MODEL_HINT = [
+  'botsmart_seedance_2_5', // Seedance-2.5
+  'botsmart_seedance_2',   // Seedance-2.0
+  'botsmart_seedance_2_hd',// Seedance-2.0-1080P
+  'botsmart_seedance_2_fast', // Seedance-2.0-Fast
+  'veo_3_1',               // Veo-3.1
+  'minimax_h3',            // MiniMax-H3-2K
+  'minimax_h3_768p',       // MiniMax-H3-768P
+  'vidu_q3',               // Vidu-Q3
+  'happyhorse_1_720p',     // HappyHorse-1.1
+  'happyhorse_1_1080p',    // HappyHorse-1.1-1080P
+  'kling_v3_omni',         // kling-v3-omni
+  'wan_2_7',               // WAN-2.7
+];
 
 /**
  * Build the two OSC custom providers that point at the built-in mvaigc proxy.
