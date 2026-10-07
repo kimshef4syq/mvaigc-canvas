@@ -9,6 +9,7 @@ import {
   materializeProviderAwareImageResult,
 } from '@/features/canvas/application/canvasServices';
 import { prepareNodeImage } from '@/features/canvas/application/imageData';
+import { captureVideoThumbnail } from '@/features/canvas/application/videoUpload';
 import {
   buildGenerationErrorReport,
   CURRENT_RUNTIME_SESSION_ID,
@@ -547,6 +548,14 @@ async function prepareCompletedVideoResult(
     generationDebugContext: undefined,
     generationRetryResultUrl: null,
     generationRetryRequestedAt: null,
+  });
+
+  // The poster is captured after the node update so the video appears
+  // immediately; a null result just leaves the node without a poster.
+  void captureVideoThumbnail(finalLocalVideoUrl).then((thumbnailUrl) => {
+    if (thumbnailUrl) {
+      updateNodeData(nodeId, { thumbnailUrl });
+    }
   });
   return true;
 }

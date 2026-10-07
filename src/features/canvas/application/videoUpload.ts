@@ -1,9 +1,11 @@
 import { persistVideoSource } from '@/commands/image';
-import { resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
+import { persistImageLocally, resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
 import type { VideoNodeData } from '@/features/canvas/domain/canvasNodes';
 
 const DEFAULT_VIDEO_ASPECT_RATIO = '16:9';
 const VIDEO_METADATA_TIMEOUT_MS = 8000;
+const VIDEO_THUMBNAIL_TIMEOUT_MS = 8000;
+const VIDEO_THUMBNAIL_MAX_DIMENSION = 512;
 
 interface VideoFileMetadata {
   aspectRatio: string;
@@ -99,6 +101,63 @@ function readVideoFileMetadata(file: File): Promise<VideoFileMetadata> {
   });
 }
 
+// A video node shows its first frame as the poster so the canvas is readable at
+// a glance after a reload. `thumbnailUrl` is a persisted media value (see
+// projectMedia), so the frame is written to a local image file, not kept as an
+// inline data URL. Best-effort: a null result just leaves the node without a
+// poster.
+export async function captureVideoThumbnail(source: string): Promise<string | null> {
+  const video = document.createElement('video');
+  const displaySource = resolveImageDisplayUrl(source);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      let isDone = false;
+      const finish = (error?: Error) => {
+        if (isDone) {
+          return;
+        }
+        isDone = true;
+        window.clearTimeout(timeoutId);
+        error ? reject(error) : resolve();
+      };
+      const timeoutId = window.setTimeout(
+        () => finish(new Error('Video thumbnail capture timed out')),
+        VIDEO_THUMBNAIL_TIMEOUT_MS
+      );
+
+      video.preload = 'auto';
+      video.muted = true;
+      video.playsInline = true;
+      video.onloadeddata = () => finish();
+      video.onerror = () => finish(new Error('Failed to load video for thumbnail'));
+      video.src = displaySource;
+    });
+
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+    if (!width || !height) {
+      return null;
+    }
+
+    const scale = Math.min(1, VIDEO_THUMBNAIL_MAX_DIMENSION / Math.max(width, height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return null;
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return await persistImageLocally(canvas.toDataURL('image/jpeg', 0.85));
+  } catch {
+    return null;
+  } finally {
+    video.removeAttribute('src');
+    video.load();
+  }
+}
+
 function fileNameFromSource(source: string): string | null {
   const trimmed = source.trim();
   if (!trimmed) {
@@ -116,12 +175,13 @@ function fileNameFromSource(source: string): string | null {
 function buildUploadedVideoNodeData(
   localVideoUrl: string,
   metadata: VideoFileMetadata,
-  sourceFileName: string | null
+  sourceFileName: string | null,
+  thumbnailUrl: string | null
 ): Partial<VideoNodeData> {
   return {
     videoUrl: localVideoUrl,
     localVideoUrl,
-    thumbnailUrl: null,
+    thumbnailUrl,
     aspectRatio: metadata.aspectRatio,
     durationSeconds: metadata.durationSeconds,
     sourceFileName,
@@ -148,9 +208,12 @@ function buildUploadedVideoNodeData(
 export async function prepareVideoNodeDataFromFile(file: File): Promise<Partial<VideoNodeData>> {
   const metadataPromise = readVideoFileMetadata(file);
   const localVideoUrl = await readFileAsDataUrl(file).then((dataUrl) => persistVideoSource(dataUrl));
-  const metadata = await metadataPromise;
+  const [metadata, thumbnailUrl] = await Promise.all([
+    metadataPromise,
+    captureVideoThumbnail(localVideoUrl),
+  ]);
 
-  return buildUploadedVideoNodeData(localVideoUrl, metadata, file.name);
+  return buildUploadedVideoNodeData(localVideoUrl, metadata, file.name, thumbnailUrl);
 }
 
 export async function prepareVideoNodeDataFromSource(
@@ -158,10 +221,14 @@ export async function prepareVideoNodeDataFromSource(
   sourceFileName?: string | null
 ): Promise<Partial<VideoNodeData>> {
   const localVideoUrl = await persistVideoSource(source);
-  const metadata = await readVideoSourceMetadata(localVideoUrl);
+  const [metadata, thumbnailUrl] = await Promise.all([
+    readVideoSourceMetadata(localVideoUrl),
+    captureVideoThumbnail(localVideoUrl),
+  ]);
   return buildUploadedVideoNodeData(
     localVideoUrl,
     metadata,
-    sourceFileName?.trim() || fileNameFromSource(source)
+    sourceFileName?.trim() || fileNameFromSource(source),
+    thumbnailUrl
   );
 }

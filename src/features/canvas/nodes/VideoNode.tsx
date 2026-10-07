@@ -303,7 +303,7 @@ export const VideoNode = memo(({ id, data, selected, type, width, height }: Vide
             <video
               src={videoSource}
               poster={data.thumbnailUrl ? resolveImageDisplayUrl(data.thumbnailUrl) : undefined}
-              className="h-full w-full bg-black object-contain"
+              className="nodrag nowheel h-full w-full bg-black object-contain"
               controls
               playsInline
               preload="metadata"

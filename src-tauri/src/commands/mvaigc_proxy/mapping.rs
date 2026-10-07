@@ -68,6 +68,12 @@ fn reference_image_urls(openai: &Value) -> Vec<String> {
 }
 
 /// Map an OpenAI Images request to mvaigc's `imgToImage` body.
+///
+/// mvaigc binds `images` to the prompt through `@图N` mention tokens in the
+/// text: the site's own client sends `text`/`textHtml` that reference each
+/// image by its `name` (`图1`, `图2`, ...). Without those tokens mvaigc
+/// ignores the images and degrades to text-to-image, so we prepend them
+/// whenever reference images are present.
 pub fn map_image_request(openai: &Value, model_name: &str) -> Value {
     let (resolution, ratio) = resolve_image_resolution_ratio(openai);
     let count = openai.get("n").and_then(Value::as_i64).unwrap_or(1).max(1);
@@ -76,10 +82,26 @@ pub fn map_image_request(openai: &Value, model_name: &str) -> Value {
         .enumerate()
         .map(|(index, url)| json!({"url": url, "name": format!("图{}", index + 1)}))
         .collect();
+    let prompt = str_field(openai, "prompt").unwrap_or_default();
+    // Prefix `@图1 @图2 ...` so mvaigc attaches each image to the prompt.
+    let text = if images.is_empty() {
+        prompt.clone()
+    } else {
+        let tokens = (1..=images.len())
+            .map(|index| format!("@图{index}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        if prompt.is_empty() {
+            tokens
+        } else {
+            format!("{tokens} {prompt}")
+        }
+    };
     json!({
         "model": str_field(openai, "model").unwrap_or_default(),
         "modelName": model_name,
-        "text": str_field(openai, "prompt").unwrap_or_default(),
+        "text": text,
+        "textHtml": text,
         "resolution": resolution,
         "imgRatio": ratio,
         "imgCount": count,
@@ -179,6 +201,28 @@ mod tests {
         let images = out["images"].as_array().unwrap();
         assert_eq!(images.len(), 2);
         assert_eq!(images[0]["url"], "data:image/png;base64,AAA");
+    }
+
+    #[test]
+    fn reference_images_are_mentioned_in_text_and_text_html() {
+        // mvaigc binds images to the prompt via `@图N` tokens; without them the
+        // request degrades to text-to-image and the reference image is ignored.
+        let openai = serde_json::json!({
+            "model": "Nano-Banana-Pro", "prompt": "换成仰角拍摄",
+            "size": "1024x1024",
+            "reference_images": ["data:image/png;base64,AAA", "data:image/png;base64,BBB"]
+        });
+        let out = map_image_request(&openai, "Nano-Banana-Pro");
+        assert_eq!(out["text"], "@图1 @图2 换成仰角拍摄");
+        assert_eq!(out["textHtml"], "@图1 @图2 换成仰角拍摄");
+    }
+
+    #[test]
+    fn text_to_image_without_references_has_no_mention_tokens() {
+        let openai = serde_json::json!({"model": "gpt_image2", "prompt": "一只猫", "size": "1024x1024"});
+        let out = map_image_request(&openai, "GPT-Image-2");
+        assert_eq!(out["text"], "一只猫");
+        assert_eq!(out["textHtml"], "一只猫");
     }
 
     #[test]
