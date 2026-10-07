@@ -42,25 +42,29 @@ fn resolve_image_resolution_ratio(openai: &Value) -> (String, String) {
 }
 
 /// Reference-image URLs from an OSC request. OSC sends `reference_images`
-/// (an array); the OpenAI `image` field (string or array) is also accepted.
+/// as an array, or as a bare string when there is exactly one; the OpenAI
+/// `image` field (string or array) is also accepted.
 fn reference_image_urls(openai: &Value) -> Vec<String> {
-    let from_array = |value: &Value| -> Vec<String> {
-        value
-            .as_array()
-            .map(|list| list.iter().filter_map(Value::as_str).map(str::to_string).collect())
-            .unwrap_or_default()
+    let to_urls = |value: &Value| -> Vec<String> {
+        match value {
+            Value::String(url) if !url.trim().is_empty() => vec![url.clone()],
+            Value::Array(list) => list
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect(),
+            _ => Vec::new(),
+        }
     };
-    if let Some(list) = openai.get("reference_images") {
-        let urls = from_array(list);
-        if !urls.is_empty() {
-            return urls;
+    for key in ["reference_images", "image"] {
+        if let Some(value) = openai.get(key) {
+            let urls = to_urls(value);
+            if !urls.is_empty() {
+                return urls;
+            }
         }
     }
-    match openai.get("image") {
-        Some(Value::String(url)) if !url.trim().is_empty() => vec![url.clone()],
-        Some(list) => from_array(list),
-        None => Vec::new(),
-    }
+    Vec::new()
 }
 
 /// Map an OpenAI Images request to mvaigc's `imgToImage` body.
@@ -187,5 +191,22 @@ mod tests {
         let images = out["images"].as_array().unwrap();
         assert_eq!(images.len(), 1);
         assert_eq!(images[0]["imageUrl"], "data:image/png;base64,AAA");
+    }
+
+    #[test]
+    fn single_reference_image_sent_as_string_is_mapped() {
+        // OSC sends a lone reference image as a bare string, not an array.
+        let image = serde_json::json!({
+            "model": "gpt_image2", "prompt": "改", "size": "1024x1024",
+            "reference_images": "data:image/png;base64,AAA"
+        });
+        assert_eq!(map_image_request(&image, "GPT-Image-2")["images"].as_array().unwrap().len(), 1);
+
+        let video = serde_json::json!({
+            "model": "minimax_h3", "prompt": "动", "size": "16:9", "seconds": 5,
+            "reference_images": "data:image/png;base64,BBB"
+        });
+        let out = map_video_request(&video, "MiniMax-H3-2K");
+        assert_eq!(out["images"].as_array().unwrap()[0]["imageUrl"], "data:image/png;base64,BBB");
     }
 }
