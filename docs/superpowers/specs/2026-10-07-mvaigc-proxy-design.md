@@ -122,15 +122,36 @@ OSC 通过**既有自定义供应商机制**消费它；不改动 OSC 现有的�
 ### 3.4 随 OSC 自动启动
 
 在 `src-tauri/src/lib.rs` 的 `.setup(...)` 中，与 `external_agent` broker 并列，
-启动 mvaigc 反代服务。绑定 `127.0.0.1:8787`；端口被占则记 warning 并跳过（不阻塞 OSC 启动）。
+启动 mvaigc 反代服务。绑定 `127.0.0.1:<port>`（默认 8787，见 3.6）。
+端口被占则记 warning 并跳过（不阻塞 OSC 启动）。
 
-### 3.5 OSC 侧配置（用户操作）
+### 3.5 用户只填「账号 + 密码」（一键自动配置）
 
-用 OSC 自带预设「Generic 异步轮询」改：
-- **图片供应商**：根地址 `http://127.0.0.1:8787`，路径 `/v1/images/generations`，
-  轮询 `/v1/tasks/{taskId}`，成功值 `succeeded`、待定值 `processing`、失败值 `failed`，
-  Key `账号:密码`
-- **视频供应商**：同上，路径换 `/v1/videos`
+新增一个 **OSC 设置面板「mvaigc」**（与「音频模型」「供应商」并列的分类）。
+面板只有两项必填：
+
+- **账号**
+- **密码**
+
+保存后，OSC **自动完成**其余全部配置，用户无需接触「添加供应商」表单：
+
+1. 反代服务按当前端口启动/重载；
+2. 自动注册（或更新）**图片**与**视频**两个自定义供应商：
+   - 图片：根地址 `http://127.0.0.1:<port>`，路径 `/v1/images/generations`，
+     轮询 `/v1/tasks/{taskId}`，成功值 `succeeded`、待定值 `processing`、失败值 `failed`
+   - 视频：同上，路径换 `/v1/videos`
+   - 两个供应商的 Key 自动填 `账号:密码`
+
+账号与密码持久化于设置（与既有 `apiKeys` 同级），仅存本地。
+
+### 3.6 端口
+
+默认 `8787`，在 mvaigc 面板中以**可选输入框**暴露，用户想改就改（如遇占用）。
+改动后 OSC 自动更新上述两个供应商配置。地址/路径/Key 均由 OSC 自动填，
+用户平时无需关心端口。
+
+> 反代从 OSC 应用状态读取账号密码（进程内），故自定义供应商的 Key 头可留空；
+> 保留 `账号:密码` 头是为了让 CLI（独立进程）与「连通性测试」也能工作。
 
 ## 4. 模块划分
 
@@ -139,6 +160,10 @@ src-tauri/src/commands/mvaigc_proxy/
 ├── mod.rs        # 反代 HTTP 服务：路由、认证解析、字段映射、任务号编解码
 ├── client.rs     # mvaigc 客户端：登录 / token 缓存 / 模型 / 提交 / 轮询 / 上传
 └── types.rs      # 请求/响应 DTO
+
+src/components/settings/MvaigcSection.tsx   # 设置面板：账号 + 密码 (+ 端口)
+src/stores/settingsStore.ts                 # 新增 mvaigc 账号/密码/端口 持久化
+src/components/SettingsDialog.tsx           # 挂载新的 mvaigc 分类
 ```
 
 CLI（脱离画布测试，零依赖 Python 脚本）：
@@ -146,10 +171,11 @@ CLI（脱离画布测试，零依赖 Python 脚本）：
 mvaigc-canvas/mvaigc-proxy/mvaigc-cli.py   # 打本地端口：models / image / video / status
 ```
 
-单一职责：`client.rs` 只负责"和 mvaigc 说话"；`mod.rs` 只负责"翻译"。
+单一职责：`client.rs` 只负责"和 mvaigc 说话"；`mod.rs` 只负责"翻译"；
+`MvaigcSection.tsx` 只负责收集账号密码并触发自动配置。
 
-**HTTP 服务实现**：OSC 现有依赖无 HTTP server（无 axum/hyper）。
-需新增一个轻量依赖（候选：`axum` 与 tokio 同源；或 `tiny_http` 更小）。此点列入待确认。
+**HTTP 服务实现**：OSC 现有依赖无 HTTP server（无 axum/hyper）。新增 `axum`
+（与 tokio 同源）。
 
 ## 5. 错误处理
 
@@ -185,4 +211,7 @@ mvaigc-canvas/mvaigc-proxy/mvaigc-cli.py   # 打本地端口：models / image / 
 
 1. **HTTP 服务依赖**：采用 `axum`。理由：与 OSC 现有 `tokio`（full）同源、
    样板最少、生态成熟；`tiny_http` 虽更小但需手工线程管理。
-2. **端口**：`8787`。若被占用则记 warning 跳过，不阻塞 OSC 启动。
+2. **端口**：默认 `8787`，可在 mvaigc 面板修改。若被占用则记 warning 跳过，
+   不阻塞 OSC 启动。
+3. **用户输入面**：仅「账号 + 密码」（端口可选）。地址/路径/轮询规则/Key
+   由 OSC 自动配置，用户不接触「添加供应商」表单。
