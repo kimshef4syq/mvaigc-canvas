@@ -39,6 +39,7 @@ import { renameLocalMediaFiles } from '@/commands/image';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import { CanvasNodeImage } from '@/features/canvas/ui/CanvasNodeImage';
+import { ImageNodePromptPanel } from '@/features/canvas/ui/ImageNodePromptPanel';
 import { formatGenerationElapsedMs } from '@/features/canvas/ui/generationElapsed';
 import { GenerationJobStatus } from '@/features/canvas/ui/GenerationJobStatus';
 import { useCanvasStore } from '@/stores/canvasStore';
@@ -516,6 +517,10 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
         maxWidth={1600}
         maxHeight={1600}
       />
+
+      {isExportResultNode ? (
+        <ImageNodePromptPanel nodeId={id} data={data as ExportImageNodeData} />
+      ) : null}
     </div>
   );
 });

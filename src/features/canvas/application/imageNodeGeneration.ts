@@ -42,6 +42,18 @@ export function queuedGenerationCount(nodeId: string): number {
   return pendingGenerations.get(nodeId)?.length ?? 0;
 }
 
+/** Resolve the requested image count: custom wins, clamped to 1..10; else the preset. */
+export function normalizeGenerateCount(customCount: string | null, presetCount: number): number {
+  const trimmed = typeof customCount === 'string' ? customCount.trim() : '';
+  if (trimmed) {
+    const parsed = parseInt(trimmed, 10);
+    if (Number.isFinite(parsed)) {
+      return Math.min(10, Math.max(1, parsed));
+    }
+  }
+  return Math.min(10, Math.max(1, Math.floor(presetCount) || 1));
+}
+
 /**
  * Called after a completed image. If this node has queued requests, submit the
  * next one and keep it generating; returns false when nothing is queued (the

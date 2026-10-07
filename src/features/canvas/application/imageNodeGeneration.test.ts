@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   drainQueuedGeneration,
+  normalizeGenerateCount,
   queuedGenerationCount,
   submitImageNodeGeneration,
   takeNextQueuedGeneration,
@@ -88,5 +89,19 @@ describe('drainQueuedGeneration', () => {
     const continued = await drainQueuedGeneration('drain-empty', { submitJob, updateNodeData });
     expect(continued).toBe(false);
     expect(submitJob).not.toHaveBeenCalled();
+  });
+});
+
+describe('normalizeGenerateCount', () => {
+  it('prefers a valid custom count and clamps to 1..10', () => {
+    expect(normalizeGenerateCount('3', 1)).toBe(3);
+    expect(normalizeGenerateCount('0', 2)).toBe(1);
+    expect(normalizeGenerateCount('99', 2)).toBe(10);
+  });
+
+  it('falls back to the preset count when custom is empty or invalid', () => {
+    expect(normalizeGenerateCount('', 4)).toBe(4);
+    expect(normalizeGenerateCount('abc', 2)).toBe(2);
+    expect(normalizeGenerateCount(null, 1)).toBe(1);
   });
 });

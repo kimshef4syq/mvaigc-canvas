@@ -1453,7 +1453,11 @@
       "emptyHint": "请在下方描述需求",
       "history": "历史 {{count}}",
       "allImages": "全部图片 {{count}} 张",
-      "mainImage": "主图"
+      "mainImage": "主图",
+      "modeOverwrite": "覆盖生成",
+      "modeOverwriteHint": "生成后替换当前节点内容",
+      "modeNewNode": "新建节点生成",
+      "modeNewNodeHint": "在画布创建一个新节点生成"
     },
     "imageEdit": {
       "promptRequired": "请输入提示词",

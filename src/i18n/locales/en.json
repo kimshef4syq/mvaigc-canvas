@@ -1457,7 +1457,11 @@
       "emptyHint": "Describe your request below",
       "history": "History {{count}}",
       "allImages": "All images ({{count}})",
-      "mainImage": "Main"
+      "mainImage": "Main",
+      "modeOverwrite": "Overwrite",
+      "modeOverwriteHint": "Replace this node's current content",
+      "modeNewNode": "New node",
+      "modeNewNodeHint": "Create a new node on the canvas"
     },
     "imageEdit": {
       "promptRequired": "Please enter a prompt",
