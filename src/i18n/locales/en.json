@@ -1453,7 +1453,11 @@
       "generationFailed": "Generation failed",
       "fetchResultFailed": "Failed to fetch generation result. Please retry.",
       "generationElapsed": "Generation elapsed time",
-      "providerWarning": "Upstream provider warning"
+      "providerWarning": "Upstream provider warning",
+      "emptyHint": "Describe your request below",
+      "history": "History {{count}}",
+      "allImages": "All images ({{count}})",
+      "mainImage": "Main"
     },
     "imageEdit": {
       "promptRequired": "Please enter a prompt",

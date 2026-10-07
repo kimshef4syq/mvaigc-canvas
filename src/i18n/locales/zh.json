@@ -1449,7 +1449,11 @@
       "generationFailed": "生成失败",
       "fetchResultFailed": "获取生成结果失败,请重试",
       "generationElapsed": "生成耗时",
-      "providerWarning": "上游提示"
+      "providerWarning": "上游提示",
+      "emptyHint": "请在下方描述需求",
+      "history": "历史 {{count}}",
+      "allImages": "全部图片 {{count}} 张",
+      "mainImage": "主图"
     },
     "imageEdit": {
       "promptRequired": "请输入提示词",

@@ -6,7 +6,7 @@ import {
   useViewport,
   type NodeProps,
 } from '@xyflow/react';
-import { AlertTriangle, CircleHelp, Image as ImageIcon, PauseCircle, Sparkles } from 'lucide-react';
+import { AlertTriangle, CircleHelp, History, Image as ImageIcon, PauseCircle, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -17,8 +17,10 @@ import {
   type CanvasNodeType,
   type CanvasGenerationJobState,
   type ExportImageNodeData,
+  type GeneratedImageEntry,
   type ImageEditNodeData,
 } from '@/features/canvas/domain/canvasNodes';
+import { resolveMainImageEntry } from '@/features/canvas/application/generatedImageHistory';
 import {
   resolveMinEdgeFittedSize,
   resolveResizeMinConstraintsByAspect,
@@ -61,6 +63,7 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const { zoom } = useViewport();
   const [now, setNow] = useState(() => Date.now());
+  const [historyOpen, setHistoryOpen] = useState(false);
   const isExportResultNode = type === CANVAS_NODE_TYPES.exportImage;
   const isGenerating = typeof data.isGenerating === 'boolean' ? data.isGenerating : false;
   const generationError =
@@ -170,13 +173,47 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
     return t('node.imageNode.waitingResultDelayed', { minutes: waitedMinutes });
   }, [isExportResultNode, isGenerating, t, waitedMinutes]);
 
+  const historyEntries = useMemo<GeneratedImageEntry[]>(
+    () => (isExportResultNode && Array.isArray(data.images) ? data.images : []),
+    [data.images, isExportResultNode]
+  );
+  const mainImageIndex = isExportResultNode
+    ? (data as ExportImageNodeData).mainImageIndex
+    : undefined;
+  const mainEntry = useMemo(
+    () => (isExportResultNode ? resolveMainImageEntry(historyEntries, mainImageIndex) : null),
+    [historyEntries, isExportResultNode, mainImageIndex]
+  );
+
   const imageSource = useMemo(() => {
     const preferOriginal = shouldUseOriginalImageByZoom(zoom);
-    const picked = preferOriginal
-      ? data.imageUrl || data.previewImageUrl
-      : data.previewImageUrl || data.imageUrl;
+    const preferred = mainEntry?.imageUrl || data.imageUrl;
+    const preview = mainEntry?.previewImageUrl || data.previewImageUrl;
+    const picked = preferOriginal ? (preferred || preview) : (preview || preferred);
     return picked ? resolveImageDisplayUrl(picked) : null;
-  }, [data.imageUrl, data.previewImageUrl, zoom]);
+  }, [data.imageUrl, data.previewImageUrl, mainEntry, zoom]);
+
+  const selectMainImage = (index: number) => {
+    const entry = historyEntries[index];
+    if (!entry) {
+      return;
+    }
+    updateNodeData(id, {
+      mainImageIndex: index,
+      imageUrl: entry.imageUrl,
+      previewImageUrl: entry.previewImageUrl ?? entry.imageUrl,
+    });
+    setHistoryOpen(false);
+  };
+
+  const stepMainImage = (delta: number) => {
+    if (historyEntries.length === 0) {
+      return;
+    }
+    const currentIndex = typeof mainImageIndex === 'number' ? mainImageIndex : 0;
+    const nextIndex = (currentIndex + delta + historyEntries.length) % historyEntries.length;
+    selectMainImage(nextIndex);
+  };
 
   const imageFallbackSources = useMemo(() => {
     const sources = [data.imageUrl, data.previewImageUrl]
@@ -221,10 +258,20 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
         mediaKind: 'image',
       });
 
+      const renamedPreview = renamed.previewPath ?? renamed.primaryPath;
+      const nextImages = Array.isArray(data.images)
+        ? data.images.map((entry, index) => (
+            index === data.mainImageIndex
+              ? { ...entry, imageUrl: renamed.primaryPath, previewImageUrl: renamedPreview }
+              : entry
+          ))
+        : data.images;
+
       updateNodeData(id, {
         displayName: normalizedTitle,
         imageUrl: renamed.primaryPath,
-        previewImageUrl: renamed.previewPath ?? renamed.primaryPath,
+        previewImageUrl: renamedPreview,
+        images: nextImages,
         generatedFileName: renamed.fileName ?? extractFileNameFromPath(renamed.primaryPath),
         generatedNamingMode: desiredFileName ? 'custom' : 'default',
       });
@@ -305,6 +352,13 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
               viewerSourceUrl={originalImageUrl}
               className="h-full w-full object-contain"
             />
+            {/* A hint that older generations are stacked behind the main image. */}
+            {historyEntries.length > 1 ? (
+              <span className="nodrag pointer-events-none absolute inset-0">
+                <span className="absolute inset-y-0 right-0 w-1.5 translate-x-1 rounded-r-[var(--node-radius)] bg-black/40" />
+                <span className="absolute inset-y-0 right-0 w-1.5 translate-x-2.5 rounded-r-[var(--node-radius)] bg-black/25" />
+              </span>
+            ) : null}
           </>
         ) : hasGenerationAttention ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-amber-100">
@@ -347,10 +401,74 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
               <Sparkles className="h-7 w-7 opacity-60" />
             )}
             <span className="px-4 text-center text-[12px] leading-6">
-              {waitingResultText}
+              {isExportResultNode ? t('node.imageNode.emptyHint') : waitingResultText}
             </span>
           </div>
         )}
+
+        {isExportResultNode && historyEntries.length > 0 ? (
+          <div className="nodrag absolute left-2 top-2 z-20">
+            <button
+              type="button"
+              className="flex h-7 items-center gap-1 rounded-full border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] px-2 text-xs text-text-dark shadow-sm backdrop-blur-sm transition-colors hover:bg-[var(--canvas-node-menu-hover)]"
+              onClick={(event) => {
+                event.stopPropagation();
+                setHistoryOpen((open) => !open);
+              }}
+            >
+              <History className="h-3.5 w-3.5" />
+              {t('node.imageNode.history', { count: historyEntries.length })}
+            </button>
+
+            {historyOpen ? (
+              <div
+                className="nowheel mt-1 max-h-[240px] w-[232px] overflow-y-auto rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] p-1.5 shadow-xl"
+                onWheelCapture={(event) => event.stopPropagation()}
+              >
+                <div className="flex items-center justify-between px-1.5 py-1 text-[11px] text-text-muted">
+                  <span>{t('node.imageNode.allImages', { count: historyEntries.length })}</span>
+                  <button type="button" onClick={() => setHistoryOpen(false)} aria-label="close">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {historyEntries.map((entry, index) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      className={`relative aspect-square overflow-hidden rounded-md border ${
+                        index === (mainImageIndex ?? -1) ? 'border-accent' : 'border-transparent'
+                      }`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        selectMainImage(index);
+                      }}
+                    >
+                      <img
+                        src={entry.previewImageUrl ? resolveImageDisplayUrl(entry.previewImageUrl) : (entry.imageUrl ? resolveImageDisplayUrl(entry.imageUrl) : '')}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        draggable={false}
+                      />
+                      {index === (mainImageIndex ?? -1) ? (
+                        <span className="absolute bottom-0 left-0 rounded-tr bg-accent px-1 text-[10px] text-white">
+                          {t('node.imageNode.mainImage')}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+                {historyEntries.length > 1 ? (
+                  <div className="mt-1 flex items-center justify-center gap-2 text-[11px] text-text-muted">
+                    <button type="button" onClick={() => stepMainImage(-1)}>‹</button>
+                    <span>{(mainImageIndex ?? 0) + 1} / {historyEntries.length}</span>
+                    <button type="button" onClick={() => stepMainImage(1)}>›</button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {isGenerating && (
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
