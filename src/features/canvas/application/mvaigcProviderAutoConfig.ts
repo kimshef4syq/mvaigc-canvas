@@ -43,7 +43,7 @@ export function buildMvaigcProviders(port: number, credentials: string): CustomP
         failedValues: ['failed'],
         errorPath: 'error.message',
         intervalMs: 2000,
-        timeoutMs: 180000,
+        timeoutMs: 900000,
       },
     },
     note: '由 mvaigc 设置面板自动生成：本地反代 → mvaigc.cn',
@@ -78,7 +78,7 @@ export function buildMvaigcProviders(port: number, credentials: string): CustomP
       responseVideoPath: 'output[0].url',
       videoErrorPath: 'error.message',
       videoPollIntervalMs: 2000,
-      videoPollTimeoutMs: 180000,
+      videoPollTimeoutMs: 900000,
     },
     note: '由 mvaigc 设置面板自动生成：本地反代 → mvaigc.cn',
   };

@@ -28,24 +28,22 @@ fn str_field(value: &Value, key: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-/// Split an OpenAI-ish `size` into (resolution, ratio). A value containing
-/// `:` is a ratio; an `NxN` value is a resolution; otherwise fall back to
-/// mvaigc's defaults.
-fn size_to_resolution_ratio(size: &str) -> (String, String) {
-    let trimmed = size.trim();
-    if trimmed.contains(':') {
-        ("2K".to_string(), trimmed.to_string())
-    } else if trimmed.contains('x') || trimmed.contains('X') {
-        (trimmed.to_string(), "1:1".to_string())
-    } else {
-        ("2K".to_string(), "1:1".to_string())
-    }
+/// Resolve `(resolution, aspect_ratio)` from an OSC image request. OSC sends
+/// `size` (pixels) plus `aspect_ratio` (the user's pick); the explicit ratio
+/// wins. mvaigc's `resolution` field expects a tier like `2K`, not a pixel
+/// size, so we always send `2K`.
+fn resolve_image_resolution_ratio(openai: &Value) -> (String, String) {
+    let size = str_field(openai, "size").unwrap_or_default();
+    let ratio = str_field(openai, "aspect_ratio")
+        .filter(|value| value.contains(':'))
+        .or_else(|| if size.contains(':') { Some(size) } else { None })
+        .unwrap_or_else(|| "1:1".to_string());
+    ("2K".to_string(), ratio)
 }
 
 /// Map an OpenAI Images request to mvaigc's `imgToImage` body.
 pub fn map_image_request(openai: &Value, model_name: &str) -> Value {
-    let size = str_field(openai, "size").unwrap_or_default();
-    let (resolution, ratio) = size_to_resolution_ratio(&size);
+    let (resolution, ratio) = resolve_image_resolution_ratio(openai);
     let count = openai.get("n").and_then(Value::as_i64).unwrap_or(1).max(1);
     let images: Vec<Value> = openai
         .get("image")
@@ -72,11 +70,11 @@ pub fn map_image_request(openai: &Value, model_name: &str) -> Value {
 /// Map an OpenAI Videos request to mvaigc's `scriptImgToVideo` body.
 pub fn map_video_request(openai: &Value, api_name: &str) -> Value {
     let size = str_field(openai, "size").unwrap_or_default();
-    let ratio = if size.contains(':') {
-        size
-    } else {
-        "16:9".to_string()
-    };
+    // Prefer OSC's explicit aspect_ratio over the pixel size.
+    let ratio = str_field(openai, "aspect_ratio")
+        .filter(|value| value.contains(':'))
+        .or_else(|| if size.contains(':') { Some(size) } else { None })
+        .unwrap_or_else(|| "16:9".to_string());
     let duration = openai
         .get("seconds")
         .and_then(Value::as_i64)
@@ -131,5 +129,28 @@ mod tests {
         assert_eq!(out["text"], "猫");
         assert_eq!(out["imgRatio"], "16:9");
         assert_eq!(out["imgCount"], 2);
+    }
+
+    #[test]
+    fn image_request_prefers_explicit_aspect_ratio_over_pixel_size() {
+        // OSC sends `size` (pixels) plus `aspect_ratio` (the user's pick).
+        let openai = serde_json::json!({
+            "model": "gpt_image2", "prompt": "猫",
+            "size": "1024x1024", "aspect_ratio": "16:9", "n": 1
+        });
+        let out = map_image_request(&openai, "GPT-Image-2");
+        assert_eq!(out["imgRatio"], "16:9");
+        assert_eq!(out["resolution"], "2K");
+    }
+
+    #[test]
+    fn video_request_uses_aspect_ratio_field() {
+        let openai = serde_json::json!({
+            "model": "minimax_h3", "prompt": "跑", "size": "1280x720",
+            "aspect_ratio": "9:16", "seconds": 5
+        });
+        let out = map_video_request(&openai, "MiniMax-H3-2K");
+        assert_eq!(out["ratio"], "9:16");
+        assert_eq!(out["duration"], 5);
     }
 }

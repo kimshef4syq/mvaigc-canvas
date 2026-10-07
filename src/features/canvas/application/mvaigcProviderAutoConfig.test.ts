@@ -37,6 +37,16 @@ describe('buildMvaigcProviders', () => {
     expect(extra.videoRequestBodyMode).toBe('json');
   });
 
+  it('allows long generations (timeout >= 10 minutes)', () => {
+    // mvaigc image/video tasks routinely take minutes; a short poll timeout
+    // makes OSC give up on tasks that later succeed.
+    const [image, video] = buildMvaigcProviders(8787, 'user:pass');
+    const imageTimeout = (image.extraParams as { asyncTask: { timeoutMs: number } }).asyncTask.timeoutMs;
+    const videoTimeout = (video.extraParams as { videoPollTimeoutMs: number }).videoPollTimeoutMs;
+    expect(imageTimeout).toBeGreaterThanOrEqual(600000);
+    expect(videoTimeout).toBeGreaterThanOrEqual(600000);
+  });
+
   it('uses a stable id per kind so re-saving updates in place', () => {
     const a = buildMvaigcProviders(8787, 'u:p');
     const b = buildMvaigcProviders(9000, 'u:p');
