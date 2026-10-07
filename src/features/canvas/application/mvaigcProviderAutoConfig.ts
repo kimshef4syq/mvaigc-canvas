@@ -66,6 +66,9 @@ export function buildMvaigcProviders(port: number, credentials: string): CustomP
     extraParams: {
       supportedRatios: ['16:9', '9:16', '1:1'],
       supportedDurations: [5, 10],
+      // The local proxy accepts JSON only; without this OSC defaults video
+      // providers to multipart and every submit fails with HTTP 415.
+      videoRequestBodyMode: 'json',
       videoTaskIdPath: 'id',
       videoStatusEndpointPath: '/v1/tasks/{taskId}',
       videoStatusPath: 'status',

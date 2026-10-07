@@ -22,10 +22,13 @@ pub struct CachedToken {
 }
 
 /// True when an error message means the token is missing/expired
-/// (mvaigc codes 401 and 103), i.e. a re-login may fix it.
+/// (mvaigc codes 401 and 103), i.e. a re-login may fix it. Scans every
+/// colon-separated segment so it still matches when the message arrives
+/// wrapped (e.g. `AIError::Provider` → `"Provider error: 401: 未授权"`).
 pub fn is_auth_error(message: &str) -> bool {
-    let code = message.split(':').next().unwrap_or("").trim();
-    code == "401" || code == "103"
+    message
+        .split(':')
+        .any(|segment| matches!(segment.trim(), "401" | "103"))
 }
 
 /// Unwrap the mvaigc response envelope. Returns `data` on success; on
@@ -180,8 +183,9 @@ pub fn parse_file_urls(raw: &str) -> Vec<String> {
 }
 
 /// Decide a single history item's state. `isComplete != true` → Running;
-/// `errorMsg` present → Failed (even when `isComplete` is true);
-/// otherwise Succeeded with the parsed file URLs.
+/// `errorMsg` present → Failed (even when `isComplete` is true); a completed
+/// item with no usable file URL → Failed (an empty success would make the
+/// caller poll to its own timeout); otherwise Succeeded with the parsed URLs.
 pub fn judge_item(item: &Value) -> TaskState {
     if item.get("isComplete").and_then(Value::as_bool) != Some(true) {
         return TaskState::Running;
@@ -196,7 +200,20 @@ pub fn judge_item(item: &Value) -> TaskState {
         .and_then(Value::as_str)
         .or_else(|| item.get("fileUrlList").and_then(Value::as_str))
         .unwrap_or("");
-    TaskState::Succeeded(parse_file_urls(raw))
+    let urls = parse_file_urls(raw);
+    if urls.is_empty() {
+        return TaskState::Failed("任务已完成但没有返回文件".to_string());
+    }
+    TaskState::Succeeded(urls)
+}
+
+/// Prefer the `operType` the submit response carried; fall back to the known
+/// image history bucket only when it is absent.
+pub fn resolve_image_oper_type(data: &Value) -> String {
+    data.get("operType")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(|| "imageImg".to_string())
 }
 
 impl MvaigcClient {
@@ -227,7 +244,7 @@ impl MvaigcClient {
             })
             .ok_or_else(|| AIError::Provider("imgToImage response missing operId".to_string()))?;
         Ok(SubmitResult {
-            oper_type: "imageImg".to_string(),
+            oper_type: resolve_image_oper_type(&data),
             oper_id,
         })
     }
@@ -346,5 +363,30 @@ mod tests {
         assert!(is_auth_error("401: 未授权"));
         assert!(is_auth_error("103: 登录失效"));
         assert!(!is_auth_error("1147: 找不到此API计费单元信息"));
+    }
+
+    #[test]
+    fn auth_error_is_detected_through_ai_error_wrapper() {
+        // AIError::Provider prefixes "Provider error: " onto the message, so the
+        // 401/103 code is NOT the first colon-separated segment.
+        assert!(is_auth_error("Provider error: 401: 未授权"));
+        assert!(is_auth_error("Provider error: 103: 登录失效"));
+        assert!(!is_auth_error("Provider error: 1147: 找不到此API计费单元信息"));
+    }
+
+    #[test]
+    fn completed_but_empty_result_is_failed() {
+        let empty_array = serde_json::json!({"isComplete":true,"errorMsg":"","fileUrl":"[]"});
+        assert!(matches!(judge_item(&empty_array), TaskState::Failed(_)));
+        let missing = serde_json::json!({"isComplete":true,"errorMsg":null});
+        assert!(matches!(judge_item(&missing), TaskState::Failed(_)));
+    }
+
+    #[test]
+    fn image_oper_type_comes_from_response_when_present() {
+        let with_type = serde_json::json!({"operId":"1","operType":"imgToImage"});
+        assert_eq!(resolve_image_oper_type(&with_type), "imgToImage");
+        let without = serde_json::json!({"operId":"1"});
+        assert_eq!(resolve_image_oper_type(&without), "imageImg");
     }
 }

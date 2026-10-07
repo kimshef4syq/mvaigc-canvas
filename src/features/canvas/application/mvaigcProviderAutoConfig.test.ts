@@ -29,6 +29,14 @@ describe('buildMvaigcProviders', () => {
     expect(extra.videoTaskIdPath).toBe('id');
   });
 
+  it('video provider forces a JSON request body (proxy accepts JSON only)', () => {
+    // Without this OSC defaults video providers to multipart, which the local
+    // proxy rejects.
+    const [, video] = buildMvaigcProviders(8787, 'user:pass');
+    const extra = video.extraParams as Record<string, unknown>;
+    expect(extra.videoRequestBodyMode).toBe('json');
+  });
+
   it('uses a stable id per kind so re-saving updates in place', () => {
     const a = buildMvaigcProviders(8787, 'u:p');
     const b = buildMvaigcProviders(9000, 'u:p');
