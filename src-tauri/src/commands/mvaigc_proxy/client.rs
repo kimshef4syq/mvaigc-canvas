@@ -21,6 +21,13 @@ pub struct CachedToken {
     pub user_id: String,
 }
 
+/// True when an error message means the token is missing/expired
+/// (mvaigc codes 401 and 103), i.e. a re-login may fix it.
+pub fn is_auth_error(message: &str) -> bool {
+    let code = message.split(':').next().unwrap_or("").trim();
+    code == "401" || code == "103"
+}
+
 /// Unwrap the mvaigc response envelope. Returns `data` on success; on
 /// `code != 200` returns `"<code>: <message>"`.
 pub fn parse_envelope(value: Value) -> Result<Value, String> {
@@ -112,7 +119,7 @@ impl MvaigcClient {
             .remove(account);
     }
 
-    pub async fn list_image_models(&self, token: &str) -> Result<Value, AIError> {
+    pub async fn list_image_models(&self, token: String) -> Result<Value, AIError> {
         let response = self
             .http
             .get(format!("{}/ma/v1/imgPlatform/getImgModel", self.base))
@@ -123,7 +130,7 @@ impl MvaigcClient {
         parse_envelope(body).map_err(AIError::Provider)
     }
 
-    pub async fn list_video_models(&self, token: &str, scene: &str) -> Result<Value, AIError> {
+    pub async fn list_video_models(&self, token: String, scene: &str) -> Result<Value, AIError> {
         let response = self
             .http
             .get(format!("{}/ma/v1/videoPlatform/getVideoApi", self.base))
@@ -197,7 +204,7 @@ impl MvaigcClient {
     /// used to poll for the result.
     pub async fn submit_image(
         &self,
-        token: &str,
+        token: String,
         payload: Value,
     ) -> Result<SubmitResult, AIError> {
         let response = self
@@ -229,7 +236,7 @@ impl MvaigcClient {
     /// frame endpoint; otherwise the all-reference endpoint.
     pub async fn submit_video(
         &self,
-        token: &str,
+        token: String,
         payload: Value,
         frames: bool,
     ) -> Result<SubmitResult, AIError> {
@@ -266,7 +273,7 @@ impl MvaigcClient {
     /// `operType` and matches on `operId`.
     pub async fn poll_task(
         &self,
-        token: &str,
+        token: String,
         oper_type: &str,
         oper_id: &str,
     ) -> Result<TaskState, AIError> {
@@ -332,5 +339,12 @@ mod tests {
     fn running_item_is_running() {
         let item = serde_json::json!({"isComplete":false,"errorMsg":null,"fileUrl":"[]"});
         assert!(matches!(judge_item(&item), TaskState::Running));
+    }
+
+    #[test]
+    fn auth_error_is_detected() {
+        assert!(is_auth_error("401: 未授权"));
+        assert!(is_auth_error("103: 登录失效"));
+        assert!(!is_auth_error("1147: 找不到此API计费单元信息"));
     }
 }
