@@ -79,8 +79,21 @@ export type ExportImageNodeResultKind =
   | 'storyboardSplitExport'
   | 'storyboardFrameEdit';
 
+export interface GeneratedImageEntry {
+  id: string;
+  imageUrl: string | null;
+  previewImageUrl: string | null;
+  aspectRatio: string;
+  generatedFileName?: string | null;
+  sourcePrompt?: string | null;
+  createdAt: number;
+}
+
 export interface ExportImageNodeData extends NodeImageData {
   resultKind?: ExportImageNodeResultKind;
+  images?: GeneratedImageEntry[];
+  mainImageIndex?: number;
+  prompt?: string;
   generatedFileName?: string | null;
   generatedNamingMode?: 'default' | 'custom';
   generatedSequence?: number | null;
