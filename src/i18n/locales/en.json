@@ -1371,6 +1371,7 @@
   "node": {
     "menu": {
       "uploadImage": "Upload Image",
+      "generateImage": "Generate Image",
       "uploadMaterial": "Upload Material",
       "uploadVideo": "Upload Video",
       "aiImageGeneration": "AI Image",

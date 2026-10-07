@@ -1367,6 +1367,7 @@
   "node": {
     "menu": {
       "uploadImage": "上传图片",
+      "generateImage": "生成图片",
       "uploadMaterial": "上传素材",
       "uploadVideo": "上传视频",
       "aiImageGeneration": "AI 图片",

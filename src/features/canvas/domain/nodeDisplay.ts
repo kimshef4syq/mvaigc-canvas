@@ -11,7 +11,7 @@ export const DEFAULT_NODE_DISPLAY_NAME: Record<CanvasNodeType, string> = {
   [CANVAS_NODE_TYPES.aiVideo]: 'AI 视频',
   [CANVAS_NODE_TYPES.aiText]: 'AI 文本',
   [CANVAS_NODE_TYPES.aiAudio]: 'AI 音频',
-  [CANVAS_NODE_TYPES.exportImage]: '生成图像',
+  [CANVAS_NODE_TYPES.exportImage]: '生成图片',
   [CANVAS_NODE_TYPES.video]: '视频',
   [CANVAS_NODE_TYPES.audio]: '音频',
   [CANVAS_NODE_TYPES.textAnnotation]: '文本节点',
@@ -26,7 +26,7 @@ export const DEFAULT_NODE_DISPLAY_NAME: Record<CanvasNodeType, string> = {
 };
 
 export const EXPORT_RESULT_DISPLAY_NAME: Record<ExportImageNodeResultKind, string> = {
-  generic: '生成图像',
+  generic: '生成图片',
   storyboardGenOutput: '分镜输出',
   storyboardSplitExport: '切割导出',
   storyboardFrameEdit: '分镜帧',

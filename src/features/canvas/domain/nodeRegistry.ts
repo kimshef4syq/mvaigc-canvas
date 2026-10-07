@@ -91,7 +91,7 @@ const imageEditNodeDefinition: CanvasNodeDefinition<ImageEditNodeData> = {
   type: CANVAS_NODE_TYPES.imageEdit,
   menuLabelKey: 'node.menu.aiImageGeneration',
   menuIcon: 'sparkles',
-  visibleInMenu: true,
+  visibleInMenu: false,
   capabilities: {
     toolbar: true,
     promptInput: false,
@@ -224,9 +224,9 @@ const aiAudioNodeDefinition: CanvasNodeDefinition<AiAudioNodeData> = {
 
 const exportImageNodeDefinition: CanvasNodeDefinition<ExportImageNodeData> = {
   type: CANVAS_NODE_TYPES.exportImage,
-  menuLabelKey: 'node.menu.uploadImage',
+  menuLabelKey: 'node.menu.generateImage',
   menuIcon: 'upload',
-  visibleInMenu: false,
+  visibleInMenu: true,
   capabilities: {
     toolbar: true,
     promptInput: false,

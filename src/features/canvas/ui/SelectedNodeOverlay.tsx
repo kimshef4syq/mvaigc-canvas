@@ -317,20 +317,35 @@ export const SelectedNodeOverlay = memo(() => {
 
     const generationStartedAt = Date.now();
     const promptSource = prompt.trim();
-    const newNodePosition = findNodePosition(
-      selectedNode.id,
-      EXPORT_RESULT_NODE_DEFAULT_WIDTH,
-      EXPORT_RESULT_NODE_LAYOUT_HEIGHT
-    );
-    const newNodeId = addNode(CANVAS_NODE_TYPES.exportImage, newNodePosition, {
-      isGenerating: true,
-      generationStartedAt,
-      generationDurationMs,
-      resultKind: 'generic',
-      ...buildDefaultGeneratedImageMetadata(promptSource),
-      aspectRatio: selectedNodeImageData.aspectRatio,
-    });
-    addEdge(selectedNode.id, newNodeId);
+    // A 生成图片 node owns its results: appending here means a repeated
+    // generation stacks into the node's history instead of spawning a new
+    // node. Other node types keep the original "create a result node" flow.
+    const isGenerateImageNode = selectedNode.type === CANVAS_NODE_TYPES.exportImage;
+    let newNodeId = selectedNode.id;
+    if (!isGenerateImageNode) {
+      const newNodePosition = findNodePosition(
+        selectedNode.id,
+        EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+        EXPORT_RESULT_NODE_LAYOUT_HEIGHT
+      );
+      newNodeId = addNode(CANVAS_NODE_TYPES.exportImage, newNodePosition, {
+        isGenerating: true,
+        generationStartedAt,
+        generationDurationMs,
+        resultKind: 'generic',
+        ...buildDefaultGeneratedImageMetadata(promptSource),
+        aspectRatio: selectedNodeImageData.aspectRatio,
+      });
+      addEdge(selectedNode.id, newNodeId);
+    } else {
+      updateNodeData(newNodeId, {
+        isGenerating: true,
+        generationStartedAt,
+        generationDurationMs,
+        generationError: null,
+        generationErrorDetails: null,
+      });
+    }
 
     try {
       const promptForRequest = appendGenerationParameterConstraints(prompt.trim(), {
