@@ -85,6 +85,7 @@ pub fn run() {
         .manage(project_state::ProjectDb::new())
         .manage(portability::PortabilityJobs::new())
         .manage(external_agent_state)
+        .manage(commands::mvaigc_proxy::MvaigcProxyState::default())
         .on_page_load(|window, _payload| {
             if window.label() != MAIN_WINDOW_LABEL {
                 return;
@@ -101,6 +102,19 @@ pub fn run() {
                 warn!(
                     "external Agent broker is unavailable; Codex and Claude runtimes are disabled: {error}"
                 );
+            }
+
+            // Start the mvaigc reverse proxy. Credentials come later from the
+            // settings panel; this port is just the default.
+            {
+                let proxy = app.state::<commands::mvaigc_proxy::MvaigcProxyState>();
+                if let Err(error) = commands::mvaigc_proxy::ensure_started(
+                    app.handle().clone(),
+                    &proxy.state,
+                    commands::mvaigc_proxy::DEFAULT_PORT,
+                ) {
+                    warn!("mvaigc 反代未启动: {error}");
+                }
             }
 
             let window_config = app
@@ -200,6 +214,8 @@ pub fn run() {
             external_agent::connection::revoke_external_agent_connection,
             external_agent::connection::replay_external_agent_pending_tool_calls,
             commands::custom_http_request,
+            commands::mvaigc_proxy::mvaigc_set_credentials,
+            commands::mvaigc_proxy::mvaigc_proxy_status,
             commands::custom_http_stream_request,
             image::split_image,
             image::split_image_source,

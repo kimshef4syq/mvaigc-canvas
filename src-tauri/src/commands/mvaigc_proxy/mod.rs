@@ -14,6 +14,9 @@
 pub mod client;
 pub mod mapping;
 
+/// Default local port the proxy listens on.
+pub const DEFAULT_PORT: u16 = 8787;
+
 use std::sync::Arc;
 
 use axum::{
@@ -24,6 +27,7 @@ use axum::{
     Json, Router,
 };
 use serde_json::{json, Value};
+use tauri::Emitter;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
@@ -36,6 +40,7 @@ use mapping::{decode_task_id, encode_task_id, map_image_request, map_video_reque
 pub struct ProxyState {
     client: MvaigcClient,
     credentials: RwLock<Option<(String, String)>>,
+    reserved: std::sync::Mutex<Option<u16>>,
 }
 
 impl Default for ProxyState {
@@ -49,6 +54,7 @@ impl ProxyState {
         Self {
             client: MvaigcClient::new(),
             credentials: RwLock::new(None),
+            reserved: std::sync::Mutex::new(None),
         }
     }
 
@@ -58,6 +64,65 @@ impl ProxyState {
 
     async fn stored_credentials(&self) -> Option<(String, String)> {
         self.credentials.read().await.clone()
+    }
+
+    /// Reserve a port for the proxy. Returns `Ok(true)` if this call took the
+    /// port (startup should follow), `Ok(false)` if that port is already
+    /// reserved by us, and `Err` if the port is busy or otherwise unusable.
+    pub fn try_reserve(&self, port: u16) -> Result<bool, String> {
+        let mut reserved = self.reserved.lock().expect("reserve lock poisoned");
+        if *reserved == Some(port) {
+            return Ok(false);
+        }
+        bind_check(port)?;
+        *reserved = Some(port);
+        Ok(true)
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.reserved
+            .lock()
+            .expect("reserve lock poisoned")
+            .is_some()
+    }
+
+    pub fn port(&self) -> Option<u16> {
+        *self.reserved.lock().expect("reserve lock poisoned")
+    }
+}
+
+/// The Tauri-managed proxy handle.
+pub struct MvaigcProxyState {
+    pub state: SharedState,
+}
+
+impl Default for MvaigcProxyState {
+    fn default() -> Self {
+        Self {
+            state: Arc::new(ProxyState::new()),
+        }
+    }
+}
+
+/// Start the proxy on `port` if not already running. Returns `Ok(true)` when a
+/// server was spawned, `Ok(false)` when that port is already running. Errors
+/// are reported to the caller; startup callers should log and continue.
+pub fn ensure_started(app_handle: tauri::AppHandle, state: &SharedState, port: u16) -> Result<bool, String> {
+    if state.try_reserve(port)? {
+        let state = state.clone();
+        tauri::async_runtime::spawn(async move {
+            run_proxy(port, state).await;
+        });
+        let _ = app_handle; // reserved for future readiness signalling
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+/// Tell the OSC frontend to (re)configure its mvaigc custom providers.
+fn emit_auto_configure(app_handle: &tauri::AppHandle, port: u16) {
+    if let Err(err) = app_handle.emit("mvaigc-proxy-ready", port) {
+        warn!("mvaigc 反代就绪事件发送失败: {err}");
     }
 }
 
@@ -334,6 +399,38 @@ pub async fn run_proxy(port: u16, state: SharedState) {
     }
 }
 
+/// Tauri command: store credentials and ensure the proxy is listening.
+/// Called by the OSC settings panel when the user saves account/password.
+#[tauri::command]
+pub async fn mvaigc_set_credentials(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, MvaigcProxyState>,
+    account: String,
+    password: String,
+    port: u16,
+) -> Result<String, String> {
+    state
+        .state
+        .set_credentials(account, password)
+        .await;
+    match ensure_started(app.clone(), &state.state, port) {
+        Ok(_) => {
+            emit_auto_configure(&app, port);
+            Ok(format!("running:{port}"))
+        }
+        Err(err) => Err(err),
+    }
+}
+
+/// Tauri command: report the proxy status.
+#[tauri::command]
+pub fn mvaigc_proxy_status(state: tauri::State<'_, MvaigcProxyState>) -> String {
+    match state.state.port() {
+        Some(port) => format!("running:{port}"),
+        None => "stopped".to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -352,5 +449,22 @@ mod tests {
         let port = listener.local_addr().unwrap().port();
         drop(listener);
         assert!(bind_check(port).is_ok());
+    }
+
+    #[test]
+    fn reserve_reports_busy_and_is_idempotent() {
+        let state = ProxyState::new();
+        let held = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let busy = held.local_addr().unwrap().port();
+        assert!(state.try_reserve(busy).is_err());
+        assert!(!state.is_running());
+        let free = {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.local_addr().unwrap().port()
+        };
+        assert!(state.try_reserve(free).unwrap());
+        assert!(state.is_running());
+        assert_eq!(state.port(), Some(free));
+        assert!(!state.try_reserve(free).unwrap());
     }
 }
