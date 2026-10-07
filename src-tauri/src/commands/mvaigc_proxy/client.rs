@@ -136,6 +136,166 @@ impl MvaigcClient {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct SubmitResult {
+    pub oper_type: String,
+    pub oper_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TaskState {
+    Running,
+    Succeeded(Vec<String>),
+    Failed(String),
+}
+
+/// Coerce a JSON id (number or string) to a string.
+fn id_to_string(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) if !text.trim().is_empty() => Some(text.trim().to_string()),
+        Value::Number(number) => Some(number.to_string()),
+        _ => None,
+    }
+}
+
+/// mvaigc returns `fileUrl` as a JSON-encoded string, e.g.
+/// `"[\"https://.../a.png\"]"`. Parse it; fall back to the raw string when
+/// it is not JSON (some tasks return a bare URL).
+pub fn parse_file_urls(raw: &str) -> Vec<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    if let Ok(urls) = serde_json::from_str::<Vec<String>>(trimmed) {
+        return urls;
+    }
+    vec![trimmed.to_string()]
+}
+
+/// Decide a single history item's state. `isComplete != true` → Running;
+/// `errorMsg` present → Failed (even when `isComplete` is true);
+/// otherwise Succeeded with the parsed file URLs.
+pub fn judge_item(item: &Value) -> TaskState {
+    if item.get("isComplete").and_then(Value::as_bool) != Some(true) {
+        return TaskState::Running;
+    }
+    if let Some(error) = item.get("errorMsg").and_then(Value::as_str) {
+        if !error.trim().is_empty() {
+            return TaskState::Failed(error.trim().to_string());
+        }
+    }
+    let raw = item
+        .get("fileUrl")
+        .and_then(Value::as_str)
+        .or_else(|| item.get("fileUrlList").and_then(Value::as_str))
+        .unwrap_or("");
+    TaskState::Succeeded(parse_file_urls(raw))
+}
+
+impl MvaigcClient {
+    /// Submit an image generation task. Returns the `operType`/`operId` pair
+    /// used to poll for the result.
+    pub async fn submit_image(
+        &self,
+        token: &str,
+        payload: Value,
+    ) -> Result<SubmitResult, AIError> {
+        let response = self
+            .http
+            .post(format!("{}/ma/v1/imgPlatform/imgToImage", self.base))
+            .header("X-User-Token", token)
+            .json(&payload)
+            .send()
+            .await?;
+        let body: Value = response.json().await?;
+        let data = parse_envelope(body).map_err(AIError::Provider)?;
+        let oper_id = data
+            .get("operId")
+            .and_then(id_to_string)
+            .or_else(|| {
+                data.get("operIds")
+                    .and_then(Value::as_array)
+                    .and_then(|list| list.first())
+                    .and_then(id_to_string)
+            })
+            .ok_or_else(|| AIError::Provider("imgToImage response missing operId".to_string()))?;
+        Ok(SubmitResult {
+            oper_type: "imageImg".to_string(),
+            oper_id,
+        })
+    }
+
+    /// Submit a video generation task. `frames == true` uses the start/end
+    /// frame endpoint; otherwise the all-reference endpoint.
+    pub async fn submit_video(
+        &self,
+        token: &str,
+        payload: Value,
+        frames: bool,
+    ) -> Result<SubmitResult, AIError> {
+        let path = if frames {
+            "/ma/v1/filmStoryboard/scriptMutiImgToVideo"
+        } else {
+            "/ma/v1/filmStoryboard/scriptImgToVideo"
+        };
+        let response = self
+            .http
+            .post(format!("{}{}", self.base, path))
+            .header("X-User-Token", token)
+            .json(&payload)
+            .send()
+            .await?;
+        let body: Value = response.json().await?;
+        let data = parse_envelope(body).map_err(AIError::Provider)?;
+        // The submit response carries the operType; do NOT guess it.
+        let oper_type = data
+            .get("operType")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| {
+                AIError::Provider("video submit response missing operType".to_string())
+            })?;
+        let oper_id = data
+            .get("operId")
+            .and_then(id_to_string)
+            .ok_or_else(|| AIError::Provider("video submit response missing operId".to_string()))?;
+        Ok(SubmitResult { oper_type, oper_id })
+    }
+
+    /// Poll one task by `operType`/`operId`. Uses the history list for that
+    /// `operType` and matches on `operId`.
+    pub async fn poll_task(
+        &self,
+        token: &str,
+        oper_type: &str,
+        oper_id: &str,
+    ) -> Result<TaskState, AIError> {
+        let response = self
+            .http
+            .get(format!(
+                "{}/ma/v1/fileTransfer/getHistoryFilesByPage/{}",
+                self.base, oper_type
+            ))
+            .query(&[("pageNum", "1"), ("pageSize", "50")])
+            .header("X-User-Token", token)
+            .send()
+            .await?;
+        let body: Value = response.json().await?;
+        let data = parse_envelope(body).map_err(AIError::Provider)?;
+        let list = data
+            .get("list")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        for item in &list {
+            if item.get("operId").and_then(id_to_string).as_deref() == Some(oper_id) {
+                return Ok(judge_item(item));
+            }
+        }
+        Ok(TaskState::Running)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -151,5 +311,26 @@ mod tests {
     fn envelope_returns_data_on_200() {
         let body = serde_json::json!({"code":200,"message":"成功","data":{"token":"T","userId":"U"}});
         assert_eq!(parse_envelope(body).unwrap()["token"], "T");
+    }
+
+    #[test]
+    fn file_url_json_string_is_parsed() {
+        let raw = "[\"https://static.mvaigc.cn/aigc_images/a.png\"]";
+        assert_eq!(
+            parse_file_urls(raw),
+            vec!["https://static.mvaigc.cn/aigc_images/a.png"]
+        );
+    }
+
+    #[test]
+    fn completed_with_error_is_failed() {
+        let item = serde_json::json!({"isComplete":true,"errorMsg":"超时","fileUrl":"[]"});
+        assert!(matches!(judge_item(&item), TaskState::Failed(_)));
+    }
+
+    #[test]
+    fn running_item_is_running() {
+        let item = serde_json::json!({"isComplete":false,"errorMsg":null,"fileUrl":"[]"});
+        assert!(matches!(judge_item(&item), TaskState::Running));
     }
 }
