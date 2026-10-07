@@ -6,14 +6,15 @@ export const MVAIGC_VIDEO_PROVIDER_ID = 'mvaigc-video';
 
 // The mvaigc model ids surfaced in OSC's pickers. These are mvaigc's own
 // model keys (from imgPlatform/getImgModel and videoPlatform/getVideoApi).
+// Nano-Banana-Pro is first so it becomes the default "first usable" model.
 const IMAGE_MODEL_HINT = [
+  'Nano-Banana-Pro', // Nano-Banana-Pro  ← default
+  'Nano-Banana',     // Nano-Banana-2
   'doubao5.0_Pro',   // Seedream-5.0-Pro
   'doubao',          // Seedream-4.5
   'gpt_image2',      // GPT-Image-2
   'wan2_7_Image',    // WAN-2.7
   'wan2_7_Image-pro',// WAN-2.7-Pro
-  'Nano-Banana',     // Nano-Banana-2
-  'Nano-Banana-Pro', // Nano-Banana-Pro
   'qwen',            // Qwen-2.0-Pro
 ];
 const VIDEO_MODEL_HINT = [

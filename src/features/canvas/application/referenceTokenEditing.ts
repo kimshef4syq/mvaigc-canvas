@@ -129,11 +129,18 @@ export function insertReferenceToken(
   marker: string
 ): { nextText: string; nextCursor: number } {
   const safeCursor = clamp(cursor, 0, text.length);
-  const before = text.slice(0, safeCursor);
+  let before = text.slice(0, safeCursor);
   const after = text.slice(safeCursor);
+  // The "@" key handler preventDefaults, but in some IME states the "@" still
+  // lands in the field first. Absorb a stray "@" sitting immediately before the
+  // cursor so we never produce "@@图1".
   const previousChar = before.length > 0 ? before.charAt(before.length - 1) : '';
+  if (previousChar === '@') {
+    before = before.slice(0, -1);
+  }
+  const beforeChar = before.length > 0 ? before.charAt(before.length - 1) : '';
   const nextChar = after.length > 0 ? after.charAt(0) : '';
-  const needsLeadingSpace = before.length > 0 && !/\s/.test(previousChar);
+  const needsLeadingSpace = before.length > 0 && !/\s/.test(beforeChar);
   const needsTrailingSpace = !(after.length > 0 && /\s/.test(nextChar));
   const insertion = `${needsLeadingSpace ? ' ' : ''}${marker}${needsTrailingSpace ? ' ' : ''}`;
 

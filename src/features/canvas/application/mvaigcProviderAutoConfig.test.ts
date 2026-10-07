@@ -26,6 +26,11 @@ describe('buildMvaigcProviders', () => {
     }
   });
 
+  it('puts Nano-Banana-Pro first so it is the default model', () => {
+    const [image] = buildMvaigcProviders(8787, 'user:pass');
+    expect(image.models[0]).toBe('Nano-Banana-Pro');
+  });
+
   it('exposes every mvaigc video model in the picker', () => {
     const [, video] = buildMvaigcProviders(8787, 'user:pass');
     for (const key of ['botsmart_seedance_2_5', 'veo_3_1', 'minimax_h3', 'kling_v3_omni', 'wan_2_7']) {

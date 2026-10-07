@@ -26,4 +26,18 @@ describe('insertReferenceToken in long prompts', () => {
     expect(result.nextText.slice(0, result.nextCursor)).toContain('@图2');
     expect(result.nextCursor).toBeLessThan(result.nextText.length);
   });
+
+  it('absorbs a stray @ left before the cursor instead of producing @@图1', () => {
+    // The "@" key handler preventDefaults, but in some IME states the "@" still
+    // lands in the field first; picking a model must not double it.
+    const result = insertReferenceToken('@', 1, '@图1');
+    expect(result.nextText).not.toContain('@@');
+    expect(result.nextText).toBe('@图1 '); // OSC always appends a trailing space
+  });
+
+  it('keeps a legitimately typed @ that is not adjacent to the cursor', () => {
+    const result = insertReferenceToken('email@ me', 10, '@图1');
+    expect(result.nextText).toContain('email@');
+    expect(result.nextText).toContain('@图1');
+  });
 });
