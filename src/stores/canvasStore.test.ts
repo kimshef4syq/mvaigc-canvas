@@ -273,3 +273,53 @@ describe('canvasStore Director Studio persistence', () => {
     expect(useCanvasStore.getState().activeDirectorStudioNodeId).toBeNull();
   });
 });
+
+describe('canvasStore exportImage history migration', () => {
+  beforeEach(resetCanvasStore);
+
+  it('migrates a legacy single-image exportImage node into a one-entry history', () => {
+    const legacy: CanvasNode = {
+      id: 'legacy-image',
+      type: CANVAS_NODE_TYPES.exportImage,
+      position: { x: 0, y: 0 },
+      data: {
+        displayName: 'Img_001',
+        imageUrl: '/images/legacy.png',
+        previewImageUrl: '/images/legacy.p.png',
+        aspectRatio: '16:9',
+      },
+    };
+
+    useCanvasStore.getState().setCanvasData([legacy], []);
+
+    const data = useCanvasStore.getState().nodes[0].data;
+    expect(Array.isArray(data.images)).toBe(true);
+    expect(data.images).toHaveLength(1);
+    expect((data.images as { imageUrl: string }[])[0].imageUrl).toBe('/images/legacy.png');
+    expect(data.mainImageIndex).toBe(0);
+  });
+
+  it('keeps an existing history array untouched', () => {
+    const withHistory: CanvasNode = {
+      id: 'hist-image',
+      type: CANVAS_NODE_TYPES.exportImage,
+      position: { x: 0, y: 0 },
+      data: {
+        displayName: 'Img_002',
+        imageUrl: '/images/b.png',
+        aspectRatio: '1:1',
+        images: [
+          { id: 'e0', imageUrl: '/images/a.png', previewImageUrl: null, aspectRatio: '1:1', createdAt: 1 },
+          { id: 'e1', imageUrl: '/images/b.png', previewImageUrl: null, aspectRatio: '1:1', createdAt: 2 },
+        ],
+        mainImageIndex: 1,
+      },
+    };
+
+    useCanvasStore.getState().setCanvasData([withHistory], []);
+
+    const data = useCanvasStore.getState().nodes[0].data;
+    expect(data.images).toHaveLength(2);
+    expect(data.mainImageIndex).toBe(1);
+  });
+});

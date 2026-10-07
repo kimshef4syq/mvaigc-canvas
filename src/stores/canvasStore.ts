@@ -28,6 +28,7 @@ import {
   type DirectorStudioProjectSnapshot,
   type DirectorStudioProjectRecord,
   type ExportImageNodeResultKind,
+  type GeneratedImageEntry,
   type NodeToolType,
   type PanoramaNodeData,
   type StoryboardExportOptions,
@@ -47,9 +48,9 @@ import { nodeCatalog } from '@/features/canvas/application/nodeCatalog';
 import { canvasNodeFactory } from '@/features/canvas/application/canvasServices';
 import { normalizeDirectorMotionProject } from '@/features/canvas/application/directorMotion';
 import { validateCanvasConnection } from '@/features/canvas/application/canvasConnectionRules';
+import { migrateLegacyExportImageData } from '@/features/canvas/application/generatedImageHistory';
 import {
-  migrateLegacyTagGraph,
-  reportTagMigrationDiagnostics,
+  migrateLegacyTagGraph,  reportTagMigrationDiagnostics,
 } from '@/features/canvas/application/tagPersistenceMigration';
 import { usePanelStateStore } from '@/stores/panelStateStore';
 import {
@@ -692,6 +693,20 @@ function normalizeNodes(rawNodes: CanvasNode[]): CanvasNode[] {
       if (node.type === CANVAS_NODE_TYPES.panorama) {
         Object.assign(mergedData, normalizePanoramaNodeData(mergedData, defaultData as PanoramaNodeData));
       }
+
+      if (node.type === CANVAS_NODE_TYPES.exportImage) {
+        const exportData = mergedData as Record<string, unknown>;
+        Object.assign(exportData, migrateLegacyExportImageData({
+          imageUrl: exportData.imageUrl as string | null | undefined,
+          previewImageUrl: exportData.previewImageUrl as string | null | undefined,
+          aspectRatio: exportData.aspectRatio as string | undefined,
+          generatedFileName: exportData.generatedFileName as string | null | undefined,
+          sourcePrompt: exportData.sourcePrompt as string | undefined,
+          images: exportData.images as GeneratedImageEntry[] | undefined,
+          mainImageIndex: exportData.mainImageIndex as number | undefined,
+        }));
+      }
+
 
       if (node.type === CANVAS_NODE_TYPES.blueprint) {
         Object.assign(mergedData, normalizeBlueprintNodeData(mergedData, defaultData as BlueprintNodeData));

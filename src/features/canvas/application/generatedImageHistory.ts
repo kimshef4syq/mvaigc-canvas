@@ -79,12 +79,14 @@ export function migrateLegacyExportImageData(data: {
   images?: GeneratedImageEntry[];
   mainImageIndex?: number;
 }): { images: GeneratedImageEntry[]; mainImageIndex: number } {
-  if (Array.isArray(data.images)) {
+  // An empty array is not history: merged node data always carries `images: []`
+  // from defaults, so a legacy node with only `imageUrl` must still migrate.
+  if (Array.isArray(data.images) && data.images.length > 0) {
     return {
       images: data.images,
       mainImageIndex: typeof data.mainImageIndex === 'number'
         ? data.mainImageIndex
-        : (data.images.length > 0 ? 0 : -1),
+        : 0,
     };
   }
 

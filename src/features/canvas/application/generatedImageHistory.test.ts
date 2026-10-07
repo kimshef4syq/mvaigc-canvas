@@ -102,4 +102,13 @@ describe('migrateLegacyExportImageData', () => {
     expect(result.images).toEqual([]);
     expect(result.mainImageIndex).toBe(-1);
   });
+
+  it('treats an empty images array as no history and migrates the legacy imageUrl', () => {
+    // Merged node data always carries `images: []` from defaults, so an empty
+    // array must still fall through to the legacy imageUrl branch.
+    const result = migrateLegacyExportImageData({ images: [], imageUrl: 'legacy.png' });
+    expect(result.images).toHaveLength(1);
+    expect(result.images[0].imageUrl).toBe('legacy.png');
+    expect(result.mainImageIndex).toBe(0);
+  });
 });
