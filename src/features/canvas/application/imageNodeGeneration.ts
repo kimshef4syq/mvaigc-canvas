@@ -43,6 +43,25 @@ export function queuedGenerationCount(nodeId: string): number {
 }
 
 /**
+ * Called after a completed image. If this node has queued requests, submit the
+ * next one and keep it generating; returns false when nothing is queued (the
+ * caller then leaves `isGenerating` false).
+ */
+export async function drainQueuedGeneration(
+  nodeId: string,
+  deps: { submitJob: (payload: ImageGenerationPayload) => Promise<string>; updateNodeData: (nodeId: string, patch: Record<string, unknown>) => void }
+): Promise<boolean> {
+  const next = takeNextQueuedGeneration(nodeId);
+  if (!next) {
+    return false;
+  }
+  deps.updateNodeData(nodeId, { isGenerating: true });
+  const jobId = await deps.submitJob(next);
+  deps.updateNodeData(nodeId, { generationJobId: jobId });
+  return true;
+}
+
+/**
  * Submit a generation into a node. 'overwrite' reuses the given node;
  * 'newNode' first creates one exportImage node. Only the first image is
  * submitted now — the rest queue up and are submitted as each completes.

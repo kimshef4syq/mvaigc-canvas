@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  drainQueuedGeneration,
   queuedGenerationCount,
   submitImageNodeGeneration,
   takeNextQueuedGeneration,
@@ -59,5 +60,33 @@ describe('submitImageNodeGeneration', () => {
 
     expect(addNode).toHaveBeenCalledTimes(1);
     expect(updateNodeData).toHaveBeenCalledWith('created', expect.objectContaining({ isGenerating: true }));
+  });
+});
+
+describe('drainQueuedGeneration', () => {
+  it('submits the next queued request and keeps the node generating', async () => {
+    const submitJob = vi.fn().mockResolvedValue('job-next');
+    const updateNodeData = vi.fn();
+    await submitImageNodeGeneration({
+      nodeId: 'drain1', mode: 'overwrite', payload, count: 2,
+      deps: { addNode: vi.fn(), updateNodeData, submitJob },
+    });
+    submitJob.mockClear();
+    updateNodeData.mockClear();
+
+    const continued = await drainQueuedGeneration('drain1', { submitJob, updateNodeData });
+
+    expect(continued).toBe(true);
+    expect(submitJob).toHaveBeenCalledTimes(1);
+    expect(updateNodeData).toHaveBeenCalledWith('drain1', { isGenerating: true });
+    expect(updateNodeData).toHaveBeenCalledWith('drain1', { generationJobId: 'job-next' });
+  });
+
+  it('returns false and does not submit when the queue is empty', async () => {
+    const submitJob = vi.fn();
+    const updateNodeData = vi.fn();
+    const continued = await drainQueuedGeneration('drain-empty', { submitJob, updateNodeData });
+    expect(continued).toBe(false);
+    expect(submitJob).not.toHaveBeenCalled();
   });
 });

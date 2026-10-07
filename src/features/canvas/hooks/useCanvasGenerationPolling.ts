@@ -11,6 +11,7 @@ import {
 import { prepareNodeImage } from '@/features/canvas/application/imageData';
 import { captureVideoThumbnail } from '@/features/canvas/application/videoUpload';
 import { buildCompletedImagePatch } from '@/features/canvas/application/generatedImageHistory';
+import { drainQueuedGeneration } from '@/features/canvas/application/imageNodeGeneration';
 import type { GeneratedImageEntry } from '@/features/canvas/domain/canvasNodes';
 import {
   buildGenerationErrorReport,
@@ -825,6 +826,16 @@ async function pollSingleJob(ctx: PollContext): Promise<void> {
           translateError,
           currentStatusWarning,
         );
+        // A multi-image batch queues the remaining requests; submit the next
+        // one now so the node stays "generating" until the batch is done.
+        await drainQueuedGeneration(nodeId, {
+          submitJob: (payload) => canvasAiGateway.submitGenerateImageJob({
+            ...payload,
+            referenceImages: [...payload.referenceImages],
+            extraParams: { ...payload.extraParams },
+          }),
+          updateNodeData,
+        });
         return;
       }
 
