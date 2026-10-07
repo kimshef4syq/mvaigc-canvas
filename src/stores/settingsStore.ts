@@ -23,6 +23,7 @@ import {
   normalizeAudioInputSchema,
 } from '@/features/canvas/application/audioInputSchema';
 import type { TextAgentConfig } from '@/features/canvas/application/aiText/types';
+import { DEFAULT_MVAIGC_PORT, normalizeMvaigcPort } from '@/features/settings/mvaigcSettings';
 
 export type UiRadiusPreset = 'compact' | 'default' | 'large';
 export type ThemeTonePreset = 'neutral' | 'warm' | 'cool';
@@ -272,9 +273,16 @@ interface SettingsState {
   dreaminaStatus?: DreaminaStatusSnapshot | null;
   /** Dreamina session used by every generation command. Session 0 is always valid. */
   dreaminaDefaultSessionId: number;
+  /** mvaigc account for the built-in reverse proxy (stored locally). */
+  mvaigcAccount: string;
+  /** mvaigc password for the built-in reverse proxy (stored locally). */
+  mvaigcPassword: string;
+  /** Local port for the built-in mvaigc reverse proxy. */
+  mvaigcPort: number;
   /** Per-panel memory of the model/provider/ratio picker selection. */
   lastModelConfigByPanel?: Record<string, { entryId: string; ratio: string; extraParams?: Record<string, unknown> } | undefined>;
   setProviderApiKey: (providerId: string, key: string) => void;
+  setMvaigcCredentials: (account: string, password: string, port: number) => void;
   setAgnesApiKey: (key: string) => void;
   setGrsaiNanoBananaProModel: (model: string) => void;
   setHideProviderGuidePopover: (hide: boolean) => void;
@@ -1026,6 +1034,9 @@ export const useSettingsStore = create<SettingsState>()(
       lightingPromptTemplate: DEFAULT_LIGHTING_PROMPT_TEMPLATE,
       dreaminaStatus: null,
       dreaminaDefaultSessionId: 0,
+      mvaigcAccount: '',
+      mvaigcPassword: '',
+      mvaigcPort: DEFAULT_MVAIGC_PORT,
       lastModelConfigByPanel: {},
       setProviderApiKey: (providerId, key) =>
         set((state) => ({
@@ -1035,6 +1046,12 @@ export const useSettingsStore = create<SettingsState>()(
           },
         })),
       setAgnesApiKey: (key) => set({ agnesApiKey: normalizeApiKey(key) }),
+      setMvaigcCredentials: (account, password, port) =>
+        set({
+          mvaigcAccount: account,
+          mvaigcPassword: password,
+          mvaigcPort: normalizeMvaigcPort(port),
+        }),
       setGrsaiNanoBananaProModel: (model) =>
         set({
           grsaiNanoBananaProModel: normalizeGrsaiNanoBananaProModel(model),
@@ -1385,6 +1402,9 @@ export const useSettingsStore = create<SettingsState>()(
           multiAnglePromptTemplate?: string;
           lightingPromptTemplate?: string;
           dreaminaDefaultSessionId?: number;
+          mvaigcAccount?: string;
+          mvaigcPassword?: string;
+          mvaigcPort?: number;
         };
         const persistedWithoutPricing = { ...((persistedState ?? {}) as Record<string, unknown>) };
         delete persistedWithoutPricing.showNodePrice;
@@ -1476,6 +1496,9 @@ export const useSettingsStore = create<SettingsState>()(
               state.multiAnglePromptTemplate?.trim() || DEFAULT_MULTI_ANGLE_PROMPT_TEMPLATE,
             lightingPromptTemplate: migratedLightingTemplate,
             dreaminaDefaultSessionId: normalizeDreaminaSessionId(state.dreaminaDefaultSessionId),
+            mvaigcAccount: state.mvaigcAccount ?? '',
+            mvaigcPassword: state.mvaigcPassword ?? '',
+            mvaigcPort: normalizeMvaigcPort(state.mvaigcPort ?? DEFAULT_MVAIGC_PORT),
           };
         }
 
@@ -1523,6 +1546,9 @@ export const useSettingsStore = create<SettingsState>()(
             state.multiAnglePromptTemplate?.trim() || DEFAULT_MULTI_ANGLE_PROMPT_TEMPLATE,
           lightingPromptTemplate: migratedLightingTemplate,
           dreaminaDefaultSessionId: normalizeDreaminaSessionId(state.dreaminaDefaultSessionId),
+          mvaigcAccount: state.mvaigcAccount ?? '',
+          mvaigcPassword: state.mvaigcPassword ?? '',
+          mvaigcPort: normalizeMvaigcPort(state.mvaigcPort ?? DEFAULT_MVAIGC_PORT),
         };
       },
     }

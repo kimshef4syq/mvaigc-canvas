@@ -2244,6 +2244,9 @@
     "audioModels": {
       "title": "音频模型"
     },
+    "mvaigc": {
+      "title": "融媒视界 mvaigc"
+    },
     "canvasInteraction": {
       "title": "画布操作习惯",
       "desc": "配置鼠标键位、框选、右键菜单和 WASD 画布平移。",

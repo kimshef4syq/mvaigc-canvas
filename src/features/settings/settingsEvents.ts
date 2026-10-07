@@ -10,6 +10,7 @@ export type SettingsCategory =
   | 'agnes'
   | 'imageHosting'
   | 'audioModels'
+  | 'mvaigc'
   | 'promptManagement'
   | 'promptPresets'
   | 'textAgents'

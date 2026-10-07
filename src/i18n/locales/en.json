@@ -2248,6 +2248,9 @@
     "audioModels": {
       "title": "Audio Models"
     },
+    "mvaigc": {
+      "title": "mvaigc"
+    },
     "canvasInteraction": {
       "title": "Canvas Operation Habits",
       "desc": "Configure mouse bindings, box selection, node context menus, and WASD canvas pan.",
