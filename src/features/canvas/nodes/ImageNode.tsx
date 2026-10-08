@@ -14,6 +14,8 @@ import {
   DEFAULT_ASPECT_RATIO,
   EXPORT_RESULT_NODE_MIN_WIDTH,
   EXPORT_RESULT_NODE_MIN_HEIGHT,
+  EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+  EXPORT_RESULT_NODE_LAYOUT_HEIGHT,
   type CanvasNodeType,
   type CanvasGenerationJobState,
   type ExportImageNodeData,
@@ -112,8 +114,10 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
   });
   const resizeMinWidth = resizeConstraints.minWidth;
   const resizeMinHeight = resizeConstraints.minHeight;
-  const resolvedWidth = resolveNodeDimension(width, compactSize.width);
-  const resolvedHeight = resolveNodeDimension(height, compactSize.height);
+  // The embedded prompt panel needs room for its control row, so a fresh node
+  // opens at the panel-friendly default rather than the bare media size.
+  const resolvedWidth = resolveNodeDimension(width, Math.max(compactSize.width, EXPORT_RESULT_NODE_DEFAULT_WIDTH));
+  const resolvedHeight = resolveNodeDimension(height, Math.max(compactSize.height, EXPORT_RESULT_NODE_LAYOUT_HEIGHT));
   const resolvedTitle = useMemo(
     () => resolveNodeDisplayName(type as CanvasNodeType, data),
     [data, type]

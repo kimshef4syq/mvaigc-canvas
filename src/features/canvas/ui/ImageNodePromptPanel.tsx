@@ -39,6 +39,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
   const [mode, setMode] = useState<ImageGenerationMode>('overwrite');
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [count, setCount] = useState(1);
+  const [countMenuOpen, setCountMenuOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [promptDraft, setPromptDraft] = useState(() => (typeof data.prompt === 'string' ? data.prompt : ''));
   const promptCommitTimer = useRef<number | null>(null);
@@ -154,29 +155,53 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
         className="ui-scrollbar nodrag nowheel h-16 w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-2 py-1 text-sm leading-6 text-text-dark outline-none placeholder:text-text-muted/80"
       />
 
-      <div className="mt-1.5 min-w-0">
+      <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
         <ModelConfigPicker
           panelKey="aiImageNode"
-          className="w-full"
+          className="min-w-0 flex-1"
           value={modelConfig ?? undefined}
           onChange={(modelConfigValue) => updateNodeData(nodeId, { modelConfig: modelConfigValue })}
         />
-      </div>
 
-      <div className="mt-1.5 flex items-center gap-2">
-        <button
-          type="button"
-          className="shrink-0 rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] px-2 py-1 text-[11px] text-text-dark"
-          onClick={(event) => {
-            event.stopPropagation();
-            setCount((value) => (value >= 4 ? 1 : value + 1));
-          }}
-          title={t('node.imageEdit.generateCount')}
-        >
-          {count}张
-        </button>
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            className="flex items-center gap-0.5 rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] px-2 py-1 text-[11px] text-text-dark"
+            onClick={(event) => {
+              event.stopPropagation();
+              setCountMenuOpen((open) => !open);
+            }}
+            title={t('node.imageEdit.generateCount')}
+          >
+            {count}张
+            <span className="text-[9px] opacity-70">▾</span>
+          </button>
+          {countMenuOpen ? (
+            <div
+              className="nowheel absolute bottom-full right-0 z-50 mb-1 w-[80px] overflow-hidden rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] shadow-xl"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              {[1, 2, 3, 4].map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setCount(option);
+                    setCountMenuOpen(false);
+                  }}
+                  className={`flex w-full items-center px-3 py-1.5 text-left text-sm text-text-dark transition-colors hover:bg-[var(--canvas-node-menu-hover)] ${
+                    count === option ? 'bg-[var(--canvas-node-menu-active)]' : ''
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
 
-        <div className="relative ml-auto flex shrink-0 items-center">
+        <div className="relative flex shrink-0 items-center">
           <button
             type="button"
             disabled={!canSubmit}
