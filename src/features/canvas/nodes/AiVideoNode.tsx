@@ -1016,11 +1016,13 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       void showErrorDialog(t('node.aiVideo.captureFrameFailed'), t('common.error'));
       return;
     }
-    const position = findNodePosition(
-      id,
-      EXPORT_RESULT_NODE_DEFAULT_WIDTH,
-      EXPORT_RESULT_NODE_LAYOUT_HEIGHT
-    );
+    // Place the captured frame to the RIGHT of this node — downstream of the
+    // video, matching the edge direction (frame → video). findNodePosition can
+    // fall back to the left/above when the right side is crowded, so pin it.
+    const selfNode = useCanvasStore.getState().nodes.find((node) => node.id === id);
+    const position = selfNode
+      ? { x: selfNode.position.x + resolvedWidth + 32, y: selfNode.position.y }
+      : findNodePosition(id, EXPORT_RESULT_NODE_DEFAULT_WIDTH, EXPORT_RESULT_NODE_LAYOUT_HEIGHT);
     const uploadNodeId = addNode(
       CANVAS_NODE_TYPES.upload,
       position,
@@ -1036,6 +1038,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
     findNodePosition,
     id,
     mainVideoEntry?.aspectRatio,
+    resolvedWidth,
     t,
   ]);
 
