@@ -15,6 +15,8 @@ import {
   type CanvasNode,
 } from '@/features/canvas/domain/canvasNodes';
 import { MULTI_FUNCTION_ITEMS } from '@/features/canvas/ui/MultiFunctionPanel';
+import { canvasCommandRegistry } from '@/features/canvas/application/canvasCommandService';
+import { CANVAS_COMMAND_VERSION } from '@/features/canvas/domain/canvasCommands';
 import { resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
 import {
   resolveGeneratedImageSaveFileName,
@@ -215,6 +217,11 @@ export const NodeActionToolbar = memo(({ node, offset = NODE_TOOLBAR_OFFSET }: N
     if (isVideoNode(node)) {
       return node.data.localVideoUrl || node.data.videoUrl || null;
     }
+    // The unified 生成视频 (aiVideo) node carries its current video the same way
+    // once it has generated in overwrite mode.
+    if (isAiVideoNode(node)) {
+      return (node.data.localVideoUrl as string | null | undefined) || node.data.videoUrl || null;
+    }
     return null;
   }, [node]);
   const rawAudioSource = useMemo(() => {
@@ -264,13 +271,13 @@ export const NodeActionToolbar = memo(({ node, offset = NODE_TOOLBAR_OFFSET }: N
     return `node-${node.id}`;
   }, [node]);
   const suggestedVideoSavePath = useMemo(() => {
-    if (isVideoNode(node)) {
+    if (isVideoNode(node) || isAiVideoNode(node)) {
       return resolveGeneratedVideoSaveFileName(node.data);
     }
     return `node-${node.id}.mp4`;
   }, [node]);
   const suggestedVideoStem = useMemo(() => {
-    if (isVideoNode(node)) {
+    if (isVideoNode(node) || isAiVideoNode(node)) {
       return resolveSuggestedVideoStem(node.data);
     }
     return `node-${node.id}`;
@@ -992,6 +999,43 @@ export const NodeActionToolbar = memo(({ node, offset = NODE_TOOLBAR_OFFSET }: N
           </UiChipButton>
         )}
         </>)}{/* end case A/C */}
+
+        {caseKind === 'AI_VIDEO_INPUT' && canHandleVideo && videoSource && (<>
+        <UiChipButton
+          className={`h-8 ${TOOLBAR_BUTTON_RADIUS_CLASS} px-2.5 text-xs ${TOOLBAR_NEUTRAL_BUTTON_CLASS}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            void canvasCommandRegistry.execute({
+              type: 'node.duplicate',
+              version: CANVAS_COMMAND_VERSION,
+              input: { copies: [{ sourceNodeId: node.id }] },
+            });
+          }}
+        >
+          <Copy className="h-3.5 w-3.5" />
+          {t('nodeToolbar.copyNode')}
+        </UiChipButton>
+
+        <UiChipButton
+          className={`h-8 ${TOOLBAR_BUTTON_RADIUS_CLASS} px-2.5 text-xs ${TOOLBAR_NEUTRAL_BUTTON_CLASS}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (normalizedDownloadPresetPaths.length === 0) {
+              void handleDownloadVideoSaveAs();
+              return;
+            }
+            if (normalizedDownloadPresetPaths.length === 1) {
+              void handleDownloadVideoToPreset(normalizedDownloadPresetPaths[0]);
+              return;
+            }
+            setDownloadMenu({ x: event.clientX, y: event.clientY });
+            setIsDownloadMenuVisible(false);
+          }}
+        >
+          <Download className="h-3.5 w-3.5" />
+          {t('nodeToolbar.download')}
+        </UiChipButton>
+        </>)}
 
         {caseKind === 'V' && canHandleVideo && videoSource && (<>
         <UiChipButton
