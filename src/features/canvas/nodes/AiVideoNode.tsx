@@ -1265,7 +1265,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
     <div
       ref={rootRef}
       className={`
-        group relative flex h-full flex-col overflow-visible rounded-[var(--node-radius)] border bg-[var(--canvas-node-bg)] p-2 shadow-[var(--canvas-node-shadow)] transition-colors duration-150
+        group relative h-full overflow-visible rounded-[var(--node-radius)] border bg-[var(--canvas-node-bg)] p-0 shadow-[var(--canvas-node-shadow)] transition-colors duration-150
         ${selected
           ? 'border-accent shadow-[0_0_0_1px_rgba(59,130,246,0.32)]'
           : 'border-[var(--canvas-node-border)] hover:border-[var(--canvas-node-border-hover)]'}
@@ -1300,8 +1300,8 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         onTitleChange={(nextTitle) => updateNodeData(id, { displayName: nextTitle })}
       />
 
-      <div className="relative mb-2 flex min-h-[120px] flex-1 overflow-visible rounded-lg border border-[var(--canvas-node-field-border)] bg-black">
-        <div className="relative h-full w-full overflow-hidden rounded-lg">
+      <div className="relative h-full w-full overflow-hidden rounded-[var(--node-radius)] bg-black">
+        <div className="relative h-full w-full overflow-hidden">
           {data.isGenerating ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-text-muted">
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -1405,7 +1405,8 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         </div>
       </div>
 
-      {selected && (<>
+      {selected && (
+      <div className="mt-2 flex w-[563px] max-w-[92vw] shrink-0 flex-col rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2">
       {schemaReferencePickerItems.length > 0 && (
         <div className="mb-2 flex shrink-0 flex-wrap gap-1">
           {schemaReferencePickerItems.map((item, index) => (
@@ -2023,7 +2024,8 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       </div>
 
       {error && <div className="mt-1 shrink-0 text-xs text-red-700 dark:text-red-300">{error}</div>}
-      </>)}
+      </div>
+      )}
 
       <Handle
         type="target"
