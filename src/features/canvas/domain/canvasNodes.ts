@@ -25,11 +25,12 @@ export type CanvasNodeType = (typeof CANVAS_NODE_TYPES)[keyof typeof CANVAS_NODE
 export const DEFAULT_ASPECT_RATIO = '1:1';
 export const AUTO_REQUEST_ASPECT_RATIO = 'auto';
 export const DEFAULT_NODE_WIDTH = 220;
-// Matches the reference 生成图片 node size (img_021: 563x337), which fits the
-// embedded prompt panel's control row in one line.
+// Default matches the reference 生成图片 node size (img_021: 563x337), which
+// fits the embedded prompt panel's control row in one line. The minimum stays
+// lower so the node can still be dragged narrower.
 export const EXPORT_RESULT_NODE_DEFAULT_WIDTH = 563;
 export const EXPORT_RESULT_NODE_LAYOUT_HEIGHT = 337;
-export const EXPORT_RESULT_NODE_MIN_WIDTH = 563;
+export const EXPORT_RESULT_NODE_MIN_WIDTH = 260;
 export const EXPORT_RESULT_NODE_MIN_HEIGHT = 168;
 
 export const IMAGE_SIZES = ['0.5K', '1K', '2K', '4K'] as const;
