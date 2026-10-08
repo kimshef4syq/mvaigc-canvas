@@ -141,7 +141,11 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
   };
 
   return (
-    <div className="nodrag nowheel mt-2 shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2">
+    <div className="mt-2 [container-type:inline-size]">
+      <div
+        className="nodrag nowheel shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2"
+        style={{ fontSize: 'clamp(6px, 1.8cqw, 14px)' }}
+      >
       <textarea
         value={prompt}
         onChange={(event) => {
@@ -152,10 +156,10 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
         onBlur={flushPromptDraft}
         onMouseDown={(event) => event.stopPropagation()}
         placeholder={t('node.imageEdit.promptPlaceholder')}
-        className="ui-scrollbar nodrag nowheel h-16 w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-2 py-1 text-sm leading-6 text-text-dark outline-none placeholder:text-text-muted/80"
+        className="ui-scrollbar nodrag nowheel h-[4.5em] w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-[0.6em] py-[0.35em] text-[1em] leading-[1.6] text-text-dark outline-none placeholder:text-text-muted/80"
       />
 
-      <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+      <div className="mt-[0.5em] flex min-w-0 items-center gap-[0.5em]">
         <ModelConfigPicker
           panelKey="aiImageNode"
           className="min-w-0 flex-1"
@@ -166,7 +170,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
         <div className="relative shrink-0">
           <button
             type="button"
-            className="flex items-center gap-0.5 rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] px-2 py-1 text-[11px] text-text-dark"
+            className="flex items-center gap-[0.2em] rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] px-[0.7em] py-[0.35em] text-[1em] text-text-dark"
             onClick={(event) => {
               event.stopPropagation();
               setCountMenuOpen((open) => !open);
@@ -174,11 +178,11 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
             title={t('node.imageEdit.generateCount')}
           >
             {count}张
-            <span className="text-[9px] opacity-70">▾</span>
+            <span className="text-[0.8em] opacity-70">▾</span>
           </button>
           {countMenuOpen ? (
             <div
-              className="nowheel absolute bottom-full right-0 z-50 mb-1 w-[80px] overflow-hidden rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] shadow-xl"
+              className="nowheel absolute bottom-full right-0 z-50 mb-[0.3em] w-[5em] overflow-hidden rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] shadow-xl"
               onMouseDown={(event) => event.stopPropagation()}
             >
               {[1, 2, 3, 4].map((option) => (
@@ -190,7 +194,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
                     setCount(option);
                     setCountMenuOpen(false);
                   }}
-                  className={`flex w-full items-center px-3 py-1.5 text-left text-sm text-text-dark transition-colors hover:bg-[var(--canvas-node-menu-hover)] ${
+                  className={`flex w-full items-center px-[0.8em] py-[0.4em] text-left text-[1em] text-text-dark transition-colors hover:bg-[var(--canvas-node-menu-hover)] ${
                     count === option ? 'bg-[var(--canvas-node-menu-active)]' : ''
                   }`}
                 >
@@ -205,18 +209,18 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
           <button
             type="button"
             disabled={!canSubmit}
-            className="flex items-center gap-1 rounded-md bg-accent px-3 py-1 text-xs text-white disabled:opacity-50"
+            className="flex items-center gap-[0.4em] rounded-md bg-accent px-[0.9em] py-[0.35em] text-[1em] text-white disabled:opacity-50"
             onClick={(event) => {
               event.stopPropagation();
               void handleSubmit();
             }}
           >
-            <Send className="h-3.5 w-3.5" />
+            <Send className="h-[1em] w-[1em]" />
             {t('common.generate')}
           </button>
           <button
             type="button"
-            className="ml-0.5 rounded-md border border-[var(--canvas-node-field-border)] px-1.5 py-1 text-[10px] text-text-dark"
+            className="ml-[0.2em] rounded-md border border-[var(--canvas-node-field-border)] px-[0.5em] py-[0.35em] text-[0.9em] text-text-dark"
             onClick={(event) => {
               event.stopPropagation();
               setModeMenuOpen((open) => !open);
@@ -226,7 +230,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
           </button>
           {modeMenuOpen ? (
             <div
-              className="nowheel absolute bottom-full right-0 z-50 mb-1 w-[180px] overflow-hidden rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] shadow-xl"
+              className="nowheel absolute bottom-full right-0 z-50 mb-[0.3em] w-[12em] overflow-hidden rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] shadow-xl"
               onMouseDown={(event) => event.stopPropagation()}
             >
               {([
@@ -241,12 +245,12 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
                     setMode(value);
                     setModeMenuOpen(false);
                   }}
-                  className={`flex w-full flex-col items-start px-3 py-2 text-left text-sm text-text-dark transition-colors hover:bg-[var(--canvas-node-menu-hover)] ${
+                  className={`flex w-full flex-col items-start px-[0.8em] py-[0.5em] text-left text-[1em] text-text-dark transition-colors hover:bg-[var(--canvas-node-menu-hover)] ${
                     mode === value ? 'bg-[var(--canvas-node-menu-active)]' : ''
                   }`}
                 >
                   <span>{label}</span>
-                  <span className="text-[10px] text-text-muted">{hint}</span>
+                  <span className="text-[0.85em] text-text-muted">{hint}</span>
                 </button>
               ))}
             </div>
@@ -254,9 +258,10 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
         </div>
       </div>
 
-      <div className="mt-1 flex items-center gap-1 text-[10px] text-text-muted">
-        <Sparkles className="h-3 w-3" />
+      <div className="mt-[0.4em] flex items-center gap-[0.3em] text-[0.85em] text-text-muted">
+        <Sparkles className="h-[0.9em] w-[0.9em]" />
         {mode === 'newNode' ? t('node.imageNode.modeNewNode') : t('node.imageNode.modeOverwrite')}
+      </div>
       </div>
     </div>
   );
