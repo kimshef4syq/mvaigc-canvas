@@ -101,12 +101,43 @@ function readVideoFileMetadata(file: File): Promise<VideoFileMetadata> {
   });
 }
 
+export type FrameCaptureMode = 'first' | 'current' | 'last';
+
+// Small backward offset so `last` lands on a decodable frame rather than the
+// exact end (seeking to `duration` can stall or yield a blank frame).
+const FRAME_CAPTURE_END_EPSILON_SEC = 0.05;
+
+/**
+ * Timeline position (seconds) to seek to for a frame-capture request. `last`
+ * degrades to 0 when the duration is unknown so the caller never seeks into a
+ * non-existent position and hangs.
+ */
+export function resolveFrameCaptureTime(
+  mode: FrameCaptureMode,
+  durationSec: number,
+  currentTimeSec: number
+): number {
+  if (mode === 'first') {
+    return 0;
+  }
+  if (mode === 'current') {
+    return currentTimeSec;
+  }
+  return Number.isFinite(durationSec) && durationSec > 0
+    ? Math.max(0, durationSec - FRAME_CAPTURE_END_EPSILON_SEC)
+    : 0;
+}
+
 // A video node shows its first frame as the poster so the canvas is readable at
 // a glance after a reload. `thumbnailUrl` is a persisted media value (see
 // projectMedia), so the frame is written to a local image file, not kept as an
 // inline data URL. Best-effort: a null result just leaves the node without a
 // poster.
-export async function captureVideoThumbnail(source: string): Promise<string | null> {
+//
+// `timeSec` (optional) captures a frame other than the first — used by the
+// video node's 截帧 tool (first / current / last). Omit it for the default
+// first-frame poster.
+export async function captureVideoThumbnail(source: string, timeSec = 0): Promise<string | null> {
   const video = document.createElement('video');
   const displaySource = resolveImageDisplayUrl(source);
 
@@ -129,8 +160,21 @@ export async function captureVideoThumbnail(source: string): Promise<string | nu
       video.preload = 'auto';
       video.muted = true;
       video.playsInline = true;
-      video.onloadeddata = () => finish();
       video.onerror = () => finish(new Error('Failed to load video for thumbnail'));
+      if (timeSec > 0) {
+        // Wait for the seek to land before drawing; a seek past the end (or an
+        // undecodable position) is caught by the same timeout.
+        video.onseeked = () => finish();
+        video.onloadeddata = () => {
+          try {
+            video.currentTime = timeSec;
+          } catch {
+            finish(new Error('Failed to seek video for frame capture'));
+          }
+        };
+      } else {
+        video.onloadeddata = () => finish();
+      }
       video.src = displaySource;
     });
 
