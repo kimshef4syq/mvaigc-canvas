@@ -1025,7 +1025,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       position,
       buildCapturedFrameNodeData(frameUrl, mainVideoEntry?.aspectRatio ?? data.aspectRatio ?? '')
     );
-    addEdge(id, uploadNodeId);
+    addEdge(uploadNodeId, id);
   }, [
     addEdge,
     addNode,
@@ -1299,12 +1299,12 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         onTitleChange={(nextTitle) => updateNodeData(id, { displayName: nextTitle })}
       />
 
-      <div className="relative mb-2 shrink-0 overflow-hidden rounded-lg border border-[var(--canvas-node-field-border)] bg-black">
-        <div className="relative aspect-video w-full">
+      <div className="relative mb-2 shrink-0 overflow-visible rounded-lg border border-[var(--canvas-node-field-border)] bg-black">
+        <div className="relative aspect-video w-full overflow-hidden rounded-lg">
           {data.isGenerating ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-text-muted">
               <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="text-[11px]">{t('node.imageNode.waitingResult')}</span>
+              <span className="text-[11px]">{t('node.videoNode.waitingResult')}</span>
             </div>
           ) : displayVideoSource ? (
             <video
@@ -1314,6 +1314,16 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
               playsInline
               className="nodrag nowheel h-full w-full bg-black object-contain"
             />
+          ) : data.generationError ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-red-300">
+              <AlertTriangle className="h-6 w-6 opacity-90" />
+              <span className="text-center text-[11px] font-semibold">
+                {t('node.videoNode.generationFailed')}
+              </span>
+              <span className="max-h-[60px] overflow-y-auto break-words text-center text-[10px] text-red-200/85">
+                {data.generationError}
+              </span>
+            </div>
           ) : (
             <div className="flex h-full w-full items-center justify-center text-[11px] text-text-muted">
               {t('node.imageNode.emptyHint')}
@@ -1955,6 +1965,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
           </UiButton>
         )}
           <UiButton
+            disabled={data.isGenerating === true}
             onClick={(event) => {
               event.stopPropagation();
               void handleGenerate();

@@ -1490,7 +1490,6 @@
       "captureLast": "截取尾帧",
       "captureFrameFailed": "截帧失败，视频可能不支持跨域读取。",
       "history": "历史 {{count}}",
-      "allVideos": "全部视频 {{count}} 个",
       "mainVideo": "主视频",
       "promptRequired": "请输入视频提示词",
       "noVideoProvider": "请先在「设置 → 我的配置 → 视频生成」中添加可用的视频供应商。",

@@ -291,6 +291,8 @@ export interface AiVideoNodeData extends NodeDisplayData {
   videoUrl?: string | null;
   thumbnailUrl?: string | null;
   aspectRatio?: string;
+  generationError?: string | null;
+  generationErrorDetails?: string | null;
 }
 
 export interface AiTextNodeData extends NodeDisplayData {

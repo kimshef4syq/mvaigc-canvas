@@ -569,7 +569,11 @@ async function prepareCompletedVideoResult(
     ...historyPatch,
     videoUrl: completedVideoUrl,
     localVideoUrl: finalLocalVideoUrl,
-    displayName: resolvedDisplayName,
+    // Overwrite mode writes back into the aiVideo node itself — never rename it
+    // to `video_001_<prompt>`; that would replace the node's own title and, since
+    // the source prompt falls back to displayName, feed the previous title into
+    // the next generation. Only freshly-created result nodes get a generated name.
+    ...(resultNodeType === CANVAS_NODE_TYPES.aiVideo ? {} : { displayName: resolvedDisplayName }),
     generatedFileName,
     generatedNamingMode,
     generatedSequence: sequence,

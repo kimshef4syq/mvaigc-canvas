@@ -1494,7 +1494,6 @@
       "captureLast": "Capture last frame",
       "captureFrameFailed": "Frame capture failed; the video may not allow cross-origin reads.",
       "history": "History {{count}}",
-      "allVideos": "All videos ({{count}})",
       "mainVideo": "Main",
       "promptRequired": "Please enter a video prompt",
       "noVideoProvider": "Add an available video provider in Settings > My Config > Video Generation first.",
