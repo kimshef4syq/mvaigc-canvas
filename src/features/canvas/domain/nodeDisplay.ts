@@ -8,7 +8,7 @@ import {
 export const DEFAULT_NODE_DISPLAY_NAME: Record<CanvasNodeType, string> = {
   [CANVAS_NODE_TYPES.upload]: '上传素材',
   [CANVAS_NODE_TYPES.imageEdit]: 'AI 图片',
-  [CANVAS_NODE_TYPES.aiVideo]: 'AI 视频',
+  [CANVAS_NODE_TYPES.aiVideo]: '生成视频',
   [CANVAS_NODE_TYPES.aiText]: 'AI 文本',
   [CANVAS_NODE_TYPES.aiAudio]: 'AI 音频',
   [CANVAS_NODE_TYPES.exportImage]: '生成图片',

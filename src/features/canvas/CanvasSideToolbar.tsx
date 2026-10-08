@@ -45,8 +45,8 @@ const TOOLBAR_ITEMS: SideToolbarItem[] = [
   },
   {
     type: CANVAS_NODE_TYPES.aiVideo,
-    labelKey: 'node.menu.aiVideoGeneration',
-    titleKey: 'canvasToolbar.addAiVideo',
+    labelKey: 'node.menu.generateVideo',
+    titleKey: 'node.menu.generateVideo',
     icon: Video,
   },
   {

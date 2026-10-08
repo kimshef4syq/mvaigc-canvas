@@ -126,7 +126,7 @@ const imageEditNodeDefinition: CanvasNodeDefinition<ImageEditNodeData> = {
 
 const aiVideoNodeDefinition: CanvasNodeDefinition<AiVideoNodeData> = {
   type: CANVAS_NODE_TYPES.aiVideo,
-  menuLabelKey: 'node.menu.aiVideoGeneration',
+  menuLabelKey: 'node.menu.generateVideo',
   menuIcon: 'video',
   visibleInMenu: true,
   capabilities: {

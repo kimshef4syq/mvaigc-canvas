@@ -32,4 +32,33 @@ describe('project media inventory', () => {
     expect(sources).toContain('/tmp/panorama.jpg');
     expect(sources).not.toContain('https://example.com/docs');
   });
+
+  it('collects media nested inside a generated-video history', () => {
+    const record: ProjectRecord = {
+      id: 'project',
+      name: 'Media',
+      createdAt: 1,
+      updatedAt: 1,
+      nodeCount: 1,
+      nodesJson: JSON.stringify([{
+        id: 'node',
+        data: {
+          videos: [
+            { id: 'v0', videoUrl: '/tmp/gen-1.mp4', thumbnailUrl: '/tmp/gen-1.jpg', aspectRatio: '16:9' },
+            { id: 'v1', videoUrl: '/tmp/gen-2.mp4', thumbnailUrl: '/tmp/gen-2.jpg', aspectRatio: '16:9' },
+          ],
+          mainVideoIndex: 1,
+        },
+      }]),
+      edgesJson: '[]',
+      viewportJson: '{}',
+      historyJson: '{}',
+      imagePoolJson: '[]',
+    };
+    const sources = collectProjectMediaSources(record).map((item) => item.source);
+    expect(sources).toContain('/tmp/gen-1.mp4');
+    expect(sources).toContain('/tmp/gen-1.jpg');
+    expect(sources).toContain('/tmp/gen-2.mp4');
+    expect(sources).toContain('/tmp/gen-2.jpg');
+  });
 });

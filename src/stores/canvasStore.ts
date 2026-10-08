@@ -29,6 +29,7 @@ import {
   type DirectorStudioProjectRecord,
   type ExportImageNodeResultKind,
   type GeneratedImageEntry,
+  type GeneratedVideoEntry,
   type NodeToolType,
   type PanoramaNodeData,
   type StoryboardExportOptions,
@@ -49,6 +50,7 @@ import { canvasNodeFactory } from '@/features/canvas/application/canvasServices'
 import { normalizeDirectorMotionProject } from '@/features/canvas/application/directorMotion';
 import { validateCanvasConnection } from '@/features/canvas/application/canvasConnectionRules';
 import { migrateLegacyExportImageData } from '@/features/canvas/application/generatedImageHistory';
+import { normalizeVideoHistory } from '@/features/canvas/application/generatedVideoHistory';
 import {
   migrateLegacyTagGraph,  reportTagMigrationDiagnostics,
 } from '@/features/canvas/application/tagPersistenceMigration';
@@ -710,6 +712,20 @@ function normalizeNodes(rawNodes: CanvasNode[]): CanvasNode[] {
 
       if (node.type === CANVAS_NODE_TYPES.blueprint) {
         Object.assign(mergedData, normalizeBlueprintNodeData(mergedData, defaultData as BlueprintNodeData));
+      }
+
+      if (node.type === CANVAS_NODE_TYPES.aiVideo) {
+        const videoData = mergedData as Record<string, unknown>;
+        const migrated = normalizeVideoHistory({
+          videoUrl: videoData.videoUrl as string | null | undefined,
+          thumbnailUrl: videoData.thumbnailUrl as string | null | undefined,
+          aspectRatio: videoData.aspectRatio as string | undefined,
+          videos: videoData.videos as GeneratedVideoEntry[] | undefined,
+          mainVideoIndex: videoData.mainVideoIndex as number | undefined,
+        });
+        if (migrated) {
+          Object.assign(videoData, migrated);
+        }
       }
 
       if (node.type === CANVAS_NODE_TYPES.tag) {
