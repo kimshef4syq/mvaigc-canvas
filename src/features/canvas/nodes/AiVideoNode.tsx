@@ -121,7 +121,6 @@ const PICKER_Y_OFFSET_PX = 20;
 const REFERENCE_PICKER_WIDTH_PX = 150;
 const FUNCTION_PICKER_WIDTH_PX = 280;
 const PROMPT_PRESET_GROUP_ID = '__prompt_presets__';
-const INLINE_REFERENCE_SEPARATOR = '，';
 const AI_VIDEO_SELECTOR_CHIP_CLASS =
   'border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] text-text-dark shadow-sm hover:border-[var(--canvas-node-border-hover)] hover:bg-[var(--canvas-node-menu-hover)]';
 const AI_VIDEO_COMPACT_ICON_CHIP_CLASS =
@@ -284,40 +283,6 @@ function describeCompactVideoInputSchema(schema: VideoInputSchema): string {
     parts.push(`音频${Math.max(0, schema.audio.max)}`);
   }
   return parts.length > 0 ? parts.join('/') : '无';
-}
-
-function describeReferenceForPrompt(reference: { kind: string; token: string; title: string }): string {
-  const title = reference.title.trim() || reference.token;
-  if (reference.kind === 'image') {
-    return `${reference.token}是${title}`;
-  }
-  if (reference.kind === 'audio') {
-    return `${reference.token}是${title}的声音`;
-  }
-  if (reference.kind === 'video') {
-    return `${reference.token}是参考视频`;
-  }
-  return `${reference.token}是${title}`;
-}
-
-function appendMissingReferenceDescriptions(
-  prompt: string,
-  references: Array<{ kind: string; token: string; title: string }>
-): string {
-  const additions = references
-    .map(describeReferenceForPrompt)
-    .filter((line) => line && !prompt.includes(line));
-  if (additions.length === 0) {
-    return prompt;
-  }
-  const trimmedPrompt = prompt.trimEnd();
-  const inlineAdditions = additions.join(INLINE_REFERENCE_SEPARATOR);
-  const suffix = inlineAdditions.endsWith(INLINE_REFERENCE_SEPARATOR) ? '' : INLINE_REFERENCE_SEPARATOR;
-  if (!trimmedPrompt) {
-    return `${inlineAdditions}${suffix}`;
-  }
-  const connector = /[，,、。；;：:\s]$/.test(trimmedPrompt) ? '' : INLINE_REFERENCE_SEPARATOR;
-  return `${trimmedPrompt}${connector}${inlineAdditions}${suffix}`;
 }
 
 interface VideoGenerationRequestAssembly {
@@ -565,20 +530,6 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
     promptHighlightRef.current.scrollTop = promptRef.current.scrollTop;
     promptHighlightRef.current.scrollLeft = promptRef.current.scrollLeft;
   }, []);
-
-  useEffect(() => {
-    if (incomingReferences.length === 0) {
-      return;
-    }
-    const nextPrompt = appendMissingReferenceDescriptions(promptDraftRef.current, incomingReferences);
-    if (nextPrompt === promptDraftRef.current) {
-      return;
-    }
-    promptDraftRef.current = nextPrompt;
-    setPromptDraft(nextPrompt);
-    flushPromptDraft(nextPrompt);
-    requestAnimationFrame(syncPromptHighlightScroll);
-  }, [flushPromptDraft, incomingReferenceSignature, incomingReferences, syncPromptHighlightScroll]);
 
   const insertReferenceToken = useCallback((index: number) => {
     const marker = schemaReferencePickerItems[index]?.token ?? '';
