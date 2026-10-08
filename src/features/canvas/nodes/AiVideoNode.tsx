@@ -1393,7 +1393,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
           )}
 
           {displayVideoSource && !data.isGenerating && (
-            <div className="nodrag absolute bottom-2 right-2 z-20">
+            <div className="nodrag absolute right-2 top-2 z-20">
               <VideoNodeToolbar
                 onPreview={() => setVideoPreviewSource(displayVideoSource)}
                 onCaptureFrame={(mode) => void handleCaptureFrame(mode)}
