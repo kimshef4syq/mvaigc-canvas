@@ -1299,8 +1299,8 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         onTitleChange={(nextTitle) => updateNodeData(id, { displayName: nextTitle })}
       />
 
-      <div className="relative mb-2 shrink-0 overflow-visible rounded-lg border border-[var(--canvas-node-field-border)] bg-black">
-        <div className="relative aspect-video w-full overflow-hidden rounded-lg">
+      <div className="relative mb-2 flex min-h-[120px] flex-1 overflow-visible rounded-lg border border-[var(--canvas-node-field-border)] bg-black">
+        <div className="relative h-full w-full overflow-hidden rounded-lg">
           {data.isGenerating ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-text-muted">
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -1404,11 +1404,9 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         </div>
       </div>
 
-      <div className="image-box relative min-h-0 flex-1 rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-2">
-        <div className="relative h-full min-h-0">
-          {schemaReferencePickerItems.length > 0 && (
-            <div className="mb-1 flex flex-wrap gap-1">
-              {schemaReferencePickerItems.map((item, index) => (
+      {schemaReferencePickerItems.length > 0 && (
+        <div className="mb-2 flex shrink-0 flex-wrap gap-1">
+          {schemaReferencePickerItems.map((item, index) => (
                 <button
                   key={`${item.kind}-${item.sourceNodeId}-${index}`}
                   type="button"
@@ -1433,8 +1431,10 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                   )}
                 </button>
               ))}
-            </div>
-          )}
+        </div>
+      )}
+      <div className="image-box relative h-[88px] shrink-0 rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-2">
+        <div className="relative h-full min-h-0">
           {selectedPresetLabel && (
             <div className="absolute left-1 top-1 z-20 flex max-w-[calc(100%-8px)] items-center gap-1 rounded-md border border-accent/35 bg-accent/18 px-2 py-1 text-xs text-accent shadow-sm">
               <Sparkles className="h-3.5 w-3.5 shrink-0" />
