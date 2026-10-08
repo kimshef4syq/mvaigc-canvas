@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { Send, Sparkles } from 'lucide-react';
+import { Maximize2, Send, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { ExportImageNodeData } from '@/features/canvas/domain/canvasNodes';
@@ -16,6 +16,7 @@ import { canvasAiGateway } from '@/features/canvas/application/canvasServices';
 import { findRelatedCanvasNodePositions } from '@/features/canvas/application/canvasNodePlacement';
 import { selectInputImageSignature, parseInputImageSignature } from '@/features/canvas/application/canvasGraphSelectors';
 import { EXPORT_RESULT_NODE_DEFAULT_WIDTH, EXPORT_RESULT_NODE_LAYOUT_HEIGHT } from '@/features/canvas/domain/canvasNodes';
+import { UiModal } from '@/components/ui';
 import { useCanvasStore } from '@/stores/canvasStore';
 
 const PROMPT_COMMIT_DELAY_MS = 400;
@@ -40,6 +41,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [count, setCount] = useState(1);
   const [countMenuOpen, setCountMenuOpen] = useState(false);
+  const [promptExpanded, setPromptExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [promptDraft, setPromptDraft] = useState(() => (typeof data.prompt === 'string' ? data.prompt : ''));
   const promptCommitTimer = useRef<number | null>(null);
@@ -141,22 +143,35 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
   };
 
   return (
-    <div className="mt-2 w-[460px] max-w-[92vw]">
+    <div className="mt-2 flex justify-center">
       <div
-        className="nodrag nowheel shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2 text-xs"
+        className="nodrag nowheel w-[460px] max-w-[92vw] shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2 text-xs"
       >
-      <textarea
-        value={prompt}
-        onChange={(event) => {
-          const nextValue = event.target.value;
-          setPromptDraft(nextValue);
-          commitPromptDraft(nextValue);
-        }}
-        onBlur={flushPromptDraft}
-        onMouseDown={(event) => event.stopPropagation()}
-        placeholder={t('node.imageEdit.promptPlaceholder')}
-        className="ui-scrollbar nodrag nowheel h-[4.5em] w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-[0.6em] py-[0.35em] text-[1em] leading-[1.6] text-text-dark outline-none placeholder:text-text-muted/80"
-      />
+      <div className="relative">
+        <textarea
+          value={prompt}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setPromptDraft(nextValue);
+            commitPromptDraft(nextValue);
+          }}
+          onBlur={flushPromptDraft}
+          onMouseDown={(event) => event.stopPropagation()}
+          placeholder={t('node.imageEdit.promptPlaceholder')}
+          className="ui-scrollbar nodrag nowheel h-[4.5em] w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-[0.6em] py-[0.35em] pr-[1.8em] text-[1em] leading-[1.6] text-text-dark outline-none placeholder:text-text-muted/80"
+        />
+        <button
+          type="button"
+          className="nodrag absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)]/70 text-text-muted backdrop-blur-sm transition-colors hover:bg-[var(--canvas-node-menu-hover)] hover:text-text-dark"
+          title={t('node.imageNode.expandPrompt')}
+          onClick={(event) => {
+            event.stopPropagation();
+            setPromptExpanded(true);
+          }}
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
 
       <div className="mt-[0.5em] flex min-w-0 flex-wrap items-center gap-[0.5em]">
         <ModelConfigPicker
@@ -262,6 +277,27 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
         {mode === 'newNode' ? t('node.imageNode.modeNewNode') : t('node.imageNode.modeOverwrite')}
       </div>
       </div>
+
+      <UiModal
+        isOpen={promptExpanded}
+        title={t('node.imageNode.expandPrompt')}
+        onClose={() => {
+          setPromptExpanded(false);
+          flushPromptDraft();
+        }}
+        widthClassName="w-[760px] max-w-[92vw]"
+      >
+        <textarea
+          value={promptDraft}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setPromptDraft(nextValue);
+            commitPromptDraft(nextValue);
+          }}
+          placeholder={t('node.imageEdit.promptPlaceholder')}
+          className="ui-scrollbar h-[60vh] w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-3 py-2 text-sm leading-7 text-text-dark outline-none placeholder:text-text-muted/80"
+        />
+      </UiModal>
     </div>
   );
 });

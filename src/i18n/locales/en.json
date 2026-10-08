@@ -1463,7 +1463,8 @@
       "modeOverwrite": "Overwrite",
       "modeOverwriteHint": "Replace this node's current content",
       "modeNewNode": "New node",
-      "modeNewNodeHint": "Create a new node on the canvas"
+      "modeNewNodeHint": "Create a new node on the canvas",
+      "expandPrompt": "Expand prompt"
     },
     "imageEdit": {
       "promptRequired": "Please enter a prompt",

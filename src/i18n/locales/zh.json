@@ -1459,7 +1459,8 @@
       "modeOverwrite": "覆盖生成",
       "modeOverwriteHint": "生成后替换当前节点内容",
       "modeNewNode": "新建节点生成",
-      "modeNewNodeHint": "在画布创建一个新节点生成"
+      "modeNewNodeHint": "在画布创建一个新节点生成",
+      "expandPrompt": "放大输入框"
     },
     "imageEdit": {
       "promptRequired": "请输入提示词",
