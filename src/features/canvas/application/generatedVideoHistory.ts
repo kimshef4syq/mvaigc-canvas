@@ -1,5 +1,7 @@
 import {
+  CANVAS_NODE_TYPES,
   DEFAULT_ASPECT_RATIO,
+  type CanvasNodeType,
   type GeneratedVideoEntry,
 } from '@/features/canvas/domain/canvasNodes';
 
@@ -102,6 +104,45 @@ export function buildCompletedVideoPatch(input: {
     mainVideoIndex: videos.length - 1,
     videoUrl: entry.videoUrl ?? input.videoUrl,
     thumbnailUrl: entry.thumbnailUrl,
+  };
+}
+
+/**
+ * Patch a completed video generation writes onto a node, routed by node type:
+ * `aiVideo` nodes accumulate a history (so one node keeps every generation);
+ * legacy standalone `video` nodes keep the plain single-video fields.
+ */
+export function buildVideoResultPatch(
+  nodeType: CanvasNodeType,
+  currentData: Record<string, unknown>,
+  completed: {
+    videoUrl: string;
+    thumbnailUrl: string | null;
+    aspectRatio: string;
+    localVideoUrl?: string | null;
+    durationSeconds?: number | null;
+    generatedFileName?: string | null;
+    sourcePrompt?: string | null;
+    now?: number;
+  }
+): Record<string, unknown> {
+  if (nodeType === CANVAS_NODE_TYPES.aiVideo) {
+    return buildCompletedVideoPatch({
+      currentVideos: currentData.videos as GeneratedVideoEntry[] | undefined,
+      videoUrl: completed.videoUrl,
+      thumbnailUrl: completed.thumbnailUrl,
+      aspectRatio: completed.aspectRatio,
+      localVideoUrl: completed.localVideoUrl,
+      durationSeconds: completed.durationSeconds,
+      generatedFileName: completed.generatedFileName,
+      sourcePrompt: completed.sourcePrompt,
+      now: completed.now,
+    });
+  }
+
+  return {
+    videoUrl: completed.videoUrl,
+    thumbnailUrl: completed.thumbnailUrl,
   };
 }
 

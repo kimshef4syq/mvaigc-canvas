@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useCanvasStore, type CanvasNode, type CanvasNodeData } from '@/stores/canvasStore';
-import { CANVAS_NODE_TYPES } from '@/features/canvas/domain/canvasNodes';
+import { CANVAS_NODE_TYPES, DEFAULT_ASPECT_RATIO } from '@/features/canvas/domain/canvasNodes';
 import {
   canvasAiGateway,
   canvasVideoGateway,
@@ -11,6 +11,7 @@ import {
 import { prepareNodeImage } from '@/features/canvas/application/imageData';
 import { captureVideoThumbnail } from '@/features/canvas/application/videoUpload';
 import { buildCompletedImagePatch } from '@/features/canvas/application/generatedImageHistory';
+import { buildVideoResultPatch } from '@/features/canvas/application/generatedVideoHistory';
 import { drainQueuedGeneration } from '@/features/canvas/application/imageNodeGeneration';
 import type { GeneratedImageEntry } from '@/features/canvas/domain/canvasNodes';
 import {
@@ -544,8 +545,27 @@ async function prepareCompletedVideoResult(
     });
   }
 
+  const completedVideoUrl = lightweightResultUrl ?? finalLocalVideoUrl;
+  const resultNodeType = useCanvasStore.getState().nodes.find((node) => node.id === nodeId)?.type;
+  const historyPatch = resultNodeType
+    ? buildVideoResultPatch(resultNodeType, currentData, {
+      videoUrl: completedVideoUrl,
+      // The poster is captured after this patch; carrying currentData.thumbnailUrl
+      // here would stamp a stale poster (from a previous generation) onto the new entry.
+      thumbnailUrl: null,
+      aspectRatio: typeof currentData.aspectRatio === 'string' && currentData.aspectRatio
+        ? currentData.aspectRatio
+        : DEFAULT_ASPECT_RATIO,
+      localVideoUrl: finalLocalVideoUrl,
+      durationSeconds: typeof currentData.durationSeconds === 'number' ? currentData.durationSeconds : null,
+      generatedFileName,
+      sourcePrompt,
+    })
+    : { videoUrl: completedVideoUrl };
+
   updateNodeData(nodeId, {
-    videoUrl: lightweightResultUrl ?? finalLocalVideoUrl,
+    ...historyPatch,
+    videoUrl: completedVideoUrl,
     localVideoUrl: finalLocalVideoUrl,
     displayName: resolvedDisplayName,
     generatedFileName,

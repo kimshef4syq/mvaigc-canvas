@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import { CANVAS_NODE_TYPES, type GeneratedVideoEntry } from '@/features/canvas/domain/canvasNodes';
+
 import {
   appendGeneratedVideoEntry,
   buildCompletedVideoPatch,
+  buildVideoResultPatch,
   createGeneratedVideoEntry,
   normalizeVideoHistory,
   resolveMainVideoEntry,
@@ -59,5 +62,32 @@ describe('generatedVideoHistory', () => {
     // image-history resolver), so a stale index never renders blank.
     expect(resolveMainVideoEntry([a, b], 99)).toBe(b);
     expect(resolveMainVideoEntry(undefined, 0)).toBeNull();
+  });
+});
+
+describe('buildVideoResultPatch', () => {
+  it('writes history for aiVideo nodes', () => {
+    const patch = buildVideoResultPatch(CANVAS_NODE_TYPES.aiVideo, { videos: undefined }, {
+      videoUrl: '/a.mp4', thumbnailUrl: '/a.jpg', aspectRatio: '16:9', now: 1,
+    });
+    expect(patch.videos).toHaveLength(1);
+    expect(patch.mainVideoIndex).toBe(0);
+  });
+
+  it('keeps single fields for legacy video nodes', () => {
+    const patch = buildVideoResultPatch(CANVAS_NODE_TYPES.video, {}, {
+      videoUrl: '/a.mp4', thumbnailUrl: '/a.jpg', aspectRatio: '16:9', now: 1,
+    });
+    expect(patch.videos).toBeUndefined();
+    expect(patch.videoUrl).toBe('/a.mp4');
+    expect(patch.thumbnailUrl).toBe('/a.jpg');
+  });
+
+  it('two sequential completions land as two entries in order', () => {
+    const first = buildVideoResultPatch(CANVAS_NODE_TYPES.aiVideo, {}, { videoUrl: '/1.mp4', thumbnailUrl: null, aspectRatio: '16:9', now: 1 });
+    const second = buildVideoResultPatch(CANVAS_NODE_TYPES.aiVideo, { videos: first.videos }, { videoUrl: '/2.mp4', thumbnailUrl: null, aspectRatio: '16:9', now: 2 });
+    const videos = second.videos as GeneratedVideoEntry[];
+    expect(videos.map((v) => v.videoUrl)).toEqual(['/1.mp4', '/2.mp4']);
+    expect(second.mainVideoIndex).toBe(1);
   });
 });
