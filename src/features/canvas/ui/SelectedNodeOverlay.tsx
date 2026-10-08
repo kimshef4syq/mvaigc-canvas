@@ -462,21 +462,35 @@ export const SelectedNodeOverlay = memo(() => {
     const sizeForGateway = geometry.requestSize;
     const generationDurationMs = resolved.builtinModel?.expectedDurationMs ?? 60000;
     const generationStartedAt = Date.now();
-    const newNodePosition = findNodePosition(
-      selectedNode.id,
-      EXPORT_RESULT_NODE_DEFAULT_WIDTH,
-      EXPORT_RESULT_NODE_LAYOUT_HEIGHT
-    );
-    const newNodeId = addNode(CANVAS_NODE_TYPES.exportImage, newNodePosition, {
-      isGenerating: true,
-      generationStartedAt,
-      generationDurationMs,
-      resultKind: 'generic',
-      ...buildDefaultGeneratedImageMetadata(preset.prompt),
-      aspectRatio: ratioForGateway,
-    });
-    addEdge(selectedNode.id, newNodeId);
-    setSelectedNode(newNodeId);
+    // A 生成图片 node owns its results; preset generations append into it
+    // rather than spawning a new node. Other node types keep the old flow.
+    const isGenerateImageNode = selectedNode.type === CANVAS_NODE_TYPES.exportImage;
+    let newNodeId = selectedNode.id;
+    if (!isGenerateImageNode) {
+      const newNodePosition = findNodePosition(
+        selectedNode.id,
+        EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+        EXPORT_RESULT_NODE_LAYOUT_HEIGHT
+      );
+      newNodeId = addNode(CANVAS_NODE_TYPES.exportImage, newNodePosition, {
+        isGenerating: true,
+        generationStartedAt,
+        generationDurationMs,
+        resultKind: 'generic',
+        ...buildDefaultGeneratedImageMetadata(preset.prompt),
+        aspectRatio: ratioForGateway,
+      });
+      addEdge(selectedNode.id, newNodeId);
+      setSelectedNode(newNodeId);
+    } else {
+      updateNodeData(newNodeId, {
+        isGenerating: true,
+        generationStartedAt,
+        generationDurationMs,
+        generationError: null,
+        generationErrorDetails: null,
+      });
+    }
 
     try {
       const requestModel = resolved.builtinModel
