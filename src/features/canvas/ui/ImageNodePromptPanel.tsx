@@ -145,7 +145,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
   return (
     <div className="mt-2 flex justify-center">
       <div
-        className="nodrag nowheel w-[460px] max-w-[92vw] shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2 text-xs"
+        className="nodrag nowheel w-[563px] max-w-[92vw] shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2 text-xs"
       >
       <div className="relative">
         <textarea
