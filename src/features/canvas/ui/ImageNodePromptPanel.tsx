@@ -23,7 +23,6 @@ const PROMPT_COMMIT_DELAY_MS = 400;
 interface ImageNodePromptPanelProps {
   nodeId: string;
   data: ExportImageNodeData;
-  nodeWidth: number;
 }
 
 /**
@@ -32,7 +31,7 @@ interface ImageNodePromptPanelProps {
  * (overwrite) or a new node, so it stays small and does not touch the mature
  * AI-图片 panel.
  */
-export const ImageNodePromptPanel = memo(({ nodeId, data, nodeWidth }: ImageNodePromptPanelProps) => {
+export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanelProps) => {
   const { t } = useTranslation();
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const addNode = useCanvasStore((state) => state.addNode);
@@ -141,16 +140,10 @@ export const ImageNodePromptPanel = memo(({ nodeId, data, nodeWidth }: ImageNode
     }
   };
 
-  // Scale the whole panel with the node's width so controls never crowd when
-  // the node is shrunk. Computed in JS (not container queries) so it is
-  // independent of Tailwind/CSS feature support.
-  const panelFontSize = `${Math.max(6, Math.min(14, nodeWidth * 0.018))}px`;
-
   return (
-    <div className="mt-2">
+    <div className="mt-2 w-[460px] max-w-[92vw]">
       <div
-        className="nodrag nowheel shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2"
-        style={{ fontSize: panelFontSize }}
+        className="nodrag nowheel shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2 text-xs"
       >
       <textarea
         value={prompt}
