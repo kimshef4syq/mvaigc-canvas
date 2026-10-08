@@ -27,7 +27,7 @@ export const AUTO_REQUEST_ASPECT_RATIO = 'auto';
 export const DEFAULT_NODE_WIDTH = 220;
 export const EXPORT_RESULT_NODE_DEFAULT_WIDTH = 384;
 export const EXPORT_RESULT_NODE_LAYOUT_HEIGHT = 288;
-export const EXPORT_RESULT_NODE_MIN_WIDTH = 168;
+export const EXPORT_RESULT_NODE_MIN_WIDTH = 260;
 export const EXPORT_RESULT_NODE_MIN_HEIGHT = 168;
 
 export const IMAGE_SIZES = ['0.5K', '1K', '2K', '4K'] as const;

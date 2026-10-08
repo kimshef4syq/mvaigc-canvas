@@ -518,7 +518,7 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
         maxHeight={1600}
       />
 
-      {isExportResultNode ? (
+      {isExportResultNode && selected ? (
         <ImageNodePromptPanel nodeId={id} data={data as ExportImageNodeData} />
       ) : null}
     </div>

@@ -154,17 +154,19 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
         className="ui-scrollbar nodrag nowheel h-16 w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-2 py-1 text-sm leading-6 text-text-dark outline-none placeholder:text-text-muted/80"
       />
 
-      <div className="mt-1.5 flex items-center gap-1">
+      <div className="mt-1.5 min-w-0">
         <ModelConfigPicker
           panelKey="aiImageNode"
-          className="flex-1"
+          className="w-full"
           value={modelConfig ?? undefined}
           onChange={(modelConfigValue) => updateNodeData(nodeId, { modelConfig: modelConfigValue })}
         />
+      </div>
 
+      <div className="mt-1.5 flex items-center gap-2">
         <button
           type="button"
-          className="shrink-0 rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] px-2 py-0.5 text-[10px] text-text-dark"
+          className="shrink-0 rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] px-2 py-1 text-[11px] text-text-dark"
           onClick={(event) => {
             event.stopPropagation();
             setCount((value) => (value >= 4 ? 1 : value + 1));
@@ -174,22 +176,22 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
           {count}张
         </button>
 
-        <div className="relative shrink-0">
+        <div className="relative ml-auto flex shrink-0 items-center">
           <button
             type="button"
             disabled={!canSubmit}
-            className="flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-[11px] text-white disabled:opacity-50"
+            className="flex items-center gap-1 rounded-md bg-accent px-3 py-1 text-xs text-white disabled:opacity-50"
             onClick={(event) => {
               event.stopPropagation();
               void handleSubmit();
             }}
           >
-            <Send className="h-3 w-3" />
+            <Send className="h-3.5 w-3.5" />
             {t('common.generate')}
           </button>
           <button
             type="button"
-            className="ml-0.5 rounded-md border border-[var(--canvas-node-field-border)] px-1 py-0.5 text-[10px] text-text-dark"
+            className="ml-0.5 rounded-md border border-[var(--canvas-node-field-border)] px-1.5 py-1 text-[10px] text-text-dark"
             onClick={(event) => {
               event.stopPropagation();
               setModeMenuOpen((open) => !open);
