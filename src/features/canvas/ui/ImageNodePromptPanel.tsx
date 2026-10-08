@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { Maximize2, Send, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +8,7 @@ import { resolveActiveModelForPanel } from '@/features/canvas/application/resolv
 import { normalizeImageRequestGeometry } from '@/features/canvas/application/imageRequestGeometry';
 import {
   normalizeGenerateCount,
+  resolvePanelReferenceImages,
   submitImageNodeGeneration,
   type ImageGenerationMode,
 } from '@/features/canvas/application/imageNodeGeneration';
@@ -15,7 +17,10 @@ import { ModelConfigPicker, type ModelConfigValue } from '@/features/canvas/ui/M
 import { canvasAiGateway } from '@/features/canvas/application/canvasServices';
 import { findRelatedCanvasNodePositions } from '@/features/canvas/application/canvasNodePlacement';
 import { selectInputImageSignature, parseInputImageSignature } from '@/features/canvas/application/canvasGraphSelectors';
-import { EXPORT_RESULT_NODE_DEFAULT_WIDTH, EXPORT_RESULT_NODE_LAYOUT_HEIGHT } from '@/features/canvas/domain/canvasNodes';
+import { prepareNodeImageFromFile, resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
+import { insertReferenceToken } from '@/features/canvas/application/referenceTokenEditing';
+import { CanvasNodeImage } from '@/features/canvas/ui/CanvasNodeImage';
+import { EXPORT_RESULT_NODE_DEFAULT_WIDTH, EXPORT_RESULT_NODE_LAYOUT_HEIGHT, CANVAS_NODE_TYPES } from '@/features/canvas/domain/canvasNodes';
 import { UiModal } from '@/components/ui';
 import { useCanvasStore } from '@/stores/canvasStore';
 
@@ -36,6 +41,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
   const { t } = useTranslation();
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const addNode = useCanvasStore((state) => state.addNode);
+  const addEdge = useCanvasStore((state) => state.addEdge);
   const nodes = useCanvasStore((state) => state.nodes);
   const [mode, setMode] = useState<ImageGenerationMode>('overwrite');
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
@@ -44,7 +50,11 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [promptDraft, setPromptDraft] = useState(() => (typeof data.prompt === 'string' ? data.prompt : ''));
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerActiveIndex, setPickerActiveIndex] = useState(0);
   const promptCommitTimer = useRef<number | null>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+  const referenceInputRef = useRef<HTMLInputElement>(null);
 
   const incomingImageSignature = useCanvasStore((state) =>
     selectInputImageSignature(nodeId, state.nodes, state.edges)
@@ -52,6 +62,18 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
   const referenceImages = useMemo(
     () => parseInputImageSignature(incomingImageSignature),
     [incomingImageSignature]
+  );
+  const referenceItems = useMemo(
+    () => referenceImages.map((imageUrl, index) => ({
+      imageUrl,
+      displayUrl: resolveImageDisplayUrl(imageUrl),
+      label: `图${index + 1}`,
+    })),
+    [referenceImages]
+  );
+  const referenceViewerList = useMemo(
+    () => referenceItems.map((item) => item.displayUrl),
+    [referenceItems]
   );
 
   const modelConfig = (data.modelConfig ?? null) as ModelConfigValue | null;
@@ -90,6 +112,85 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
     }
   }, []);
 
+  const insertReference = (index: number) => {
+    const marker = referenceItems[index]?.label;
+    if (!marker) {
+      return;
+    }
+    const textarea = promptRef.current;
+    const cursor = textarea?.selectionStart ?? promptDraft.length;
+    const { nextText } = insertReferenceToken(promptDraft, cursor, `@${marker}`);
+    setPromptDraft(nextText);
+    if (promptCommitTimer.current !== null) {
+      window.clearTimeout(promptCommitTimer.current);
+      promptCommitTimer.current = null;
+    }
+    updateNodeData(nodeId, { prompt: nextText });
+    setPickerOpen(false);
+    setPickerActiveIndex(0);
+  };
+
+  const handleReferenceFile = async (file: File) => {
+    const [position] = findRelatedCanvasNodePositions({
+      nodes,
+      relatedNodeId: nodeId,
+      desired: { x: 0, y: 0 },
+      size: { width: EXPORT_RESULT_NODE_DEFAULT_WIDTH, height: EXPORT_RESULT_NODE_LAYOUT_HEIGHT },
+      count: 1,
+    });
+    try {
+      const prepared = await prepareNodeImageFromFile(file);
+      const uploadNodeId = addNode(CANVAS_NODE_TYPES.upload, position ?? { x: 0, y: 0 }, {
+        imageUrl: prepared.imageUrl,
+        previewImageUrl: prepared.previewImageUrl,
+        aspectRatio: prepared.aspectRatio || '1:1',
+        sourceFileName: file.name,
+      });
+      addEdge(uploadNodeId, nodeId);
+    } catch {
+      // Ignore unreadable files; the upload node simply is not created.
+    }
+  };
+
+  const handlePromptKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (pickerOpen && referenceItems.length > 0) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setPickerActiveIndex((previous) => (previous + 1) % referenceItems.length);
+        return;
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setPickerActiveIndex((previous) =>
+          previous === 0 ? referenceItems.length - 1 : previous - 1
+        );
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        insertReference(pickerActiveIndex);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPickerOpen(false);
+        return;
+      }
+    }
+
+    if (event.key === '@' && referenceItems.length > 0) {
+      event.preventDefault();
+      setPickerOpen(true);
+      setPickerActiveIndex(0);
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      void handleSubmit();
+    }
+  };
+
   const handleSubmit = async () => {
     if (!canSubmit) {
       return;
@@ -116,7 +217,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
           model: resolved.modelForGateway,
           size: geometry.requestSize,
           aspectRatio: geometry.requestAspectRatio,
-          referenceImages: [...referenceImages],
+          referenceImages: resolvePanelReferenceImages(prompt, referenceImages),
           extraParams: { ...resolved.extraParams },
         },
         deps: {
@@ -147,8 +248,46 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
       <div
         className="nodrag nowheel w-[563px] max-w-[92vw] shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2 text-xs"
       >
+      <div className="mb-[0.5em] flex flex-wrap gap-[0.5em]">
+        {referenceItems.map((item, index) => (
+          <CanvasNodeImage
+            key={`${item.imageUrl}-${index}`}
+            src={item.displayUrl}
+            alt={item.label}
+            viewerSourceUrl={item.displayUrl}
+            viewerImageList={referenceViewerList}
+            className="h-[3.2em] w-[3.2em] rounded object-cover"
+            draggable={false}
+          />
+        ))}
+        <button
+          type="button"
+          className="flex h-[3.2em] w-[3.2em] shrink-0 items-center justify-center rounded border border-dashed border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] text-lg leading-none text-text-muted transition-colors hover:border-accent/50 hover:text-text-dark"
+          title={t('node.imageNode.addReference')}
+          onClick={(event) => {
+            event.stopPropagation();
+            referenceInputRef.current?.click();
+          }}
+        >
+          +
+        </button>
+        <input
+          ref={referenceInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (file) {
+              void handleReferenceFile(file);
+            }
+          }}
+        />
+      </div>
       <div className="relative">
         <textarea
+          ref={promptRef}
           value={prompt}
           onChange={(event) => {
             const nextValue = event.target.value;
@@ -156,10 +295,45 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
             commitPromptDraft(nextValue);
           }}
           onBlur={flushPromptDraft}
+          onKeyDown={handlePromptKeyDown}
           onMouseDown={(event) => event.stopPropagation()}
           placeholder={t('node.imageEdit.promptPlaceholder')}
           className="ui-scrollbar nodrag nowheel h-[4.5em] w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-[0.6em] py-[0.35em] pr-[1.8em] text-[1em] leading-[1.6] text-text-dark outline-none placeholder:text-text-muted/80"
         />
+        {pickerOpen && referenceItems.length > 0 && (
+          <div
+            className="nowheel absolute left-0 top-full z-40 mt-[0.3em] w-[9em] overflow-hidden rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] shadow-xl"
+            onMouseDown={(event) => event.stopPropagation()}
+            onWheelCapture={(event) => event.stopPropagation()}
+          >
+            <div className="ui-scrollbar nowheel max-h-[12em] overflow-y-auto">
+              {referenceItems.map((item, index) => (
+                <button
+                  key={`${item.imageUrl}-${index}`}
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    insertReference(index);
+                  }}
+                  onMouseEnter={() => setPickerActiveIndex(index)}
+                  className={`flex w-full items-center gap-[0.5em] border border-transparent bg-transparent px-[0.5em] py-[0.4em] text-left text-[1em] text-text-dark transition-colors hover:border-[var(--canvas-node-field-border)] hover:bg-[var(--canvas-node-menu-hover)] ${
+                    pickerActiveIndex === index ? 'border-accent/35 bg-[var(--canvas-node-menu-active)]' : ''
+                  }`}
+                >
+                  <CanvasNodeImage
+                    src={item.displayUrl}
+                    alt={item.label}
+                    viewerSourceUrl={item.displayUrl}
+                    viewerImageList={referenceViewerList}
+                    className="h-[1.8em] w-[1.8em] shrink-0 rounded object-cover"
+                    draggable={false}
+                  />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <button
           type="button"
           className="nodrag absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)]/70 text-text-muted backdrop-blur-sm transition-colors hover:bg-[var(--canvas-node-menu-hover)] hover:text-text-dark"

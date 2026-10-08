@@ -38,9 +38,9 @@ const TOOLBAR_ITEMS: SideToolbarItem[] = [
     icon: TextIcon,
   },
   {
-    type: CANVAS_NODE_TYPES.imageEdit,
-    labelKey: 'node.menu.aiImageGeneration',
-    titleKey: 'canvasToolbar.addAiImage',
+    type: CANVAS_NODE_TYPES.exportImage,
+    labelKey: 'node.menu.generateImage',
+    titleKey: 'node.menu.generateImage',
     icon: ImagePlus,
   },
   {

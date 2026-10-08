@@ -42,6 +42,16 @@ export function queuedGenerationCount(nodeId: string): number {
   return pendingGenerations.get(nodeId)?.length ?? 0;
 }
 
+/**
+ * Reference images to send from a 生成图片 panel. Connected images are only
+ * attached when the prompt actually references them with an `@图N` token —
+ * otherwise mvaigc's proxy would prefix `@图N` for every connected image and
+ * silently bind them (a bare prompt must stay pure text-to-image).
+ */
+export function resolvePanelReferenceImages(prompt: string, connectedImages: string[]): string[] {
+  return /(?<![\p{L}\p{N}_])@图\d+/u.test(prompt) ? connectedImages : [];
+}
+
 /** Resolve the requested image count: custom wins, clamped to 1..10; else the preset. */
 export function normalizeGenerateCount(customCount: string | null, presetCount: number): number {
   const trimmed = typeof customCount === 'string' ? customCount.trim() : '';

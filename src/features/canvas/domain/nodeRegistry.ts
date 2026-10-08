@@ -101,7 +101,7 @@ const imageEditNodeDefinition: CanvasNodeDefinition<ImageEditNodeData> = {
     targetHandle: true,
     manualSource: true,
     connectMenu: {
-      fromSource: true,
+      fromSource: false,
       fromTarget: false,
     },
   },
@@ -236,7 +236,7 @@ const exportImageNodeDefinition: CanvasNodeDefinition<ExportImageNodeData> = {
     targetHandle: true,
     manualSource: true,
     connectMenu: {
-      fromSource: false,
+      fromSource: true,
       fromTarget: false,
     },
   },

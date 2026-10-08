@@ -4,6 +4,7 @@ import {
   drainQueuedGeneration,
   normalizeGenerateCount,
   queuedGenerationCount,
+  resolvePanelReferenceImages,
   submitImageNodeGeneration,
   takeNextQueuedGeneration,
   type ImageGenerationPayload,
@@ -89,6 +90,25 @@ describe('drainQueuedGeneration', () => {
     const continued = await drainQueuedGeneration('drain-empty', { submitJob, updateNodeData });
     expect(continued).toBe(false);
     expect(submitJob).not.toHaveBeenCalled();
+  });
+});
+
+describe('resolvePanelReferenceImages', () => {
+  const connected = ['/a.png', '/b.png'];
+
+  it('sends no reference images when the prompt has no @图N token', () => {
+    expect(resolvePanelReferenceImages('一个男孩', connected)).toEqual([]);
+    expect(resolvePanelReferenceImages('', connected)).toEqual([]);
+    expect(resolvePanelReferenceImages('风格 #赛博朋克', connected)).toEqual([]);
+  });
+
+  it('sends the connected images when the prompt mentions @图N', () => {
+    expect(resolvePanelReferenceImages('@图1 一个男孩', connected)).toEqual(connected);
+    expect(resolvePanelReferenceImages('保持 @图2 的衣服', connected)).toEqual(connected);
+  });
+
+  it('ignores @ preceded by a word character (e.g. an email)', () => {
+    expect(resolvePanelReferenceImages('a@图1', connected)).toEqual([]);
   });
 });
 
