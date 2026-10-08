@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveFrameCaptureTime } from './videoUpload';
+import { buildCapturedFrameNodeData, resolveFrameCaptureTime } from './videoUpload';
+
+describe('buildCapturedFrameNodeData', () => {
+  it('builds upload-node data from a captured frame', () => {
+    const data = buildCapturedFrameNodeData('/frame.jpg', '9:16');
+    expect(data.imageUrl).toBe('/frame.jpg');
+    expect(data.previewImageUrl).toBe('/frame.jpg');
+    expect(data.aspectRatio).toBe('9:16');
+  });
+
+  it('falls back to the default aspect ratio when empty', () => {
+    expect(buildCapturedFrameNodeData('/frame.jpg', '').aspectRatio).toBe('1:1');
+  });
+});
 
 describe('resolveFrameCaptureTime', () => {
   it('first is 0', () => {

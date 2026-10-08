@@ -286,6 +286,11 @@ export interface AiVideoNodeData extends NodeDisplayData {
   selectedPromptPresetId?: string | null;
   videos?: GeneratedVideoEntry[];
   mainVideoIndex?: number;
+  // Mirror of the main history entry; written in overwrite mode so the node
+  // itself carries the video the same way standalone `video` nodes do.
+  videoUrl?: string | null;
+  thumbnailUrl?: string | null;
+  aspectRatio?: string;
 }
 
 export interface AiTextNodeData extends NodeDisplayData {

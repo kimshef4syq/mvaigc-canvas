@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
-import { AlertTriangle, Bug, Camera, Check, ChevronDown, ChevronRight, Copy, Maximize2, Sparkles, Video, X } from 'lucide-react';
+import { AlertTriangle, Bug, Camera, Check, ChevronDown, ChevronRight, Copy, History, Loader2, Maximize2, Sparkles, Video, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -35,6 +35,9 @@ import {
 } from '@/features/canvas/application/graphReferenceResolver';
 import { resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
 import type { VideoGenerationMode } from '@/features/canvas/application/videoNodeGeneration';
+import { normalizeVideoHistory, resolveMainVideoEntry } from '@/features/canvas/application/generatedVideoHistory';
+import { buildCapturedFrameNodeData, captureVideoThumbnail, resolveFrameCaptureTime } from '@/features/canvas/application/videoUpload';
+import { VideoNodeToolbar, type FrameCaptureMode } from '@/features/canvas/ui/VideoNodeToolbar';
 import { resolveErrorContent, showErrorDialog } from '@/features/canvas/application/errorDialog';
 import {
   CURRENT_RUNTIME_SESSION_ID,
@@ -362,6 +365,21 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [generationMode, setGenerationMode] = useState<VideoGenerationMode>('overwrite');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [frameMenuOpen, setFrameMenuOpen] = useState(false);
+  const [videoPreviewSource, setVideoPreviewSource] = useState<string | null>(null);
+
+  const videoHistory = useMemo(
+    () => normalizeVideoHistory(data as Record<string, unknown>)?.videos ?? [],
+    [data]
+  );
+  const mainVideoEntry = useMemo(
+    () => resolveMainVideoEntry(videoHistory, data.mainVideoIndex),
+    [videoHistory, data.mainVideoIndex]
+  );
+  const displayVideoUrl = mainVideoEntry?.videoUrl ?? data.videoUrl ?? null;
+  const displayPosterUrl = mainVideoEntry?.thumbnailUrl ?? data.thumbnailUrl ?? null;
+  const displayVideoSource = displayVideoUrl ? resolveImageDisplayUrl(displayVideoUrl) : null;
   const [showCameraControl, setShowCameraControl] = useState(false);
   const [payloadDebugText, setPayloadDebugText] = useState<string | null>(null);
   const [payloadDebugCopied, setPayloadDebugCopied] = useState(false);
@@ -983,6 +1001,43 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
     updateNodeData,
   ]);
 
+  const handleCaptureFrame = useCallback(async (mode: FrameCaptureMode) => {
+    setFrameMenuOpen(false);
+    if (!displayVideoSource) {
+      return;
+    }
+    const videoEl = rootRef.current?.querySelector('video');
+    const duration = videoEl?.duration ?? 0;
+    const currentTime = videoEl?.currentTime ?? 0;
+    const captureTime = resolveFrameCaptureTime(mode, duration, currentTime);
+    const frameUrl = await captureVideoThumbnail(displayVideoUrl ?? displayVideoSource, captureTime);
+    if (!frameUrl) {
+      void showErrorDialog(t('node.aiVideo.captureFrameFailed'), t('common.error'));
+      return;
+    }
+    const position = findNodePosition(
+      id,
+      EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+      EXPORT_RESULT_NODE_LAYOUT_HEIGHT
+    );
+    const uploadNodeId = addNode(
+      CANVAS_NODE_TYPES.upload,
+      position,
+      buildCapturedFrameNodeData(frameUrl, mainVideoEntry?.aspectRatio ?? data.aspectRatio ?? '')
+    );
+    addEdge(id, uploadNodeId);
+  }, [
+    addEdge,
+    addNode,
+    data.aspectRatio,
+    displayVideoSource,
+    displayVideoUrl,
+    findNodePosition,
+    id,
+    mainVideoEntry?.aspectRatio,
+    t,
+  ]);
+
   const handleOpenPayloadDebug = useCallback(async () => {
     try {
       const assembled = assembleVideoGenerationRequest();
@@ -1243,6 +1298,101 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         editable
         onTitleChange={(nextTitle) => updateNodeData(id, { displayName: nextTitle })}
       />
+
+      <div className="relative mb-2 shrink-0 overflow-hidden rounded-lg border border-[var(--canvas-node-field-border)] bg-black">
+        <div className="relative aspect-video w-full">
+          {data.isGenerating ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-text-muted">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-[11px]">{t('node.imageNode.waitingResult')}</span>
+            </div>
+          ) : displayVideoSource ? (
+            <video
+              src={displayVideoSource}
+              poster={displayPosterUrl ? resolveImageDisplayUrl(displayPosterUrl) : undefined}
+              controls
+              playsInline
+              className="nodrag nowheel h-full w-full bg-black object-contain"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[11px] text-text-muted">
+              {t('node.imageNode.emptyHint')}
+            </div>
+          )}
+
+          {videoHistory.length > 1 && (
+            <div className="nodrag absolute left-2 top-2 z-20">
+              <button
+                type="button"
+                className="flex h-6 items-center gap-1 rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)]/80 px-2 text-[11px] text-text-dark backdrop-blur-sm transition-colors hover:bg-[var(--canvas-node-menu-hover)]"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setHistoryOpen((open) => !open);
+                }}
+              >
+                <History className="h-3.5 w-3.5" />
+                {t('node.aiVideo.history', { count: videoHistory.length })}
+              </button>
+              {historyOpen && (
+                <div
+                  className="nowheel mt-1 max-h-[200px] w-[200px] overflow-y-auto rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] p-1.5 shadow-xl"
+                  onWheelCapture={(event) => event.stopPropagation()}
+                >
+                  <div className="grid grid-cols-3 gap-1">
+                    {videoHistory.map((entry, index) => (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        className={`relative aspect-square overflow-hidden rounded-md border ${
+                          index === (data.mainVideoIndex ?? -1) ? 'border-accent' : 'border-transparent'
+                        } bg-black`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          updateNodeData(id, {
+                            mainVideoIndex: index,
+                            videoUrl: entry.videoUrl,
+                            thumbnailUrl: entry.thumbnailUrl,
+                          });
+                          setHistoryOpen(false);
+                        }}
+                      >
+                        {entry.thumbnailUrl ? (
+                          <img
+                            src={resolveImageDisplayUrl(entry.thumbnailUrl)}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            draggable={false}
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-text-muted">
+                            <Video className="h-4 w-4" />
+                          </span>
+                        )}
+                        {index === (data.mainVideoIndex ?? -1) ? (
+                          <span className="absolute bottom-0 left-0 rounded-tr bg-accent px-1 text-[10px] text-white">
+                            {t('node.aiVideo.mainVideo')}
+                          </span>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {displayVideoSource && !data.isGenerating && (
+            <div className="nodrag absolute bottom-2 right-2 z-20">
+              <VideoNodeToolbar
+                onPreview={() => setVideoPreviewSource(displayVideoSource)}
+                onCaptureFrame={(mode) => void handleCaptureFrame(mode)}
+                onToggleFrameMenu={() => setFrameMenuOpen((open) => !open)}
+                frameMenuOpen={frameMenuOpen}
+              />
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="image-box relative min-h-0 flex-1 rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-2">
         <div className="relative h-full min-h-0">
@@ -1954,6 +2104,24 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
           placeholder={t('node.aiVideo.promptPlaceholder')}
           className="ui-scrollbar nowheel h-[40vh] w-full resize-none rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-3 text-sm leading-6 text-text-dark outline-none placeholder:text-text-muted/80"
         />
+      </UiModal>
+
+      <UiModal
+        isOpen={videoPreviewSource !== null}
+        title={resolvedTitle}
+        onClose={() => setVideoPreviewSource(null)}
+        widthClassName="w-[min(880px,calc(100vw-32px))]"
+        containerClassName="!z-[13050]"
+      >
+        {videoPreviewSource && (
+          <video
+            src={videoPreviewSource}
+            controls
+            autoPlay
+            playsInline
+            className="nowheel max-h-[70vh] w-full rounded-lg bg-black"
+          />
+        )}
       </UiModal>
 
       <CameraControlPanel

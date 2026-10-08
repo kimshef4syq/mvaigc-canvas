@@ -1,6 +1,7 @@
 import { persistVideoSource } from '@/commands/image';
 import { persistImageLocally, resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
 import type { VideoNodeData } from '@/features/canvas/domain/canvasNodes';
+import { DEFAULT_ASPECT_RATIO } from '@/features/canvas/domain/canvasNodes';
 
 const DEFAULT_VIDEO_ASPECT_RATIO = '16:9';
 const VIDEO_METADATA_TIMEOUT_MS = 8000;
@@ -126,6 +127,22 @@ export function resolveFrameCaptureTime(
   return Number.isFinite(durationSec) && durationSec > 0
     ? Math.max(0, durationSec - FRAME_CAPTURE_END_EPSILON_SEC)
     : 0;
+}
+
+/**
+ * Node data for a captured video frame, dropped onto the canvas as an upload
+ * node so the frame becomes a normal image reference. The frame is already
+ * persisted to a local image file by `captureVideoThumbnail`.
+ */
+export function buildCapturedFrameNodeData(
+  imageUrl: string,
+  aspectRatio: string
+): Record<string, unknown> {
+  return {
+    imageUrl,
+    previewImageUrl: imageUrl,
+    aspectRatio: aspectRatio || DEFAULT_ASPECT_RATIO,
+  };
 }
 
 // A video node shows its first frame as the poster so the canvas is readable at
