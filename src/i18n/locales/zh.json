@@ -1481,6 +1481,7 @@
     "aiVideo": {
       "workflow": "由工作流决定",
       "promptPlaceholder": "描述视频内容、镜头运动、动作节奏；输入 @ 可引用已连接图片",
+      "expandPrompt": "放大输入框",
       "promptRequired": "请输入视频提示词",
       "noVideoProvider": "请先在「设置 → 我的配置 → 视频生成」中添加可用的视频供应商。",
       "noModel": "选择视频模型",

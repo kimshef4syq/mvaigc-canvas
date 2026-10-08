@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
-import { AlertTriangle, Bug, Camera, Check, ChevronDown, ChevronRight, Copy, Sparkles, Video, X } from 'lucide-react';
+import { AlertTriangle, Bug, Camera, Check, ChevronDown, ChevronRight, Copy, Maximize2, Sparkles, Video, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -34,6 +34,7 @@ import {
   normalizeReferenceTokensForSubmission,
 } from '@/features/canvas/application/graphReferenceResolver';
 import { resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
+import type { VideoGenerationMode } from '@/features/canvas/application/videoNodeGeneration';
 import { resolveErrorContent, showErrorDialog } from '@/features/canvas/application/errorDialog';
 import {
   CURRENT_RUNTIME_SESSION_ID,
@@ -358,6 +359,9 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
   const [showFunctionPicker, setShowFunctionPicker] = useState(false);
   const [functionPickerAnchor, setFunctionPickerAnchor] = useState(PICKER_FALLBACK_ANCHOR);
   const [functionPickerActiveIndex, setFunctionPickerActiveIndex] = useState(0);
+  const [promptExpanded, setPromptExpanded] = useState(false);
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [generationMode, setGenerationMode] = useState<VideoGenerationMode>('overwrite');
   const [showCameraControl, setShowCameraControl] = useState(false);
   const [payloadDebugText, setPayloadDebugText] = useState<string | null>(null);
   const [payloadDebugCopied, setPayloadDebugCopied] = useState(false);
@@ -884,30 +888,32 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         useCanvasStore.getState().nodes
       );
       const generatedDateStamp = getLocalDateStamp();
-      const newNodePosition = findNodePosition(
-        id,
-        EXPORT_RESULT_NODE_DEFAULT_WIDTH,
-        EXPORT_RESULT_NODE_LAYOUT_HEIGHT
-      );
-      resultNodeId = addNode(
-        CANVAS_NODE_TYPES.video,
-        newNodePosition,
-        {
-          isGenerating: true,
-          generationStartedAt,
-          generationDurationMs,
-          displayName: resolveDefaultGeneratedVideoDisplayName(generatedSequence, prompt),
-          generatedNamingMode: 'default',
-          generatedSequence,
-          generatedDateStamp,
-          generatedFileName: `${resolveDefaultGeneratedVideoFileStem(generatedSequence, generatedDateStamp)}.mp4`,
-          aspectRatio: outputAspectRatio,
-          durationSeconds: Number(latestModelConfig.duration) || null,
-          sourcePrompt: prompt,
-          sourceReferenceCount: latestIncomingImages.length,
-        }
-      );
-      addEdge(id, resultNodeId);
+      const resultNodeData = {
+        isGenerating: true,
+        generationStartedAt,
+        generationDurationMs,
+        displayName: resolveDefaultGeneratedVideoDisplayName(generatedSequence, prompt),
+        generatedNamingMode: 'default' as const,
+        generatedSequence,
+        generatedDateStamp,
+        generatedFileName: `${resolveDefaultGeneratedVideoFileStem(generatedSequence, generatedDateStamp)}.mp4`,
+        aspectRatio: outputAspectRatio,
+        durationSeconds: Number(latestModelConfig.duration) || null,
+        sourcePrompt: prompt,
+        sourceReferenceCount: latestIncomingImages.length,
+      };
+      if (generationMode === 'newNode') {
+        const newNodePosition = findNodePosition(
+          id,
+          EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+          EXPORT_RESULT_NODE_LAYOUT_HEIGHT
+        );
+        resultNodeId = addNode(CANVAS_NODE_TYPES.video, newNodePosition, resultNodeData);
+        addEdge(id, resultNodeId);
+      } else {
+        resultNodeId = id;
+        updateNodeData(id, resultNodeData);
+      }
       setError(null);
 
       const runtimeDiagnostics = await getRuntimeDiagnostics();
@@ -971,6 +977,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
     assembleVideoGenerationRequest,
     data,
     findNodePosition,
+    generationMode,
     id,
     t,
     updateNodeData,
@@ -1239,6 +1246,35 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
 
       <div className="image-box relative min-h-0 flex-1 rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-2">
         <div className="relative h-full min-h-0">
+          {schemaReferencePickerItems.length > 0 && (
+            <div className="mb-1 flex flex-wrap gap-1">
+              {schemaReferencePickerItems.map((item, index) => (
+                <button
+                  key={`${item.kind}-${item.sourceNodeId}-${index}`}
+                  type="button"
+                  className="nodrag nowheel flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] text-[10px] font-semibold text-text-muted"
+                  title={item.label}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    insertReferenceToken(index);
+                  }}
+                >
+                  {item.kind === 'image' && item.displayUrl ? (
+                    <CanvasNodeImage
+                      src={item.displayUrl}
+                      alt={item.label}
+                      viewerSourceUrl={resolveImageDisplayUrl(item.imageUrl ?? item.displayUrl)}
+                      viewerImageList={incomingViewerList}
+                      className="h-full w-full object-cover"
+                      draggable={false}
+                    />
+                  ) : (
+                    <span>{item.kind === 'video' ? 'V' : item.kind === 'audio' ? 'A' : 'T'}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
           {selectedPresetLabel && (
             <div className="absolute left-1 top-1 z-20 flex max-w-[calc(100%-8px)] items-center gap-1 rounded-md border border-accent/35 bg-accent/18 px-2 py-1 text-xs text-accent shadow-sm">
               <Sparkles className="h-3.5 w-3.5 shrink-0" />
@@ -1284,6 +1320,17 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
             className={`ui-scrollbar nodrag nowheel relative z-10 h-full w-full resize-none overflow-y-auto overflow-x-hidden border-none bg-transparent px-1 py-0.5 text-sm leading-6 text-transparent caret-text-dark outline-none placeholder:text-text-muted/80 focus:border-transparent whitespace-pre-wrap break-words ${selectedPresetLabel ? 'pt-8' : ''}`}
             style={{ scrollbarGutter: 'stable' }}
           />
+          <button
+            type="button"
+            className="nodrag absolute right-1 top-1 z-20 flex h-6 w-6 items-center justify-center rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)]/70 text-text-muted backdrop-blur-sm transition-colors hover:bg-[var(--canvas-node-menu-hover)] hover:text-text-dark"
+            title={t('node.aiVideo.expandPrompt')}
+            onClick={(event) => {
+              event.stopPropagation();
+              setPromptExpanded(true);
+            }}
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         {referencePickerOpen && schemaReferencePickerItems.length > 0 && (
@@ -1768,6 +1815,47 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
             <Sparkles className={NODE_CONTROL_ICON_CLASS} strokeWidth={2.8} />
             {t('canvas.generate')}
           </UiButton>
+          <div className="relative shrink-0">
+            <UiButton
+              onClick={(event) => {
+                event.stopPropagation();
+                setModeMenuOpen((open) => !open);
+              }}
+              variant="muted"
+              className={`${NODE_CONTROL_CHIP_CLASS} ${AI_VIDEO_COMPACT_ICON_CHIP_CLASS}`}
+              title={t('node.imageNode.modeOverwrite')}
+              aria-label={t('node.imageNode.modeOverwrite')}
+            >
+              <ChevronDown className={NODE_CONTROL_ICON_CLASS} />
+            </UiButton>
+            {modeMenuOpen && (
+              <div
+                className="nowheel absolute bottom-full right-0 z-50 mb-1 w-[12em] overflow-hidden rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] shadow-xl"
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                {([
+                  ['overwrite', t('node.imageNode.modeOverwrite'), t('node.imageNode.modeOverwriteHint')],
+                  ['newNode', t('node.imageNode.modeNewNode'), t('node.imageNode.modeNewNodeHint')],
+                ] as const).map(([value, label, hint]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`flex w-full flex-col items-start px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--canvas-node-menu-hover)] ${
+                      generationMode === value ? 'bg-[var(--canvas-node-menu-active)]' : ''
+                    }`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setGenerationMode(value);
+                      setModeMenuOpen(false);
+                    }}
+                  >
+                    <span>{label}</span>
+                    <span className="text-[11px] text-text-muted">{hint}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1830,6 +1918,42 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
             {payloadDebugText}
           </pre>
         </div>
+      </UiModal>
+
+      <UiModal
+        isOpen={promptExpanded}
+        title={t('node.aiVideo.expandPrompt')}
+        onClose={() => {
+          flushPromptDraft();
+          setPromptExpanded(false);
+        }}
+        widthClassName="w-[min(760px,calc(100vw-32px))]"
+        containerClassName="!z-[13050]"
+        footer={(
+          <UiButton
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              flushPromptDraft();
+              setPromptExpanded(false);
+            }}
+          >
+            {t('common.close')}
+          </UiButton>
+        )}
+      >
+        <textarea
+          value={promptDraft}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            promptDraftRef.current = nextValue;
+            setPromptDraft(nextValue);
+            schedulePromptCommit(nextValue);
+          }}
+          onBlur={() => flushPromptDraft()}
+          placeholder={t('node.aiVideo.promptPlaceholder')}
+          className="ui-scrollbar nowheel h-[40vh] w-full resize-none rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-3 text-sm leading-6 text-text-dark outline-none placeholder:text-text-muted/80"
+        />
       </UiModal>
 
       <CameraControlPanel

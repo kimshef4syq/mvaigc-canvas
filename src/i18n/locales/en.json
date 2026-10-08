@@ -1485,6 +1485,7 @@
     "aiVideo": {
       "workflow": "Workflow",
       "promptPlaceholder": "Describe the video, camera motion, action timing; type @ to reference connected images",
+      "expandPrompt": "Expand prompt",
       "promptRequired": "Please enter a video prompt",
       "noVideoProvider": "Add an available video provider in Settings > My Config > Video Generation first.",
       "noModel": "Choose video model",
