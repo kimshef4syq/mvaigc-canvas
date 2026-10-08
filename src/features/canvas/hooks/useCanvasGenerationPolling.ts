@@ -14,6 +14,7 @@ import { buildCompletedImagePatch } from '@/features/canvas/application/generate
 import { buildVideoResultPatch } from '@/features/canvas/application/generatedVideoHistory';
 import { drainQueuedGeneration } from '@/features/canvas/application/imageNodeGeneration';
 import type { GeneratedImageEntry } from '@/features/canvas/domain/canvasNodes';
+import type { GeneratedVideoEntry } from '@/features/canvas/domain/canvasNodes';
 import {
   buildGenerationErrorReport,
   CURRENT_RUNTIME_SESSION_ID,
@@ -83,6 +84,7 @@ function isPollableNode(node: CanvasNode): boolean {
     node.type !== CANVAS_NODE_TYPES.exportImage
     && node.type !== CANVAS_NODE_TYPES.panorama
     && node.type !== CANVAS_NODE_TYPES.video
+    && node.type !== CANVAS_NODE_TYPES.aiVideo
   ) {
     return false;
   }
@@ -591,7 +593,21 @@ async function prepareCompletedVideoResult(
   // The poster is captured after the node update so the video appears
   // immediately; a null result just leaves the node without a poster.
   void captureVideoThumbnail(finalLocalVideoUrl).then((thumbnailUrl) => {
-    if (thumbnailUrl) {
+    if (!thumbnailUrl) {
+      return;
+    }
+    const latestNode = useCanvasStore.getState().nodes.find((node) => node.id === nodeId);
+    const latestVideos = latestNode?.type === CANVAS_NODE_TYPES.aiVideo
+      ? (latestNode.data as { videos?: GeneratedVideoEntry[] }).videos
+      : undefined;
+    // Write the poster onto the node AND its newest history entry, so the
+    // history panel shows a thumbnail for the just-finished video.
+    if (Array.isArray(latestVideos) && latestVideos.length > 0) {
+      const nextVideos = latestVideos.map((entry, index) => (
+        index === latestVideos.length - 1 ? { ...entry, thumbnailUrl } : entry
+      ));
+      updateNodeData(nodeId, { thumbnailUrl, videos: nextVideos });
+    } else {
       updateNodeData(nodeId, { thumbnailUrl });
     }
   });
@@ -620,7 +636,11 @@ async function pollSingleJob(ctx: PollContext): Promise<void> {
       }
 
       const currentData = currentNode.data as Record<string, unknown>;
-      const isVideoNode = currentNode.type === CANVAS_NODE_TYPES.video;
+      // Both legacy standalone `video` nodes and the unified `aiVideo` node
+      // (overwrite mode submits the video job into the node itself) are video
+      // jobs, so they must use the video gateway / timeout, not the image one.
+      const isVideoNode = currentNode.type === CANVAS_NODE_TYPES.video
+        || currentNode.type === CANVAS_NODE_TYPES.aiVideo;
       const timeoutMs = isVideoNode ? VIDEO_GENERATION_JOB_TIMEOUT_MS : GENERATION_JOB_TIMEOUT_MS;
       if (Date.now() - startedAt > timeoutMs) {
         markGenerationFailed(
