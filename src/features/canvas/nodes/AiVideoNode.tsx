@@ -1023,12 +1023,13 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
     const position = selfNode
       ? { x: selfNode.position.x + resolvedWidth + 32, y: selfNode.position.y }
       : findNodePosition(id, EXPORT_RESULT_NODE_DEFAULT_WIDTH, EXPORT_RESULT_NODE_LAYOUT_HEIGHT);
-    const uploadNodeId = addNode(
-      CANVAS_NODE_TYPES.upload,
+    const frameNodeId = addNode(
+      CANVAS_NODE_TYPES.exportImage,
       position,
       buildCapturedFrameNodeData(frameUrl, mainVideoEntry?.aspectRatio ?? data.aspectRatio ?? '')
     );
-    addEdge(uploadNodeId, id);
+    // video → frame (downstream), so the frame node accepts the edge.
+    addEdge(id, frameNodeId);
   }, [
     addEdge,
     addNode,

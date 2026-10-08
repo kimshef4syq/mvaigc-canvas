@@ -130,18 +130,32 @@ export function resolveFrameCaptureTime(
 }
 
 /**
- * Node data for a captured video frame, dropped onto the canvas as an upload
- * node so the frame becomes a normal image reference. The frame is already
- * persisted to a local image file by `captureVideoThumbnail`.
+ * Node data for a captured video frame, dropped onto the canvas as a
+ * 生成图片 (exportImage) node — that type accepts an incoming edge, so the
+ * frame node can be connected `video → frame` (downstream of the video). The
+ * frame is already persisted to a local image file by `captureVideoThumbnail`.
  */
 export function buildCapturedFrameNodeData(
   imageUrl: string,
   aspectRatio: string
 ): Record<string, unknown> {
   return {
+    displayName: '截帧',
     imageUrl,
     previewImageUrl: imageUrl,
     aspectRatio: aspectRatio || DEFAULT_ASPECT_RATIO,
+    images: [],
+    mainImageIndex: -1,
+    prompt: '',
+    isGenerating: false,
+    generationStartedAt: null,
+    generationDurationMs: 60000,
+    generationJobId: null,
+    generationProviderId: null,
+    generationClientSessionId: null,
+    generationError: null,
+    generationErrorDetails: null,
+    generationRetryResultUrl: null,
   };
 }
 

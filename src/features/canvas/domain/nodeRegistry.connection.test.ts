@@ -4,28 +4,32 @@ import { CANVAS_NODE_TYPES } from './canvasNodes';
 import { nodeHasSourceHandle, nodeHasTargetHandle } from './nodeRegistry';
 
 /**
- * Guard for the reference-connection direction used by the 生成视频 node's
- * frame capture (and the 生成图片 panel's + button): a captured frame becomes an
- * `upload` node that feeds the prompt node. `upload` has no target handle, so
- * the edge must be `upload → promptNode`, never the reverse.
+ * Guard for the connection directions used by the video node's frame capture
+ * and the 生成图片 panel's + button.
+ *
+ * - 生成图片 panel `+`: upload → promptNode. `upload` has no target handle, so
+ *   the edge must be `upload → promptNode`, never the reverse.
+ * - 生成视频 frame capture: video → frame. The frame node is a 生成图片
+ *   (exportImage) node, which accepts an incoming edge, so the edge is
+ *   `video → frame` (downstream of the video).
  */
 describe('reference connection direction', () => {
-  it('allows upload as a source and as the target of aiVideo/exportImage', () => {
+  it('upload can be a source but never a target', () => {
     expect(nodeHasSourceHandle(CANVAS_NODE_TYPES.upload)).toBe(true);
     expect(nodeHasTargetHandle(CANVAS_NODE_TYPES.upload)).toBe(false);
+  });
 
+  it('aiVideo and exportImage both accept incoming edges', () => {
     expect(nodeHasTargetHandle(CANVAS_NODE_TYPES.aiVideo)).toBe(true);
     expect(nodeHasTargetHandle(CANVAS_NODE_TYPES.exportImage)).toBe(true);
   });
 
-  it('rejects the reversed edge (aiVideo → upload) that dropped the frame node', () => {
-    // upload → aiVideo is valid; aiVideo → upload is not (upload can't be a target).
-    const forwardValid = nodeHasSourceHandle(CANVAS_NODE_TYPES.upload)
-      && nodeHasTargetHandle(CANVAS_NODE_TYPES.aiVideo);
-    const reversedValid = nodeHasSourceHandle(CANVAS_NODE_TYPES.aiVideo)
-      && nodeHasTargetHandle(CANVAS_NODE_TYPES.upload);
-
-    expect(forwardValid).toBe(true);
-    expect(reversedValid).toBe(false);
+  it('frame capture edge is video → frame (exportImage)', () => {
+    // The frame node is an exportImage node, which accepts a target handle, so
+    // `video → frame` is a valid connection.
+    expect(
+      nodeHasSourceHandle(CANVAS_NODE_TYPES.aiVideo)
+      && nodeHasTargetHandle(CANVAS_NODE_TYPES.exportImage),
+    ).toBe(true);
   });
 });
