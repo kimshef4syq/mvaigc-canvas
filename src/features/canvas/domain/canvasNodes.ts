@@ -92,6 +92,18 @@ export interface GeneratedImageEntry {
   createdAt: number;
 }
 
+export interface GeneratedVideoEntry {
+  id: string;
+  videoUrl: string | null;
+  thumbnailUrl: string | null;
+  aspectRatio: string;
+  localVideoUrl?: string | null;
+  durationSeconds?: number | null;
+  generatedFileName?: string | null;
+  sourcePrompt?: string | null;
+  createdAt: number;
+}
+
 export interface ExportImageNodeData extends NodeImageData {
   resultKind?: ExportImageNodeResultKind;
   images?: GeneratedImageEntry[];
@@ -272,6 +284,8 @@ export interface AiVideoNodeData extends NodeDisplayData {
   generationJobId?: string;
   cameraControl?: CameraControlOptions;
   selectedPromptPresetId?: string | null;
+  videos?: GeneratedVideoEntry[];
+  mainVideoIndex?: number;
 }
 
 export interface AiTextNodeData extends NodeDisplayData {
