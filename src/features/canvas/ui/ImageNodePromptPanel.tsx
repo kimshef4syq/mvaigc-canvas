@@ -23,6 +23,7 @@ const PROMPT_COMMIT_DELAY_MS = 400;
 interface ImageNodePromptPanelProps {
   nodeId: string;
   data: ExportImageNodeData;
+  nodeWidth: number;
 }
 
 /**
@@ -31,7 +32,7 @@ interface ImageNodePromptPanelProps {
  * (overwrite) or a new node, so it stays small and does not touch the mature
  * AI-图片 panel.
  */
-export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanelProps) => {
+export const ImageNodePromptPanel = memo(({ nodeId, data, nodeWidth }: ImageNodePromptPanelProps) => {
   const { t } = useTranslation();
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const addNode = useCanvasStore((state) => state.addNode);
@@ -140,11 +141,16 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
     }
   };
 
+  // Scale the whole panel with the node's width so controls never crowd when
+  // the node is shrunk. Computed in JS (not container queries) so it is
+  // independent of Tailwind/CSS feature support.
+  const panelFontSize = `${Math.max(6, Math.min(14, nodeWidth * 0.018))}px`;
+
   return (
-    <div className="mt-2 [container-type:inline-size]">
+    <div className="mt-2">
       <div
         className="nodrag nowheel shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2"
-        style={{ fontSize: 'clamp(6px, 1.8cqw, 14px)' }}
+        style={{ fontSize: panelFontSize }}
       >
       <textarea
         value={prompt}
@@ -159,7 +165,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
         className="ui-scrollbar nodrag nowheel h-[4.5em] w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-[0.6em] py-[0.35em] text-[1em] leading-[1.6] text-text-dark outline-none placeholder:text-text-muted/80"
       />
 
-      <div className="mt-[0.5em] flex min-w-0 items-center gap-[0.5em]">
+      <div className="mt-[0.5em] flex min-w-0 flex-wrap items-center gap-[0.5em]">
         <ModelConfigPicker
           panelKey="aiImageNode"
           className="min-w-0 flex-1"

@@ -523,7 +523,7 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
       />
 
       {isExportResultNode && selected ? (
-        <ImageNodePromptPanel nodeId={id} data={data as ExportImageNodeData} />
+        <ImageNodePromptPanel nodeId={id} data={data as ExportImageNodeData} nodeWidth={resolvedWidth} />
       ) : null}
     </div>
   );
