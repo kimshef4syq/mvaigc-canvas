@@ -208,16 +208,16 @@ export function defaultVideoInputSchemaForProviderKind(providerKind: unknown): V
         requireImageHost: true,
       },
       video: {
-        enabled: false,
+        enabled: true,
         min: 0,
-        max: 0,
-        field: '',
+        max: 3,
+        field: 'video',
       },
       audio: {
-        enabled: false,
+        enabled: true,
         min: 0,
-        max: 0,
-        field: '',
+        max: 3,
+        field: 'audio',
       },
     });
   }

@@ -4329,6 +4329,8 @@ function buildVolcengineSeedanceVideoJsonBody(
   const aspectRatio = userExtra.aspectRatio ?? userExtra.aspect_ratio ?? request.aspect_ratio;
   const resolution = userExtra.resolutionType ?? userExtra.size ?? request.size;
   const referenceImages = request.reference_images ?? [];
+  const referenceVideos = request.reference_videos ?? [];
+  const referenceAudios = request.reference_audios ?? [];
   delete userExtra.seconds;
   delete userExtra.duration;
   delete userExtra.size;
@@ -4336,6 +4338,8 @@ function buildVolcengineSeedanceVideoJsonBody(
   delete userExtra.aspect_ratio;
   delete userExtra.aspectRatio;
   delete userExtra.reference_images;
+  delete userExtra.reference_videos;
+  delete userExtra.reference_audios;
   delete userExtra.input_reference;
   delete userExtra.inputReference;
   delete userExtra.videoInputSchema;
@@ -4344,6 +4348,17 @@ function buildVolcengineSeedanceVideoJsonBody(
     ...referenceImages.map((url) => ({
       type: 'image_url',
       image_url: { url },
+      role: 'reference_image',
+    })),
+    ...referenceVideos.map((url) => ({
+      type: 'video_url',
+      video_url: { url },
+      role: 'reference_video',
+    })),
+    ...referenceAudios.map((url) => ({
+      type: 'audio_url',
+      audio_url: { url },
+      role: 'reference_audio',
     })),
     {
       type: 'text',
@@ -4386,7 +4401,7 @@ function buildVideoMultipartBody(
   return { fields, files };
 }
 
-function resolveVideoRequestBodyMode(cfg: CustomProviderConfig): 'json' | 'multipart' {
+export function resolveVideoRequestBodyMode(cfg: CustomProviderConfig): 'json' | 'multipart' {
   if (['agnes-video', 'minimax-h3'].includes(modernProviderKind(cfg))) {
     return 'json';
   }
@@ -4394,7 +4409,7 @@ function resolveVideoRequestBodyMode(cfg: CustomProviderConfig): 'json' | 'multi
   return rawMode === 'json' ? 'json' : 'multipart';
 }
 
-function buildVideoJsonBody(
+export function buildVideoJsonBody(
   cfg: CustomProviderConfig,
   modelName: string,
   request: GenerateRequest,
