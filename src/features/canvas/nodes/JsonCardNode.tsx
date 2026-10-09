@@ -75,7 +75,12 @@ function formatDisplayValue(value: unknown): string {
   return safeStringify(value);
 }
 
-function createAutoDisplayFields(parsedJson: unknown, limit = 8): ResolvedDisplayField[] {
+export function createAutoDisplayFields(parsedJson: unknown, limit = 8): ResolvedDisplayField[] {
+  // A top-level array of objects becomes a table: emit one column per key of
+  // the first row. Without this the table has zero columns.
+  if (Array.isArray(parsedJson)) {
+    return arrayRowFields(parsedJson, '$', limit);
+  }
   if (!isRecord(parsedJson)) {
     return [];
   }
@@ -83,10 +88,32 @@ function createAutoDisplayFields(parsedJson: unknown, limit = 8): ResolvedDispla
   return Object.entries(parsedJson)
     .filter(([, value]) => value !== undefined)
     .slice(0, limit)
-    .map(([key, value]) => ({
-      path: `$.${key}`,
+    .flatMap(([key, value]) => {
+      // A nested array of objects is a table too: emit one column per row key so
+      // the table shows real columns instead of a single JSON-blob column.
+      if (Array.isArray(value) && value.some(isRecord)) {
+        return arrayRowFields(value, `$.${key}`, limit);
+      }
+      return [{ path: `$.${key}`, label: key, value: formatDisplayValue(value) }];
+    });
+}
+
+/**
+ * One display field per key of the first object row. The path keeps the array
+ * key (not an index) so `resolveStructuredTableGroups` recognises the array and
+ * each row resolves its own value.
+ */
+function arrayRowFields(rows: unknown[], prefix: string, limit: number): ResolvedDisplayField[] {
+  const firstRecord = rows.find(isRecord);
+  if (!firstRecord) {
+    return [];
+  }
+  return Object.keys(firstRecord)
+    .slice(0, limit)
+    .map((key) => ({
+      path: `${prefix}.${key}`,
       label: key,
-      value: formatDisplayValue(value),
+      value: formatDisplayValue(firstRecord[key]),
     }));
 }
 
@@ -95,7 +122,7 @@ type StructuredTableSource = {
   pathPrefixTokens: string[];
 };
 
-type StructuredTableGroup = StructuredTableSource & {
+export type StructuredTableGroup = StructuredTableSource & {
   key: string;
   label: string;
   fields: ResolvedDisplayField[];
@@ -140,7 +167,7 @@ function findArrayPrefixForPath(source: unknown, path: string): StructuredTableS
   return null;
 }
 
-function resolveStructuredTableGroups(
+export function resolveStructuredTableGroups(
   parsedJson: unknown,
   fields: ResolvedDisplayField[]
 ): StructuredTableGroup[] {
