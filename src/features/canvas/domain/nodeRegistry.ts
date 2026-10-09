@@ -705,8 +705,22 @@ export function getNodeDefinition(type: CanvasNodeType): CanvasNodeDefinition {
   return canvasNodeDefinitions[type];
 }
 
+// Menu order. Anything not listed keeps its definition order, after these.
+// 生成图片 and 生成视频 are the primary entry points, so they lead.
+const MENU_TYPE_ORDER: CanvasNodeType[] = [
+  CANVAS_NODE_TYPES.exportImage,
+  CANVAS_NODE_TYPES.aiVideo,
+];
+
 export function getMenuNodeDefinitions(): CanvasNodeDefinition[] {
-  return Object.values(canvasNodeDefinitions).filter((definition) => definition.visibleInMenu);
+  const visible = Object.values(canvasNodeDefinitions).filter((definition) => definition.visibleInMenu);
+  return visible.sort((left, right) => {
+    const leftIndex = MENU_TYPE_ORDER.indexOf(left.type);
+    const rightIndex = MENU_TYPE_ORDER.indexOf(right.type);
+    const leftKey = leftIndex === -1 ? MENU_TYPE_ORDER.length : leftIndex;
+    const rightKey = rightIndex === -1 ? MENU_TYPE_ORDER.length : rightIndex;
+    return leftKey - rightKey;
+  });
 }
 
 export function getNodeSelectionToolbarMode(type: CanvasNodeType): CanvasNodeSelectionToolbarMode {
