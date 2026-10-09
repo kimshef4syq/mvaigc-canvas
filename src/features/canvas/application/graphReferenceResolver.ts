@@ -1,6 +1,7 @@
 import {
   CANVAS_NODE_TYPES,
   isAiTextNode,
+  isAiVideoNode,
   isAudioNode,
   isExportImageNode,
   isImageEditNode,
@@ -16,6 +17,7 @@ import {
   type CanvasEdge,
   type CanvasNode,
 } from '@/features/canvas/domain/canvasNodes';
+import { resolveMainVideoEntry } from '@/features/canvas/application/generatedVideoHistory';
 import { resolveNodeDisplayName } from '@/features/canvas/domain/nodeDisplay';
 
 export type GraphReferenceKind = 'image' | 'video' | 'audio' | 'text';
@@ -178,6 +180,25 @@ function extractReferencesFromNode(
       sourceNodeId: node.id,
       videoUrl,
       thumbnailUrl: node.data.thumbnailUrl ?? null,
+      title,
+    }];
+  }
+
+  // A generated-video node's output is a reference too, so one 生成视频 can feed
+  // another. Its main video mirrors the history entry, but fall back to the
+  // history so a node mid-generation or restored from an older patch still
+  // resolves.
+  if (isAiVideoNode(node)) {
+    const mainEntry = resolveMainVideoEntry(node.data.videos, node.data.mainVideoIndex);
+    const videoUrl = node.data.videoUrl || mainEntry?.videoUrl || '';
+    if (!videoUrl) {
+      return [];
+    }
+    return [{
+      kind: 'video',
+      sourceNodeId: node.id,
+      videoUrl,
+      thumbnailUrl: node.data.thumbnailUrl ?? mainEntry?.thumbnailUrl ?? null,
       title,
     }];
   }
