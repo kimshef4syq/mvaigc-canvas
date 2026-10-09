@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Braces, Expand, LoaderCircle } from 'lucide-react';
+import { Braces, Check, Expand, LoaderCircle, Pencil } from 'lucide-react';
 
 import { CANVAS_NODE_TYPES, type JsonCardNodeData } from '@/features/canvas/domain/canvasNodes';
 import {
@@ -290,6 +290,7 @@ export const JsonCardNode = memo(({ id, data, selected, width, height }: JsonCar
   const nodes = useCanvasStore((state) => state.nodes);
   const textAgents = useSettingsStore((state) => state.textAgents);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [columnWidthPreview, setColumnWidthPreview] = useState<Record<string, number>>({});
 
@@ -411,7 +412,7 @@ export const JsonCardNode = memo(({ id, data, selected, width, height }: JsonCar
   }, [hasStaleStreamingFlag, id, updateNodeData]);
 
   useEffect(() => {
-    if (isStreaming || !data.rawContent.trim()) {
+    if (isStreaming || isEditing || !data.rawContent.trim()) {
       return;
     }
 
@@ -448,6 +449,7 @@ export const JsonCardNode = memo(({ id, data, selected, width, height }: JsonCar
     data.rawContent,
     data.sourceAgentId,
     id,
+    isEditing,
     isStreaming,
     sourceAgent,
     updateNodeData,
@@ -523,6 +525,18 @@ export const JsonCardNode = memo(({ id, data, selected, width, height }: JsonCar
         style={{ width: resolvedWidth, height: resolvedHeight }}
         onClick={() => setSelectedNode(id)}
       >
+        {isEditing ? (
+          <textarea
+            autoFocus
+            value={data.rawContent}
+            onChange={(event) => updateNodeData(id, { rawContent: event.target.value })}
+            onMouseDown={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+            placeholder="粘贴 JSON 或任意文本，直接编辑"
+            className="ui-scrollbar nodrag nowheel min-h-0 w-full flex-1 resize-none rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-3 font-mono text-xs leading-6 text-text-dark outline-none"
+          />
+        ) : (
+        <>
         <NodeHeader
           className={NODE_HEADER_FLOATING_POSITION_CLASS}
           icon={<Braces className="h-4 w-4" />}
@@ -545,6 +559,19 @@ export const JsonCardNode = memo(({ id, data, selected, width, height }: JsonCar
                   </>
                 ) : shouldShowStructuredTable ? `结构化 ${tableRowCount}行` : shouldShowStructuredFields ? '结构化' : '原始'}
               </span>
+              <button
+                type="button"
+                data-canvas-no-marquee="true"
+                className={`nodrag nowheel inline-flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-colors ${isEditing ? 'border-accent/60 bg-accent/15 text-accent' : 'border-[var(--canvas-node-border)] bg-[var(--canvas-node-menu-bg)] text-text-muted hover:border-accent/50 hover:bg-[var(--canvas-node-menu-hover)] hover:text-accent'}`}
+                title={isEditing ? '完成编辑' : '编辑内容'}
+                aria-label={isEditing ? '完成编辑' : '编辑内容'}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIsEditing((editing) => !editing);
+                }}
+              >
+                {isEditing ? <Check className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+              </button>
               <button
                 type="button"
                 data-canvas-no-marquee="true"
@@ -698,6 +725,8 @@ export const JsonCardNode = memo(({ id, data, selected, width, height }: JsonCar
             </pre>
           ) : null}
         </div>
+        </>
+        )}
 
         <Handle
           type="target"

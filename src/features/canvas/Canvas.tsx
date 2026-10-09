@@ -37,6 +37,7 @@ import {
   type CanvasMouseBindingSlot,
 } from '@/stores/settingsStore';
 import { canvasEventBus } from '@/features/canvas/application/canvasServices';
+import { applyJsonCardTextPatch, resolveJsonCardTextContent } from '@/features/canvas/application/jsonCardContent';
 import { canvasCommandRegistry } from '@/features/canvas/application/canvasCommandService';
 import { canvasNavigationFacade } from '@/features/canvas/application/canvasNavigationFacade';
 import { CANVAS_COMMAND_VERSION, type CanvasCommand } from '@/features/canvas/domain/canvasCommands';
@@ -1290,6 +1291,16 @@ export function Canvas() {
             updateNodeData(targetNode.id, {
               content: normalizedCurrent ? `${normalizedCurrent}\n${sourceText}` : sourceText,
             } as Partial<CanvasNodeData>);
+          }
+        }
+        // 文本节点 → JSON 卡：把文本内容灌进卡片，让它解析并渲染。
+        if (sourceNode?.type === CANVAS_NODE_TYPES.textAnnotation
+          && targetNode?.type === CANVAS_NODE_TYPES.jsonCard) {
+          const patch = applyJsonCardTextPatch(
+            resolveJsonCardTextContent(sourceNode.data as { content?: unknown })
+          );
+          if (patch) {
+            updateNodeData(targetNode.id, patch as Partial<CanvasNodeData>);
           }
         }
       });
