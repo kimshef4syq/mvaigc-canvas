@@ -1372,7 +1372,9 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                   title={item.label}
                   onClick={(event) => {
                     event.stopPropagation();
-                    insertReferenceToken(index);
+                    if (item.kind !== 'image') {
+                      insertReferenceToken(index);
+                    }
                   }}
                 >
                   {item.kind === 'image' && item.displayUrl ? (
@@ -1383,6 +1385,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                       viewerImageList={incomingViewerList}
                       className="h-full w-full object-cover"
                       draggable={false}
+                      openViewerOnClick
                     />
                   ) : (
                     <span>{item.kind === 'video' ? 'V' : item.kind === 'audio' ? 'A' : 'T'}</span>
