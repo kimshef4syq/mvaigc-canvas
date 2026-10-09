@@ -525,18 +525,6 @@ export const JsonCardNode = memo(({ id, data, selected, width, height }: JsonCar
         style={{ width: resolvedWidth, height: resolvedHeight }}
         onClick={() => setSelectedNode(id)}
       >
-        {isEditing ? (
-          <textarea
-            autoFocus
-            value={data.rawContent}
-            onChange={(event) => updateNodeData(id, { rawContent: event.target.value })}
-            onMouseDown={(event) => event.stopPropagation()}
-            onPointerDown={(event) => event.stopPropagation()}
-            placeholder="粘贴 JSON 或任意文本，直接编辑"
-            className="ui-scrollbar nodrag nowheel min-h-0 w-full flex-1 resize-none rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-3 font-mono text-xs leading-6 text-text-dark outline-none"
-          />
-        ) : (
-        <>
         <NodeHeader
           className={NODE_HEADER_FLOATING_POSITION_CLASS}
           icon={<Braces className="h-4 w-4" />}
@@ -603,6 +591,17 @@ export const JsonCardNode = memo(({ id, data, selected, width, height }: JsonCar
           onMouseDown={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
         >
+          {isEditing ? (
+            <textarea
+              autoFocus
+              value={data.rawContent}
+              onChange={(event) => updateNodeData(id, { rawContent: event.target.value })}
+              onMouseDown={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              placeholder="粘贴 JSON 或任意文本，直接编辑"
+              className="ui-scrollbar nodrag nowheel h-full w-full resize-none border-none bg-transparent font-mono text-xs leading-6 text-text-dark outline-none"
+            />
+          ) : <>
           {isStreaming ? (
             <div className="flex h-full min-h-[180px] flex-col justify-center gap-4 rounded-lg border border-[var(--canvas-node-field-border)] bg-[rgba(15,23,42,0.28)] p-4">
               <div className="flex items-center gap-2 text-sm font-medium text-text-dark">
@@ -724,9 +723,9 @@ export const JsonCardNode = memo(({ id, data, selected, width, height }: JsonCar
               {rawJson || '暂无内容'}
             </pre>
           ) : null}
-        </div>
         </>
-        )}
+        }
+        </div>
 
         <Handle
           type="target"
