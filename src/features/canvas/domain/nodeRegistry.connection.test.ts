@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { CANVAS_NODE_TYPES } from './canvasNodes';
-import { nodeHasSourceHandle, nodeHasTargetHandle } from './nodeRegistry';
+import {
+  nodeCanStartManualConnection,
+  nodeHasSourceHandle,
+  nodeHasTargetHandle,
+} from './nodeRegistry';
 
 /**
  * Guard for the connection directions used by the video node's frame capture
@@ -31,5 +35,11 @@ describe('reference connection direction', () => {
       nodeHasSourceHandle(CANVAS_NODE_TYPES.aiVideo)
       && nodeHasTargetHandle(CANVAS_NODE_TYPES.exportImage),
     ).toBe(true);
+  });
+
+  it('aiVideo can be dragged out as a source (生成视频 → 生成视频)', () => {
+    // Without manualSource the output handle is not draggable at all, so a
+    // generated video can never feed another generation.
+    expect(nodeCanStartManualConnection(CANVAS_NODE_TYPES.aiVideo)).toBe(true);
   });
 });

@@ -137,6 +137,7 @@ const aiVideoNodeDefinition: CanvasNodeDefinition<AiVideoNodeData> = {
   connectivity: {
     sourceHandle: true,
     targetHandle: true,
+    manualSource: true,
     connectMenu: {
       fromSource: true,
       fromTarget: false,
