@@ -1418,6 +1418,22 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                       draggable={false}
                       openViewerOnClick
                     />
+                  ) : item.kind === 'video' && item.videoUrl ? (
+                    // A video reference shows its first frame (a `#t=` media
+                    // fragment makes the browser paint frame 0) and plays on
+                    // click, instead of a bare "V" chip.
+                    <video
+                      src={`${resolveImageDisplayUrl(item.videoUrl)}#t=0.1`}
+                      className="h-full w-full object-cover"
+                      muted
+                      preload="metadata"
+                      playsInline
+                      draggable={false}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setVideoPreviewSource(resolveImageDisplayUrl(item.videoUrl as string));
+                      }}
+                    />
                   ) : (
                     <span>{item.kind === 'video' ? 'V' : item.kind === 'audio' ? 'A' : 'T'}</span>
                   )}
