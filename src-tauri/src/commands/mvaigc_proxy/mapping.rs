@@ -67,6 +67,33 @@ fn reference_image_urls(openai: &Value) -> Vec<String> {
     Vec::new()
 }
 
+/// Reference-media URLs for a video/audio reference list. OSC sends
+/// `reference_videos` / `reference_audios` as an array, or as a bare string
+/// when there is exactly one; the bare field name (`videos` / `audios`) is
+/// also accepted.
+fn reference_media_urls(openai: &Value, keys: [&str; 2]) -> Vec<String> {
+    let to_urls = |value: &Value| -> Vec<String> {
+        match value {
+            Value::String(url) if !url.trim().is_empty() => vec![url.clone()],
+            Value::Array(list) => list
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect(),
+            _ => Vec::new(),
+        }
+    };
+    for key in keys {
+        if let Some(value) = openai.get(key) {
+            let urls = to_urls(value);
+            if !urls.is_empty() {
+                return urls;
+            }
+        }
+    }
+    Vec::new()
+}
+
 /// Map an OpenAI Images request to mvaigc's `imgToImage` body.
 ///
 /// mvaigc binds `images` to the prompt through `@图N` mention tokens in the
@@ -127,13 +154,23 @@ pub fn map_video_request(openai: &Value, api_name: &str) -> Value {
         .enumerate()
         .map(|(index, url)| json!({"imageUrl": url, "name": format!("图{}", index + 1)}))
         .collect();
+    let videos: Vec<Value> = reference_media_urls(openai, ["reference_videos", "videos"])
+        .into_iter()
+        .enumerate()
+        .map(|(index, url)| json!({"videoUrl": url, "name": format!("视频{}", index + 1)}))
+        .collect();
+    let audios: Vec<Value> = reference_media_urls(openai, ["reference_audios", "audios"])
+        .into_iter()
+        .enumerate()
+        .map(|(index, url)| json!({"audioUrl": url, "name": format!("音频{}", index + 1)}))
+        .collect();
     json!({
         "api": str_field(openai, "model").unwrap_or_default(),
         "apiName": api_name,
         "text": str_field(openai, "prompt").unwrap_or_default(),
         "images": images,
-        "videos": [],
-        "audios": [],
+        "videos": videos,
+        "audios": audios,
         "ratio": ratio,
         "duration": duration,
         "resolution": "1080p",
@@ -235,6 +272,30 @@ mod tests {
         let images = out["images"].as_array().unwrap();
         assert_eq!(images.len(), 1);
         assert_eq!(images[0]["imageUrl"], "data:image/png;base64,AAA");
+    }
+
+    #[test]
+    fn video_request_maps_reference_videos() {
+        // A video reference must reach mvaigc's `videos` array (it used to be
+        // hardcoded empty, so connected reference videos were silently dropped).
+        let openai = serde_json::json!({
+            "model": "botsmart_seedance_2_fast", "prompt": "参考它", "size": "16:9",
+            "seconds": 5, "reference_videos": ["https://cdn.example.com/clip.mp4"]
+        });
+        let out = map_video_request(&openai, "Seedance-2.0-Fast");
+        let videos = out["videos"].as_array().unwrap();
+        assert_eq!(videos.len(), 1);
+        assert_eq!(videos[0]["videoUrl"], "https://cdn.example.com/clip.mp4");
+    }
+
+    #[test]
+    fn video_request_without_references_has_empty_video_and_audio_arrays() {
+        let openai = serde_json::json!({
+            "model": "botsmart_seedance_2_fast", "prompt": "一只猫", "size": "16:9", "seconds": 5
+        });
+        let out = map_video_request(&openai, "Seedance-2.0-Fast");
+        assert_eq!(out["videos"].as_array().unwrap().len(), 0);
+        assert_eq!(out["audios"].as_array().unwrap().len(), 0);
     }
 
     #[test]
