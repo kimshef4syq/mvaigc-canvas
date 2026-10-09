@@ -293,6 +293,8 @@ export interface AiVideoNodeData extends NodeDisplayData {
   aspectRatio?: string;
   generationError?: string | null;
   generationErrorDetails?: string | null;
+  /** Generation mode (文生/图生/首尾帧/参考). Model-independent; defaults to reference. */
+  videoMode?: 'text' | 'image' | 'frames' | 'reference';
 }
 
 export interface AiTextNodeData extends NodeDisplayData {
