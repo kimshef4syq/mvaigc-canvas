@@ -18,6 +18,18 @@ export interface CanvasNodeImageProps extends ImgHTMLAttributes<HTMLImageElement
   viewerImageList?: Array<string | null | undefined>;
   fallbackSrcs?: Array<string | null | undefined>;
   disableViewer?: boolean;
+  /** Open the enlarge viewer on single click instead of double click. */
+  openViewerOnClick?: boolean;
+}
+
+export function shouldOpenViewer(
+  trigger: 'click' | 'doubleClick',
+  options: { openViewerOnClick: boolean; disableViewer: boolean; defaultPrevented: boolean }
+): boolean {
+  if (options.disableViewer || options.defaultPrevented) {
+    return false;
+  }
+  return trigger === 'click' ? options.openViewerOnClick : !options.openViewerOnClick;
 }
 
 function normalizeViewerList(
@@ -45,6 +57,8 @@ export const CanvasNodeImage = memo(({
   viewerImageList,
   fallbackSrcs,
   disableViewer = false,
+  openViewerOnClick = false,
+  onClick,
   onDoubleClick,
   onError,
   src,
@@ -75,13 +89,7 @@ export const CanvasNodeImage = memo(({
 
   const activeSrc = candidateSources[sourceIndex] ?? '';
 
-  const handleDoubleClick = useCallback((event: MouseEvent<HTMLImageElement>) => {
-    onDoubleClick?.(event);
-
-    if (event.defaultPrevented || disableViewer) {
-      return;
-    }
-
+  const openViewer = useCallback((event: MouseEvent<HTMLImageElement>) => {
     const fallbackSrc = event.currentTarget.currentSrc || activeSrc;
     const viewerSrc = typeof viewerSourceUrl === 'string' ? viewerSourceUrl.trim() : '';
     const viewerSourceAlreadyFailed =
@@ -96,7 +104,23 @@ export const CanvasNodeImage = memo(({
 
     event.stopPropagation();
     openImageViewer(resolvedSource, normalizeViewerList(viewerImageList, resolvedSource));
-  }, [activeSrc, candidateSources, disableViewer, onDoubleClick, openImageViewer, sourceIndex, viewerImageList, viewerSourceUrl]);
+  }, [activeSrc, candidateSources, openImageViewer, sourceIndex, viewerImageList, viewerSourceUrl]);
+
+  const handleClick = useCallback((event: MouseEvent<HTMLImageElement>) => {
+    onClick?.(event);
+
+    if (shouldOpenViewer('click', { openViewerOnClick, disableViewer, defaultPrevented: event.defaultPrevented })) {
+      openViewer(event);
+    }
+  }, [disableViewer, onClick, openViewer, openViewerOnClick]);
+
+  const handleDoubleClick = useCallback((event: MouseEvent<HTMLImageElement>) => {
+    onDoubleClick?.(event);
+
+    if (shouldOpenViewer('doubleClick', { openViewerOnClick, disableViewer, defaultPrevented: event.defaultPrevented })) {
+      openViewer(event);
+    }
+  }, [disableViewer, onDoubleClick, openViewer, openViewerOnClick]);
 
   const handleError = useCallback((event: SyntheticEvent<HTMLImageElement, Event>) => {
     onError?.(event);
@@ -135,6 +159,7 @@ export const CanvasNodeImage = memo(({
           ? viewerSourceUrl.trim()
           : undefined
       }
+      onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onError={handleError}
     />
