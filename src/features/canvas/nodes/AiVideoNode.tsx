@@ -75,6 +75,7 @@ import {
   normalizeVideoInputSchema,
   type VideoInputSchema,
 } from '@/features/canvas/application/videoInputSchema';
+import { buildVideoModeTabs, parseDreaminaVideoEntryId } from '@/features/canvas/application/videoModeTabs';
 import {
   buildVideoGenerationDebugPreview,
   canvasEventBus,
@@ -456,6 +457,38 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
     () => resolveNodeDisplayName(CANVAS_NODE_TYPES.aiVideo, data),
     [data]
   );
+  const videoModeTabs = useMemo(
+    () => buildVideoModeTabs(catalog, resolvedModelConfig?.entryId),
+    [catalog, resolvedModelConfig?.entryId]
+  );
+  // 即梦 entry ids are `dreamina:<kind>:<model>`; the bare model name is what the
+  // model selector shows once the command lives in the mode tabs instead.
+  const dreaminaModelName = useMemo(
+    () => parseDreaminaVideoEntryId(resolvedModelConfig?.entryId)?.model ?? null,
+    [resolvedModelConfig?.entryId]
+  );
+  // 即梦 exposes one entry per command; the dropdown lists one row per model and
+  // the mode tabs (above the prompt) pick the command.
+  const modelListEntries = useMemo(() => {
+    const list = modelsForSelectedProvider.length > 0 ? modelsForSelectedProvider : catalog;
+    const seenModels = new Set<string>();
+    return list
+      .filter((entry) => {
+        const parsed = parseDreaminaVideoEntryId(entry.id);
+        if (!parsed) {
+          return true;
+        }
+        if (seenModels.has(parsed.model)) {
+          return false;
+        }
+        seenModels.add(parsed.model);
+        return true;
+      })
+      .map((entry) => {
+        const parsed = parseDreaminaVideoEntryId(entry.id);
+        return parsed ? { ...entry, modelLabel: parsed.model } : entry;
+      });
+  }, [catalog, modelsForSelectedProvider]);
   const resolvedWidth = Math.max(AI_VIDEO_NODE_MIN_WIDTH, Math.round(width ?? AI_VIDEO_NODE_DEFAULT_WIDTH));
   const resolvedHeight = Math.max(AI_VIDEO_NODE_MIN_HEIGHT, Math.round(height ?? AI_VIDEO_NODE_DEFAULT_HEIGHT));
 
@@ -1362,6 +1395,31 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
 
       {selected && (
       <div className="mt-2 flex w-[563px] max-w-[92vw] shrink-0 flex-col rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2">
+      {videoModeTabs.length > 1 && (
+        <div className="mb-2 flex shrink-0 flex-wrap items-center gap-1">
+          <span className="mr-1 text-[10px] text-text-muted">{t('videoModeTabs.label')}</span>
+          {videoModeTabs.map((tab) => (
+            <button
+              key={tab.kind}
+              type="button"
+              className={`nodrag rounded-md border px-2 py-1 text-[11px] transition-colors ${
+                tab.active
+                  ? 'border-accent/60 bg-accent/15 text-accent'
+                  : 'border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] text-[var(--canvas-node-button-text)] hover:border-[var(--canvas-node-border-hover)] hover:bg-[var(--canvas-node-menu-hover)]'
+              }`}
+              onClick={(event) => {
+                event.stopPropagation();
+                const entry = catalog.find((candidate) => candidate.id === tab.entryId);
+                if (entry) {
+                  handlePickModel(entry);
+                }
+              }}
+            >
+              {t(`videoModeTabs.${tab.kind}`)}
+            </button>
+          ))}
+        </div>
+      )}
       {schemaReferencePickerItems.length > 0 && (
         <div className="mb-2 flex shrink-0 flex-wrap gap-1">
           {schemaReferencePickerItems.map((item, index) => (
@@ -1659,9 +1717,9 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
             }}
             variant="muted"
             className={`w-full justify-start ${NODE_CONTROL_CHIP_CLASS} ${AI_VIDEO_SELECTOR_CHIP_CLASS}`}
-            title={selectedEntry?.modelLabel ?? t('node.aiVideo.noModel')}
+            title={dreaminaModelName ?? selectedEntry?.modelLabel ?? t('node.aiVideo.noModel')}
           >
-            <span className="min-w-0 truncate">{selectedEntry?.modelLabel ?? t('node.aiVideo.noModel')}</span>
+            <span className="min-w-0 truncate">{dreaminaModelName ?? selectedEntry?.modelLabel ?? t('node.aiVideo.noModel')}</span>
             <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
           </UiButton>
           {modelOpen && (
@@ -1670,8 +1728,11 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
               onMouseDown={(event) => event.stopPropagation()}
             >
               <div className="ui-scrollbar max-h-[240px] overflow-y-auto pr-1">
-                {(modelsForSelectedProvider.length > 0 ? modelsForSelectedProvider : catalog).map((entry) => {
-                  const active = resolvedModelConfig?.entryId === entry.id;
+                {modelListEntries.map((entry) => {
+                  const entryModel = parseDreaminaVideoEntryId(entry.id)?.model;
+                  const active = entryModel
+                    ? entryModel === dreaminaModelName
+                    : resolvedModelConfig?.entryId === entry.id;
                   return (
                     <button
                       key={entry.id}

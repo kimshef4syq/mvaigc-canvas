@@ -31,6 +31,13 @@
     "frames": "First + last frames",
     "hint": "Frames use connected images in order and determine the output ratio. Reference mode can combine images, video and audio."
   },
+  "videoModeTabs": {
+    "label": "Generation mode",
+    "text-video": "Text to video",
+    "image-video": "Image to video",
+    "frames-video": "First + last frames",
+    "all-reference-video": "Reference to video"
+  },
   "app": {
     "title": "Open Storyboard Canvas",
     "subtitle": "AI storyboard canvas"

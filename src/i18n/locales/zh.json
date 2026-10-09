@@ -31,6 +31,13 @@
     "frames": "首尾帧",
     "hint": "帧模式按连接顺序使用图片，输出比例由图片决定。参考模式可组合图片、视频和音频。"
   },
+  "videoModeTabs": {
+    "label": "生成方式",
+    "text-video": "文生视频",
+    "image-video": "图生视频",
+    "frames-video": "首尾帧",
+    "all-reference-video": "参考生视频"
+  },
   "app": {
     "title": "开源画布",
     "subtitle": "Open Storyboard Canvas"
