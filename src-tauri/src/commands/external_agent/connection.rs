@@ -85,6 +85,17 @@ pub(crate) struct ExternalAgentConnectionDescriptor {
     pub expires_at: u64,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ConnectionParams {
+    pub schema_version: u8,
+    pub project_id: String,
+    pub project_name: String,
+    pub tools: Vec<ExternalAgentToolDefinition>,
+    #[serde(default)]
+    pub claude_code_project_dir: Option<String>,
+}
+
 fn validate_project_text(
     value: String,
     field: &str,
@@ -164,6 +175,56 @@ fn cleanup_legacy_descriptors(descriptor_root: &Path) {
             let _ = std::fs::remove_file(entry.path());
         }
     }
+}
+
+fn write_connection_params(
+    descriptor_root: &Path,
+    params: &ConnectionParams,
+) -> Result<(), ExternalAgentCommandError> {
+    std::fs::create_dir_all(descriptor_root).map_err(|error| {
+        ExternalAgentCommandError::process(format!(
+            "Failed to prepare the External Agent connection directory: {error}"
+        ))
+    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(descriptor_root, std::fs::Permissions::from_mode(0o700)).map_err(
+            |error| {
+                ExternalAgentCommandError::process(format!(
+                    "Failed to protect the External Agent connection directory: {error}"
+                ))
+            },
+        )?;
+    }
+
+    let path = descriptor_root.join(CONNECTION_PARAMS_FILE);
+    let bytes = serde_json::to_vec(params).map_err(|_| {
+        ExternalAgentCommandError::process("Failed to encode the External Agent connection params.")
+    })?;
+    let mut options = OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&path).map_err(|error| {
+        ExternalAgentCommandError::process(format!(
+            "Failed to create the External Agent connection params: {error}"
+        ))
+    })?;
+    file.write_all(&bytes).map_err(|error| {
+        ExternalAgentCommandError::process(format!(
+            "Failed to persist the External Agent connection params: {error}"
+        ))
+    })?;
+    Ok(())
+}
+
+fn read_connection_params(descriptor_root: &Path) -> Option<ConnectionParams> {
+    let bytes = std::fs::read(descriptor_root.join(CONNECTION_PARAMS_FILE)).ok()?;
+    serde_json::from_slice(&bytes).ok()
 }
 
 fn build_provider_configs(
@@ -525,6 +586,30 @@ mod tests {
         assert_eq!(path, path2);
         let text = std::fs::read_to_string(&path2).unwrap();
         assert!(text.contains("127.0.0.1:2"));
+    }
+
+    #[test]
+    fn connection_params_round_trip() {
+        let root = tempfile::tempdir().unwrap();
+        let params = ConnectionParams {
+            schema_version: 1,
+            project_id: "p1".into(),
+            project_name: "画布".into(),
+            tools: vec![],
+            claude_code_project_dir: Some("/tmp/x".into()),
+        };
+        write_connection_params(root.path(), &params).unwrap();
+        let back = read_connection_params(root.path()).unwrap();
+        assert_eq!(back.project_id, "p1");
+        assert_eq!(back.claude_code_project_dir.as_deref(), Some("/tmp/x"));
+    }
+
+    #[test]
+    fn read_connection_params_missing_or_broken_returns_none() {
+        let root = tempfile::tempdir().unwrap();
+        assert!(read_connection_params(root.path()).is_none());
+        std::fs::write(root.path().join("connection-params.json"), "{not json").unwrap();
+        assert!(read_connection_params(root.path()).is_none());
     }
 
     #[test]
