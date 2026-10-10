@@ -73,8 +73,8 @@ const _UNUSED_PROVIDER_URLS_KEPT_FOR_FUTURE_USE: Record<string, string> = {
 };
 void _UNUSED_PROVIDER_URLS_KEPT_FOR_FUTURE_USE;
 
-const PROJECT_REPOSITORY_URL = 'https://github.com/ganbo-gab/open-storyboard-canvas';
-const ORIGINAL_PROJECT_URL = 'https://github.com/henjicc/Storyboard-Copilot';
+const PROJECT_REPOSITORY_URL = 'https://github.com/kimshef4syq/mvaigc-canvas';
+const ORIGINAL_PROJECT_URL = 'https://github.com/ganbo-gab/open-storyboard-canvas';
 const CANVAS_MOUSE_BINDING_SLOTS: CanvasMouseBindingSlot[] = [
   'leftClick',
   'leftDrag',
@@ -1901,9 +1901,6 @@ export function SettingsDialog({
                         <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                       </button>
                     </div>
-                    <p className="text-text-dark">
-                      {t('settings.aboutOriginalAuthorLabel')}: <span className="text-text-muted">{t('settings.aboutOriginalAuthor')}</span>
-                    </p>
                     <div className="flex flex-wrap items-center gap-2 text-text-dark">
                       <span>{t('settings.aboutOriginalProjectLabel')}:</span>
                       <button
@@ -1915,9 +1912,6 @@ export function SettingsDialog({
                         <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                       </button>
                     </div>
-                    <p className="text-xs leading-relaxed text-text-muted">
-                      {t('settings.aboutOriginalAttributionNote')}
-                    </p>
                   </div>
 
                   <div className="space-y-3">
