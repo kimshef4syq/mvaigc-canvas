@@ -1,4 +1,5 @@
 mod claude;
+mod claude_config;
 mod codex;
 pub(crate) mod connection;
 mod mcp;
