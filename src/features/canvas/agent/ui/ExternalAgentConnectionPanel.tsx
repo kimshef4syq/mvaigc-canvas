@@ -62,6 +62,7 @@ export function ExternalAgentConnectionPanel({
 }: ExternalAgentConnectionPanelProps) {
   const { t, i18n } = useTranslation();
   const claudeCodeProjectDir = useSettingsStore((s) => s.claudeCodeProjectDir);
+  const setClaudeCodeProjectDir = useSettingsStore((s) => s.setClaudeCodeProjectDir);
   const [connection, setConnection] = useState<ExternalAgentConnectionInfo | null>(null);
   const [provider, setProvider] = useState<ProviderTab>('codex');
   const [busy, setBusy] = useState<'create' | 'refresh' | 'revoke' | null>(null);
@@ -266,6 +267,17 @@ export function ExternalAgentConnectionPanel({
           <div className="mt-1 font-medium text-text-dark">{t('canvasAgent.externalMcp.manualApproval')}</div>
         </div>
       </div>
+
+      <label className="mt-4 flex flex-col gap-1 text-[11px]">
+        <span className="text-text-muted">{t('canvasAgent.externalMcp.claudeProjectDirLabel')}</span>
+        <input
+          aria-label={t('canvasAgent.externalMcp.claudeProjectDirLabel')}
+          value={claudeCodeProjectDir}
+          onChange={(e) => setClaudeCodeProjectDir(e.target.value)}
+          className="rounded-md border border-border-dark bg-surface-dark px-2 py-1 font-mono text-text-dark outline-none focus:border-accent/50"
+        />
+        <span className="text-text-muted/70">{t('canvasAgent.externalMcp.claudeProjectDirHint')}</span>
+      </label>
 
       {activeConnection ? (
         <>

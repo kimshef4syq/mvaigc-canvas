@@ -74,7 +74,9 @@
       "approve": "批准并执行",
       "executionFailed": "外部 Agent 工具执行失败。",
       "projectChangedResolution": "当前项目与该外部 Agent 连接的授权项目不一致。",
-      "projectChanged": "项目已切换，该外部 Agent 连接不能操作当前画布。"
+      "projectChanged": "项目已切换，该外部 Agent 连接不能操作当前画布。",
+      "claudeProjectDirLabel": "Claude Code 项目目录",
+      "claudeProjectDirHint": "OSC 会把画布 MCP 配置写入该目录，在此目录打开 Claude Code 即可连上。留空则关闭自动写入。"
     },
     "views": "Agent 视图",
     "conversation": "对话",

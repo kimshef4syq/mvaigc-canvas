@@ -74,7 +74,9 @@
       "approve": "Approve and run",
       "executionFailed": "The external Agent tool execution failed.",
       "projectChangedResolution": "The active project does not match the project authorized for this external Agent connection.",
-      "projectChanged": "The project changed, so this external Agent connection cannot operate on the current canvas."
+      "projectChanged": "The project changed, so this external Agent connection cannot operate on the current canvas.",
+      "claudeProjectDirLabel": "Claude Code project directory",
+      "claudeProjectDirHint": "OSC writes the Canvas MCP config for this directory. Open Claude Code here to connect. Leave blank to disable auto-write."
     },
     "views": "Agent views",
     "conversation": "Chat",
