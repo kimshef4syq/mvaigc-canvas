@@ -110,6 +110,19 @@
   - 补 4 条回归测试（可作手动源 / 截图产出图片参考 / 历史回退）
   - ⚠️ **未在界面实测**（见第 5 节待办）；且导演台**需先截过图**才有参考可给
 
+### I. 外部 Agent 零手动接入
+
+`7ee637f` → `3968d28`（7 个提交），让"开 Claude Code 就能连上本画布"不再需要手点创建。
+
+- 设计：`docs/superpowers/specs/2026-10-10-external-agent-zerotouch-design.md`
+- 计划：`docs/superpowers/plans/2026-10-10-external-agent-zerotouch.md`
+- `7ee637f` 描述符改用**固定文件名** `canvas-mcp-current.json`（覆盖写），并清理目录下遗留的旧 UUID 描述符文件——`connection.rs`
+- `a47e27c` 接入参数持久化到 `connection-params.json`（项目 id/名、工具集、Claude Code 目录），供下次启动复用
+- `a70e7c2` 抽出 `establish_connection`，一次性完成"写描述符 + 落参数 + 写 Claude 配置"；`01c8a21` 应用启动时调用 `rebuild_connection` **自动重建连接**，无需手点（`lib.rs`）
+- `167fa75` / `2187453` 新增 `claude_config.rs`：自动写 `~/.claude.json` 的 local-scope MCP 条目。**坏 JSON 不覆盖、保留其它键（含 projects / mcpServers 相邻项）、临时文件 0600**
+- `c958a8a` / `3968d28` 前端新增设置项 `claudeCodeProjectDir`，并在接入面板加"Claude Code 项目目录"输入框，随请求下发（Rust 侧 `claude_code_project_dir`，经 `rename_all = camelCase` 对齐）
+- 验证命令：`npm test`（前端全量）、`cd src-tauri && cargo test`（Rust 全量，含本计划新增测试）
+
 ---
 
 ## 3. 关键文件落点
@@ -152,6 +165,7 @@ npm run tauri dev    # 桌面应用，手动看界面
 4. **导演台连线修复未实测** —— `edc67c9` 已提交但**未在界面验证**。需在导演台拖右侧圆点连到「生成图片/生成视频」，确认能连上且参考小图出现导演台截图。
 5. **导演台人物模型替换未成功** —— 试过用 `model-test/123.glb`（Mixamo 骨骼，结构兼容，但**无贴图**、根节点 `Armature`）覆盖 `public/blueprint-figure.glb`，用户反馈"没有换成"（疑缓存或加载失败，未定位）。**原模型已恢复**，`model-test/123.glb` 保留未删。若再试：需彻底重启 dev 清缓存，且可能要在 `blueprintGltfFactory.ts` 适配朝向。
 6. **导演台"模型丑"待处理** —— 人物=Mixamo glb（`public/blueprint-figure.glb`）；道具/场景=代码生成的几何体（`src/features/canvas/ui/blueprintMeshFactory.ts`，1959 行）。换人物=换 glb；改道具=改代码。Camera 相关为冻结区，人物/道具不在冻结名单内。
+7. **外部 Agent 零手动接入的真机端到端待人工验证** —— 重启 OSC 后应自动重建连接（不再手点「创建接入」），随后在 `/Users/spic007/Downloads/07-项目文件/000OD` 目录直接 `claude` 即可连上、`/mcp` 无信任弹窗。代码与单测（`npm test`、`cargo test`）已全绿，但**真机流程尚未跑过**。
 
 ---
 
