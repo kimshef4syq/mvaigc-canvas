@@ -21,8 +21,9 @@ use super::{
 };
 
 const CONNECTION_DESCRIPTOR_SCHEMA_VERSION: u8 = 1;
-const CONNECTION_DESCRIPTOR_PREFIX: &str = "canvas-mcp-";
-const CONNECTION_DESCRIPTOR_SUFFIX: &str = ".json";
+const CONNECTION_DESCRIPTOR_FILE: &str = "canvas-mcp-current.json";
+const CONNECTION_PARAMS_FILE: &str = "connection-params.json";
+const LEGACY_DESCRIPTOR_PREFIX: &str = "canvas-mcp-";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,7 +75,7 @@ pub struct ExternalAgentConnectionInfo {
     pub configs: Option<ExternalAgentConnectionConfigs>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ExternalAgentConnectionDescriptor {
     pub schema_version: u8,
@@ -103,7 +104,6 @@ fn validate_project_text(
 
 fn write_connection_descriptor(
     descriptor_root: &Path,
-    connection_id: &str,
     descriptor: &ExternalAgentConnectionDescriptor,
 ) -> Result<PathBuf, ExternalAgentCommandError> {
     std::fs::create_dir_all(descriptor_root).map_err(|error| {
@@ -123,14 +123,12 @@ fn write_connection_descriptor(
         )?;
     }
 
-    let path = descriptor_root.join(format!(
-        "{CONNECTION_DESCRIPTOR_PREFIX}{connection_id}{CONNECTION_DESCRIPTOR_SUFFIX}"
-    ));
+    let path = descriptor_root.join(CONNECTION_DESCRIPTOR_FILE);
     let bytes = serde_json::to_vec(descriptor).map_err(|_| {
         ExternalAgentCommandError::process("Failed to encode the Canvas MCP descriptor.")
     })?;
     let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
+    options.write(true).create(true).truncate(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
@@ -148,6 +146,24 @@ fn write_connection_descriptor(
         )));
     }
     Ok(path)
+}
+
+fn cleanup_legacy_descriptors(descriptor_root: &Path) {
+    let Ok(entries) = std::fs::read_dir(descriptor_root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            continue;
+        };
+        if name.starts_with(LEGACY_DESCRIPTOR_PREFIX)
+            && name.ends_with(".json")
+            && name != CONNECTION_DESCRIPTOR_FILE
+        {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
 }
 
 fn build_provider_configs(
@@ -303,8 +319,7 @@ pub async fn create_external_agent_connection(
         session_id: connection_id.clone(),
         expires_at,
     };
-    let descriptor_path =
-        write_connection_descriptor(&descriptor_root, &connection_id, &descriptor)?;
+    let descriptor_path = write_connection_descriptor(&descriptor_root, &descriptor)?;
     let workspace = TempFileBuilder::new()
         .prefix("managed-mcp-")
         .tempdir_in(&descriptor_root)
@@ -456,7 +471,7 @@ mod tests {
     }
 
     #[test]
-    fn descriptor_file_is_private_and_exclusive() {
+    fn descriptor_file_is_private_and_overwritable() {
         let root = tempfile::tempdir().unwrap();
         let descriptor = ExternalAgentConnectionDescriptor {
             schema_version: 1,
@@ -465,11 +480,17 @@ mod tests {
             session_id: "session-a".to_string(),
             expires_at: u64::MAX,
         };
-        let path = write_connection_descriptor(root.path(), "session-a", &descriptor).unwrap();
-        assert!(write_connection_descriptor(root.path(), "session-a", &descriptor).is_err());
+        let path = write_connection_descriptor(root.path(), &descriptor).unwrap();
+        assert_eq!(path.file_name().unwrap(), "canvas-mcp-current.json");
+        let second = ExternalAgentConnectionDescriptor {
+            capability_token: "rotated-capability".to_string(),
+            ..descriptor.clone()
+        };
+        let path2 = write_connection_descriptor(root.path(), &second).unwrap();
+        assert_eq!(path, path2);
         let decoded: ExternalAgentConnectionDescriptor =
             serde_json::from_slice(&std::fs::read(path.clone()).unwrap()).unwrap();
-        assert_eq!(decoded.capability_token, "secret-capability");
+        assert_eq!(decoded.capability_token, "rotated-capability");
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -478,5 +499,43 @@ mod tests {
                 0
             );
         }
+    }
+
+    #[test]
+    fn descriptor_uses_fixed_name_and_overwrites() {
+        let root = tempfile::tempdir().unwrap();
+        let first = ExternalAgentConnectionDescriptor {
+            schema_version: 1,
+            broker_address: "127.0.0.1:1".into(),
+            capability_token: "a".into(),
+            session_id: "s1".into(),
+            expires_at: 1,
+        };
+        let path = write_connection_descriptor(root.path(), &first).unwrap();
+        assert_eq!(path.file_name().unwrap(), "canvas-mcp-current.json");
+
+        // 第二次写同名文件必须成功（覆盖），内容为第二次的。
+        let second = ExternalAgentConnectionDescriptor {
+            broker_address: "127.0.0.1:2".into(),
+            capability_token: "b".into(),
+            session_id: "s2".into(),
+            ..first.clone()
+        };
+        let path2 = write_connection_descriptor(root.path(), &second).unwrap();
+        assert_eq!(path, path2);
+        let text = std::fs::read_to_string(&path2).unwrap();
+        assert!(text.contains("127.0.0.1:2"));
+    }
+
+    #[test]
+    fn cleanup_removes_legacy_uuid_descriptors_only() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("canvas-mcp-abc.json"), "{}").unwrap();
+        std::fs::write(root.path().join("canvas-mcp-current.json"), "{}").unwrap();
+        std::fs::write(root.path().join("connection-params.json"), "{}").unwrap();
+        cleanup_legacy_descriptors(root.path());
+        assert!(!root.path().join("canvas-mcp-abc.json").exists());
+        assert!(root.path().join("canvas-mcp-current.json").exists());
+        assert!(root.path().join("connection-params.json").exists());
     }
 }
