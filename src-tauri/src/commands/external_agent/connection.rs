@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, State};
 use tempfile::Builder as TempFileBuilder;
+use tracing::warn;
 use uuid::Uuid;
 
 use super::codex::toml_string;
@@ -15,9 +16,9 @@ use super::process::LaunchTarget;
 use super::protocol::validate_tools;
 use super::session::terminate_session;
 use super::{
-    now_millis, BrokerCredentials, ExternalAgentCommandError, ExternalAgentRuntime,
-    ExternalAgentSession, ExternalAgentState, ExternalAgentToolDefinition, SessionWorkspace,
-    CAPABILITY_LIFETIME_MS,
+    now_millis, BrokerCredentials, ExternalAgentCommandError, ExternalAgentInner,
+    ExternalAgentRuntime, ExternalAgentSession, ExternalAgentState, ExternalAgentToolDefinition,
+    SessionWorkspace, CAPABILITY_LIFETIME_MS,
 };
 
 const CONNECTION_DESCRIPTOR_SCHEMA_VERSION: u8 = 1;
@@ -32,6 +33,8 @@ pub struct CreateExternalAgentConnectionRequest {
     pub project_name: String,
     #[serde(default)]
     pub tools: Vec<ExternalAgentToolDefinition>,
+    #[serde(default)]
+    pub claude_code_project_dir: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -332,18 +335,36 @@ pub async fn create_external_agent_connection(
     state: State<'_, ExternalAgentState>,
     request: CreateExternalAgentConnectionRequest,
 ) -> Result<ExternalAgentConnectionInfo, ExternalAgentCommandError> {
-    if !state.inner.broker_started.load(Ordering::SeqCst) {
+    establish_connection(
+        &state.inner,
+        &app,
+        request.project_id,
+        request.project_name,
+        request.tools,
+        request.claude_code_project_dir,
+    )
+    .await
+}
+
+pub(crate) async fn establish_connection(
+    inner: &Arc<ExternalAgentInner>,
+    app: &AppHandle,
+    project_id: String,
+    project_name: String,
+    tools: Vec<ExternalAgentToolDefinition>,
+    claude_code_project_dir: Option<String>,
+) -> Result<ExternalAgentConnectionInfo, ExternalAgentCommandError> {
+    if !inner.broker_started.load(Ordering::SeqCst) {
         return Err(ExternalAgentCommandError::unavailable(
-            state
-                .inner
+            inner
                 .broker_initialization_error
                 .clone()
                 .unwrap_or_else(|| "Canvas MCP broker is not running.".to_string()),
         ));
     }
-    let project_id = validate_project_text(request.project_id, "project id", 256)?;
-    let project_name = validate_project_text(request.project_name, "project name", 256)?;
-    let tools = validate_tools(request.tools)?
+    let project_id = validate_project_text(project_id, "project id", 256)?;
+    let project_name = validate_project_text(project_name, "project name", 256)?;
+    let tools = validate_tools(tools)?
         .into_iter()
         .map(|mut tool| {
             tool.requires_approval = true;
@@ -356,19 +377,18 @@ pub async fn create_external_agent_connection(
         ));
     }
 
-    if let Some(previous_id) = state.inner.managed_connection_id.read().await.clone() {
-        terminate_session(&state.inner, &app, &previous_id, None).await;
+    if let Some(previous_id) = inner.managed_connection_id.read().await.clone() {
+        terminate_session(inner, app, &previous_id, None).await;
     }
 
-    let address = state.inner.broker_address.ok_or_else(|| {
+    let address = inner.broker_address.ok_or_else(|| {
         ExternalAgentCommandError::unavailable("Canvas MCP broker address is unavailable.")
     })?;
     let connection_id = Uuid::new_v4().to_string();
     let capability_token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
     let created_at = now_millis();
     let expires_at = created_at.saturating_add(CAPABILITY_LIFETIME_MS);
-    let descriptor_root = state
-        .inner
+    let descriptor_root = inner
         .connection_descriptor_root
         .lock()
         .map_err(|_| ExternalAgentCommandError::process("Descriptor root lock is poisoned."))?
@@ -381,6 +401,7 @@ pub async fn create_external_agent_connection(
         expires_at,
     };
     let descriptor_path = write_connection_descriptor(&descriptor_root, &descriptor)?;
+    let _ = cleanup_legacy_descriptors(&descriptor_root);
     let workspace = TempFileBuilder::new()
         .prefix("managed-mcp-")
         .tempdir_in(&descriptor_root)
@@ -428,20 +449,49 @@ pub async fn create_external_agent_connection(
         turn_gate: tokio::sync::Mutex::new(()),
         turn_workspaces: tokio::sync::Mutex::new(std::collections::HashMap::new()),
         user_managed: true,
-        project_id: Some(project_id),
-        project_name: Some(project_name),
-        descriptor_path: Some(descriptor_path),
+        project_id: Some(project_id.clone()),
+        project_name: Some(project_name.clone()),
+        descriptor_path: Some(descriptor_path.clone()),
         connected_at: std::sync::atomic::AtomicU64::new(0),
         last_activity_at: std::sync::atomic::AtomicU64::new(0),
         call_count: std::sync::atomic::AtomicU64::new(0),
     });
-    state
-        .inner
+    inner
         .sessions
         .write()
         .await
         .insert(connection_id.clone(), session.clone());
-    *state.inner.managed_connection_id.write().await = Some(connection_id);
+    *inner.managed_connection_id.write().await = Some(connection_id);
+
+    let params = ConnectionParams {
+        schema_version: 1,
+        project_id: project_id.clone(),
+        project_name: project_name.clone(),
+        tools: session.tools.values().cloned().collect(),
+        claude_code_project_dir: claude_code_project_dir.clone(),
+    };
+    let _ = write_connection_params(&descriptor_root, &params);
+    if let Some(dir) = claude_code_project_dir.as_deref().filter(|d| !d.trim().is_empty()) {
+        if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+            let executable = std::env::current_exe()
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let args = vec![
+                "--external-agent-mcp".to_string(),
+                descriptor_path.to_string_lossy().into_owned(),
+            ];
+            if let Err(error) = super::claude_config::write_local_mcp_server(
+                &home.join(".claude.json"),
+                dir,
+                "storyboard_canvas",
+                &executable,
+                &args,
+            ) {
+                warn!("未能写入 Claude Code 配置（不影响画布内使用）：{error}");
+            }
+        }
+    }
+
     connection_info(&session)
 }
 
@@ -509,6 +559,18 @@ pub async fn replay_external_agent_pending_tool_calls(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn create_request_parses_optional_claude_dir() {
+        let with: CreateExternalAgentConnectionRequest = serde_json::from_str(
+            r#"{"projectId":"p","projectName":"n","tools":[],"claudeCodeProjectDir":"/tmp/d"}"#,
+        )
+        .unwrap();
+        assert_eq!(with.claude_code_project_dir.as_deref(), Some("/tmp/d"));
+        let without: CreateExternalAgentConnectionRequest =
+            serde_json::from_str(r#"{"projectId":"p","projectName":"n","tools":[]}"#).unwrap();
+        assert!(without.claude_code_project_dir.is_none());
+    }
 
     #[test]
     fn generated_configs_use_descriptor_path_without_capability_material() {
