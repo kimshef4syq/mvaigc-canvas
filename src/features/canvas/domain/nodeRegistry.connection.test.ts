@@ -42,4 +42,14 @@ describe('reference connection direction', () => {
     // generated video can never feed another generation.
     expect(nodeCanStartManualConnection(CANVAS_NODE_TYPES.aiVideo)).toBe(true);
   });
+
+  it('导演台可作为手动连线起点，喂给生成图片 / 生成视频', () => {
+    // The director studio exposes a source handle; without manualSource the
+    // handle renders but dragging is rejected, so its screenshot can never be
+    // used as a reference input.
+    expect(nodeCanStartManualConnection(CANVAS_NODE_TYPES.blueprint)).toBe(true);
+    expect(nodeHasSourceHandle(CANVAS_NODE_TYPES.blueprint)).toBe(true);
+    expect(nodeHasTargetHandle(CANVAS_NODE_TYPES.imageEdit)).toBe(true);
+    expect(nodeHasTargetHandle(CANVAS_NODE_TYPES.aiVideo)).toBe(true);
+  });
 });

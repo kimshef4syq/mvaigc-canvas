@@ -3,6 +3,7 @@ import {
   isAiTextNode,
   isAiVideoNode,
   isAudioNode,
+  isBlueprintNode,
   isExportImageNode,
   isImageEditNode,
   isJsonCardNode,
@@ -150,6 +151,24 @@ function extractReferencesFromNode(
       sourceNodeId: node.id,
       imageUrl,
       previewImageUrl: node.data.previewImageUrl ?? null,
+      title,
+    }];
+  }
+
+  // 导演台（blueprint）的截图可作为参考图：优先取当前截图，回退到截图历史，
+  // 这样刚拖入、尚未截图的节点不会产出空参考。
+  if (isBlueprintNode(node)) {
+    const snapshotUrl = node.data.snapshotUrl
+      || node.data.snapshotHistory?.[node.data.snapshotHistory.length - 1]
+      || '';
+    if (!snapshotUrl) {
+      return [];
+    }
+    return [{
+      kind: 'image',
+      sourceNodeId: node.id,
+      imageUrl: snapshotUrl,
+      previewImageUrl: snapshotUrl,
       title,
     }];
   }

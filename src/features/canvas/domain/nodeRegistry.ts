@@ -634,6 +634,7 @@ const blueprintNodeDefinition: CanvasNodeDefinition<BlueprintNodeData> = {
   connectivity: {
     sourceHandle: true,
     targetHandle: true,
+    manualSource: true,
     connectMenu: {
       fromSource: false,
       fromTarget: false,
