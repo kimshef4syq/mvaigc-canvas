@@ -489,6 +489,8 @@ pub(crate) async fn establish_connection(
             ) {
                 warn!("未能写入 Claude Code 配置（不影响画布内使用）：{error}");
             }
+        } else {
+            warn!("未找到 HOME 目录，跳过写入 Claude Code 配置");
         }
     }
 
