@@ -15,17 +15,55 @@ pub(crate) fn write_local_mcp_server(
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => json!({}),
         Err(e) => return Err(format!("读取 ~/.claude.json 失败：{e}")),
     };
-    if !root.is_object() {
-        root = json!({});
-    }
+    // 逐层安全下钻：任一中间层存在但不是对象 → 返回 Err 且不写。
+    // 不用 `[]` 索引赋值——它对非对象中间层会 panic（serde_json 只对 Null 自动建对象）。
+    let root_obj = root
+        .as_object_mut()
+        .ok_or_else(|| "~/.claude.json 顶层不是对象，未改动".to_string())?;
+    let projects = root_obj
+        .entry("projects")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .ok_or_else(|| "~/.claude.json 的 projects 不是对象，未改动".to_string())?;
+    let project = projects
+        .entry(project_dir.to_string())
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .ok_or_else(|| format!("projects[{project_dir}] 不是对象，未改动"))?;
+    let servers = project
+        .entry("mcpServers")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .ok_or_else(|| "mcpServers 不是对象，未改动".to_string())?;
     let entry = json!({ "type": "stdio", "command": command, "args": args, "env": {} });
-    root["projects"][project_dir]["mcpServers"][server_name] = entry;
+    servers.insert(server_name.to_string(), entry);
     let bytes = serde_json::to_vec_pretty(&root).map_err(|e| e.to_string())?;
-    // 原子写：临时文件 + rename
+    // 原子写：临时文件（0600）+ rename
     let tmp = claude_json.with_extension("json.osc-tmp");
-    std::fs::write(&tmp, &bytes).map_err(|e| format!("写入临时文件失败：{e}"))?;
+    write_private(&tmp, &bytes).map_err(|e| format!("写入临时文件失败：{e}"))?;
     std::fs::rename(&tmp, claude_json).map_err(|e| format!("替换 ~/.claude.json 失败：{e}"))?;
     Ok(())
+}
+
+/// 写临时文件时限定权限，避免 rename 后把 0600 的 `~/.claude.json` 变成世界可读。
+#[cfg(unix)]
+fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)?;
+    file.write_all(bytes)?;
+    file.sync_all()
+}
+
+#[cfg(not(unix))]
+fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    std::fs::write(path, bytes)
 }
 
 #[cfg(test)]
@@ -40,6 +78,14 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"]["command"], "/bin/osc");
         assert_eq!(v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"]["args"][0], "a");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
     }
 
     #[test]
@@ -50,9 +96,9 @@ mod tests {
         write_local_mcp_server(&path, "/proj", "storyboard_canvas", "/bin/osc", &[]).unwrap();
         let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(v["numStartups"], 7);
-        assert!(v["projects"]["/other"]["mcpServers"]["x"].is_object());
-        assert!(v["projects"]["/proj"]["mcpServers"]["keep"].is_object());
-        assert!(v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"].is_object());
+        assert_eq!(v["projects"]["/other"]["mcpServers"]["x"]["type"], "stdio");
+        assert_eq!(v["projects"]["/proj"]["mcpServers"]["keep"]["type"], "stdio");
+        assert_eq!(v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"]["command"], "/bin/osc");
     }
 
     #[test]
@@ -63,5 +109,16 @@ mod tests {
         let err = write_local_mcp_server(&path, "/proj", "storyboard_canvas", "/bin/osc", &[]);
         assert!(err.is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "{ this is not json");
+    }
+
+    #[test]
+    fn projects_is_not_object_returns_err_without_panic() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join(".claude.json");
+        let original = r#"{"projects":"oops"}"#;
+        std::fs::write(&path, original).unwrap();
+        let err = write_local_mcp_server(&path, "/proj", "storyboard_canvas", "/bin/osc", &[]);
+        assert!(err.is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
     }
 }
