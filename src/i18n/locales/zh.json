@@ -406,6 +406,7 @@
   },
   "titleBar": {
     "back": "返回",
+    "cinematicTechniques": "电影技法",
     "switchToEnglish": "English",
     "switchToChinese": "中文",
     "minimize": "最小化",

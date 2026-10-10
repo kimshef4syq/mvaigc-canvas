@@ -3,7 +3,8 @@ import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, X, Maximize2, Settings, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Moon, Sun, Languages } from 'lucide-react';
+import { Moon, Sun, Languages, Clapperboard } from 'lucide-react';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { useThemeStore } from '@/stores/themeStore';
 import { useProjectStore } from '@/stores/projectStore';
 import closeNormalIcon from '@/assets/macos-traffic-lights/1-close-1-normal.svg';
@@ -18,6 +19,8 @@ interface TitleBarProps {
   showBackButton?: boolean;
   onBackClick?: () => void;
 }
+
+const CINEMATIC_TECHNIQUES_URL = 'https://melies.co/cinematic-techniques';
 
 export function TitleBar({ onSettingsClick, showBackButton, onBackClick }: TitleBarProps) {
   const { t, i18n } = useTranslation();
@@ -71,6 +74,10 @@ export function TitleBar({ onSettingsClick, showBackButton, onBackClick }: Title
   const handleThemeClick = useCallback(() => {
     toggleTheme();
   }, [toggleTheme]);
+
+  const handleCinematicTechniquesClick = useCallback(() => {
+    void openUrl(CINEMATIC_TECHNIQUES_URL);
+  }, []);
 
   return (
     <div className="relative z-50 flex h-10 items-center justify-between border-b border-border-dark bg-surface-dark select-none">
@@ -142,6 +149,16 @@ export function TitleBar({ onSettingsClick, showBackButton, onBackClick }: Title
 
       {/* 右侧按钮区域 */}
       <div className="flex items-center h-full">
+        <button
+          type="button"
+          onClick={handleCinematicTechniquesClick}
+          className="inline-flex h-full w-10 items-center justify-center text-text-muted transition-colors hover:bg-bg-dark hover:text-text-dark"
+          title={t('titleBar.cinematicTechniques')}
+          aria-label={t('titleBar.cinematicTechniques')}
+        >
+          <Clapperboard className="h-4 w-4" />
+        </button>
+
         <button
           type="button"
           onClick={handleLanguageClick}
