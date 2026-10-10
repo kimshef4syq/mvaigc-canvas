@@ -30,6 +30,7 @@ import {
   type ExternalAgentPendingApproval,
 } from '../application/externalAgentApprovalQueue';
 import type { ExternalAgentToolRequest } from '../domain/agentModel';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 type ProviderTab = 'codex' | 'claude';
 
@@ -60,6 +61,7 @@ export function ExternalAgentConnectionPanel({
   className = '',
 }: ExternalAgentConnectionPanelProps) {
   const { t, i18n } = useTranslation();
+  const claudeCodeProjectDir = useSettingsStore((s) => s.claudeCodeProjectDir);
   const [connection, setConnection] = useState<ExternalAgentConnectionInfo | null>(null);
   const [provider, setProvider] = useState<ProviderTab>('codex');
   const [busy, setBusy] = useState<'create' | 'refresh' | 'revoke' | null>(null);
@@ -163,7 +165,9 @@ export function ExternalAgentConnectionPanel({
     setBusy('create');
     setError(null);
     try {
-      setConnection(await createExternalAgentConnection({ projectId, projectName, tools }));
+      setConnection(
+        await createExternalAgentConnection({ projectId, projectName, tools, claudeCodeProjectDir })
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {

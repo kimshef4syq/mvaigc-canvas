@@ -76,6 +76,7 @@ export interface CreateExternalAgentConnectionRequest {
   projectId: string;
   projectName: string;
   tools: ExternalAgentToolDefinition[];
+  claudeCodeProjectDir?: string;
 }
 
 export interface ExternalAgentAttachment {
