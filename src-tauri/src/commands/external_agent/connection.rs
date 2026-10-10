@@ -495,6 +495,33 @@ pub(crate) async fn establish_connection(
     connection_info(&session)
 }
 
+pub(crate) async fn rebuild_managed_connection(
+    inner: &Arc<ExternalAgentInner>,
+    app: &AppHandle,
+) -> Result<(), ExternalAgentCommandError> {
+    if !inner.broker_started.load(Ordering::SeqCst) {
+        return Ok(()); // broker 未起，静默跳过
+    }
+    let descriptor_root = inner
+        .connection_descriptor_root
+        .lock()
+        .map_err(|_| ExternalAgentCommandError::process("Descriptor root lock is poisoned."))?
+        .clone();
+    let Some(params) = read_connection_params(&descriptor_root) else {
+        return Ok(()); // 从未创建过，跳过
+    };
+    establish_connection(
+        inner,
+        app,
+        params.project_id,
+        params.project_name,
+        params.tools,
+        params.claude_code_project_dir,
+    )
+    .await?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn inspect_external_agent_connection(
     state: State<'_, ExternalAgentState>,

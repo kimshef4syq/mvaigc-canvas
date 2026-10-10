@@ -104,6 +104,13 @@ pub fn run() {
                 );
             }
 
+            if let Err(error) = app
+                .state::<external_agent::ExternalAgentState>()
+                .rebuild_connection(app.handle().clone())
+            {
+                warn!("external Agent 启动重建未触发：{error}");
+            }
+
             // Start the mvaigc reverse proxy. Credentials come later from the
             // settings panel; this port is just the default.
             {

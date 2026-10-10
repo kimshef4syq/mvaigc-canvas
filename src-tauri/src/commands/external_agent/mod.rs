@@ -36,6 +36,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tempfile::TempDir;
 use tokio::process::ChildStdin;
 use tokio::sync::{oneshot, Mutex, RwLock};
+use tracing::warn;
 use uuid::Uuid;
 use workspace::{
     cleanup_stale_workspaces, cleanup_turn_workspace, create_workspace,
@@ -540,6 +541,16 @@ impl ExternalAgentState {
             .map_err(|_| "Canvas MCP descriptor root lock is poisoned".to_string())? =
             descriptor_root;
         mcp::start_broker_listener(self.inner.clone(), app)
+    }
+
+    pub fn rebuild_connection(&self, app: AppHandle) -> Result<(), String> {
+        let inner = self.inner.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(error) = connection::rebuild_managed_connection(&inner, &app).await {
+                warn!("external Agent 自动重建失败：{error}");
+            }
+        });
+        Ok(())
     }
 }
 
