@@ -10,8 +10,8 @@
 ## 0. 一句话现状
 
 `mvaigc-canvas/` 是 Open Storyboard Canvas（OSC）的二次开发版本。
-当前分支 **`feat/mvaigc-proxy`**，共 **81 个提交**，工作区干净（无未提交改动）。
-三条主线已完成：**自建反代（mvaigc-proxy）**、**「生成图片」一体节点**、**「生成视频」一体节点**。
+当前分支 **`main`**（原 `feat/mvaigc-proxy`，2026-10-10 改名），共 **84 个提交**，已推送 GitHub（origin/main 同步；仅 `model-test/` 未跟踪）。
+三条主线已完成：**自建反代（mvaigc-proxy）**、**「生成图片」一体节点**、**「生成视频」一体节点**；另有导演台连线、品牌改写等后续改动。
 
 工作区约定、Camera 冻结范围、截图硬性要求等，见 `../CLAUDE.md`（不在此重复）。
 
@@ -21,10 +21,10 @@
 
 | 项 | 值 |
 |---|---|
-| 分支 | `feat/mvaigc-proxy`（不是 main，可直接提交） |
-| 提交总数 | 81 |
+| 分支 | `main`（原 `feat/mvaigc-proxy` 已改名；远程 `origin/main` 同步） |
+| 提交总数 | 84 |
 | 基线提交 | `7a78240` chore: 建立 Git 仓库，导入 mvaigc-canvas 工作副本基线 |
-| 最新提交 | `11274be` feat(settings): 隐藏 即梦 Dreamina 与 图床配置 两个设置入口 |
+| 最新提交 | `e8bc5b4` docs(brand): 关于页与 README 改为 mvaigc 桌面画布 |
 
 **Tag（按时间）**：
 
@@ -100,6 +100,15 @@
 
 - `c0ad5ee` 标题栏右上角新增「电影技法」按钮（打开 `https://melies.co/cinematic-techniques`）
 - `11274be` 设置里隐藏「即梦 Dreamina」「图床配置」两个入口（**面板代码保留**，只去掉左侧导航按钮）
+- `e8bc5b4` 关于页与 README 改为「mvaigc 桌面画布」；作者/仓库指向本项目，移除 henjicc 原作者与归属说明（**上游 OSC 链接保留**）。注意：`NOTICE` 文件仍保留 henjicc 归属，未改。
+
+### H. 导演台节点接入生成节点
+
+- `edc67c9` 导演台（blueprint）节点可作为「生成图片」「生成视频」的参考输入：
+  - `src/features/canvas/domain/nodeRegistry.ts`：`blueprintNode` 补 `manualSource: true`（否则 source handle 画得出但拖不动，`handleConnectStart` 直接拦掉）
+  - `src/features/canvas/application/graphReferenceResolver.ts`：`extractReferencesFromNode` 增加导演台分支，把 `data.snapshotUrl`（无则回退 `snapshotHistory` 末张）暴露为 `image` 参考
+  - 补 4 条回归测试（可作手动源 / 截图产出图片参考 / 历史回退）
+  - ⚠️ **未在界面实测**（见第 5 节待办）；且导演台**需先截过图**才有参考可给
 
 ---
 
@@ -124,11 +133,11 @@
 cd mvaigc-canvas
 
 npx tsc --noEmit     # 类型检查
-npm test             # 全量测试（当前 758 通过 / 107 测试文件）
+npm test             # 全量测试（当前 762 通过 / 107 测试文件）
 npm run tauri dev    # 桌面应用，手动看界面
 ```
 
-最近一次全量测试：**758/758 通过**（在 `cf40a1d` 提交前跑过）。
+最近一次全量测试：**762/762 通过**（在 `e8bc5b4` 提交前跑过）。
 
 ---
 
@@ -140,6 +149,9 @@ npm run tauri dev    # 桌面应用，手动看界面
    {"prompt": {"nodeId": "456", "input": "prompt"}, "images": []}
    ```
 3. **`../CLAUDE.md` 不受 git 管理** —— `/Users/spic007/Downloads/07-项目文件/000OD` 不是 git 仓库，该文件的改动无法提交。
+4. **导演台连线修复未实测** —— `edc67c9` 已提交但**未在界面验证**。需在导演台拖右侧圆点连到「生成图片/生成视频」，确认能连上且参考小图出现导演台截图。
+5. **导演台人物模型替换未成功** —— 试过用 `model-test/123.glb`（Mixamo 骨骼，结构兼容，但**无贴图**、根节点 `Armature`）覆盖 `public/blueprint-figure.glb`，用户反馈"没有换成"（疑缓存或加载失败，未定位）。**原模型已恢复**，`model-test/123.glb` 保留未删。若再试：需彻底重启 dev 清缓存，且可能要在 `blueprintGltfFactory.ts` 适配朝向。
+6. **导演台"模型丑"待处理** —— 人物=Mixamo glb（`public/blueprint-figure.glb`）；道具/场景=代码生成的几何体（`src/features/canvas/ui/blueprintMeshFactory.ts`，1959 行）。换人物=换 glb；改道具=改代码。Camera 相关为冻结区，人物/道具不在冻结名单内。
 
 ---
 
