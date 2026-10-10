@@ -840,20 +840,6 @@ export function SettingsDialog({
               </button>
 
               <button
-                onClick={() => setActiveCategory('dreamina')}
-                className={`
-                w-full flex items-center gap-3 px-4 py-2.5 text-left
-                transition-colors
-                ${activeCategory === 'dreamina'
-                    ? 'bg-accent/10 text-text-dark border-l-2 border-accent'
-                    : 'text-text-muted hover:bg-bg-dark hover:text-text-dark'
-                  }
-              `}
-              >
-                <span className="text-sm">{t('settings.dreamina.title')}</span>
-              </button>
-
-              <button
                 onClick={() => setActiveCategory('agnes')}
                 className={`
                 w-full flex items-center gap-3 px-4 py-2.5 text-left
@@ -865,20 +851,6 @@ export function SettingsDialog({
               `}
               >
                 <span className="text-sm">Agnes</span>
-              </button>
-
-              <button
-                onClick={() => setActiveCategory('imageHosting')}
-                className={`
-                w-full flex items-center gap-3 px-4 py-2.5 text-left
-                transition-colors
-                ${activeCategory === 'imageHosting'
-                    ? 'bg-accent/10 text-text-dark border-l-2 border-accent'
-                    : 'text-text-muted hover:bg-bg-dark hover:text-text-dark'
-                  }
-              `}
-              >
-                <span className="text-sm">{t('settings.imageHosting.title')}</span>
               </button>
 
               <button
