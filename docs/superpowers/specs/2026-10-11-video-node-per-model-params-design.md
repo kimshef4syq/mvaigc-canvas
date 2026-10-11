@@ -55,6 +55,12 @@ extraParams: {
 - **解析顺序**：`perModel[modelId]` → 供应商级（`supportedDurations` 等）→ 内置默认（`DEFAULT_*`）。
 - **兼容**：未写 `perModel` 的供应商**行为完全不变**。
 - **写入方**：`mvaigcProviderAutoConfig.ts` 生成 mvaigc 供应商配置时，按 `VIDEO_MODEL_HINT` 已知模型清单逐个写入 `perModel`。
+- **时长粒度 = 每个整数秒**（用户明确）。mvaigc 各模型时长表：
+  - **Seedance 2.5**（`botsmart_seedance_2_5`）：`4..30`（整数秒全部，27 项）
+  - **Seedance 2.0 系列**（`botsmart_seedance_2` / `_2_hd` / `_2_fast`）：`4..15`
+  - **MiniMax H3**（`minimax_h3` / `minimax_h3_768p`）：`4..15`
+  - **其余模型**：`4..10`
+  （区间用升序整数秒数组表达，例如 `range(4,30)`。）
 
 ### 3.2 节点取参：模式骨架 × 模型数值，冲突以模型为准
 
@@ -76,6 +82,8 @@ extraParams: {
 
 - 槽位数量上限一律取合并后的 schema（模型优先），不写死。
 - 非参考模式下视频/音频槽禁用（与现有 schema 一致）。
+
+**时长控件改版**：现有是一排"每个时长一个按钮"（`AiVideoNode.tsx:1809-1827`）。改为**下拉列表**（`<select>`），选项来自当前模型的 `supportedDurations`（如 Seedance 2.5 = 4..30s）。Agnes 的滑杆分支不变。
 
 ## 4. 改动文件
 
