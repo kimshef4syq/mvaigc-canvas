@@ -123,6 +123,19 @@
 - `c958a8a` / `3968d28` 前端新增设置项 `claudeCodeProjectDir`，并在接入面板加"Claude Code 项目目录"输入框，随请求下发（Rust 侧 `claude_code_project_dir`，经 `rename_all = camelCase` 对齐）
 - 验证命令：`npm test`（前端全量）、`cd src-tauri && cargo test`（Rust 全量，含本计划新增测试）
 
+### J. 视频节点：按模型能力 + 生成方式决定参数与槽位
+
+`00b0186` → `06378bc`，让视频节点的时长/分辨率/比例与输入槽由**所选模型的能力** × **生成方式**共同决定。
+
+- 设计：`docs/superpowers/specs/2026-10-11-video-node-per-model-params-design.md`
+- 计划：`docs/superpowers/plans/2026-10-11-video-node-per-model-params.md`
+- 供应商配置新增 `extraParams.perModel`（按模型覆盖 `durations`/`resolutions`/`aspectRatios` + `images`/`videos`/`audios` 上限）；解析顺序 模型 → 供应商 → 默认，未写 `perModel` 行为不变——`videoModelCatalog.ts`
+- 模式骨架（`videoModeInputSchema`）× 模型数值合并为 `currentInputSchema`（`mergeModeWithModelCapability`），冲突**以模型为准**：Seedance 2.5 参考模式可放 30 图、Seedance 2 只能 15——`videoModes.ts` / `AiVideoNode.tsx`
+- 输入槽按 `roles` **具名渲染**：图生=「首帧」；首尾帧=「首帧」+「尾帧」+**调换顺序**按钮（`framesSwapped`）；参考=「参考图」/「参考视频」/「参考音频」三组——`videoSlotLabelKeys`
+- mvaigc 自动配置写入 `perModel`：**Seedance 2.5 = 4–30s、SD2.0 系列 / MiniMax H3 = 4–15s、其余 = 4–10s**（每个整数秒）——`mvaigcProviderAutoConfig.ts`
+- **时长控件由一排按钮改为下拉列表**（选项 = 当前模型时长表）
+- 验证命令：`npm test`、`npx tsc --noEmit`
+
 ---
 
 ## 3. 关键文件落点
