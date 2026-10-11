@@ -416,15 +416,25 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       : [],
     [currentInputSchema.images.enabled, currentInputSchema.images.max, incomingReferenceItems]
   );
-  const schemaReferencePickerItems = useMemo(
-    () => collapseTagGroupReferenceOptions(incomingReferenceItems.filter((reference) => {
+  const schemaReferencePickerItems = useMemo(() => {
+    const items = collapseTagGroupReferenceOptions(incomingReferenceItems.filter((reference) => {
       if (reference.kind === 'image') return currentInputSchema.images.enabled;
       if (reference.kind === 'video') return currentInputSchema.video.enabled;
       if (reference.kind === 'audio') return currentInputSchema.audio.enabled;
       return true;
-    })),
-    [currentInputSchema.audio.enabled, currentInputSchema.images.enabled, currentInputSchema.video.enabled, incomingReferenceItems]
-  );
+    }));
+    // Frames mode + swapped: the thumbnail row must mirror the label order so
+    // the first shown image is the one actually sent as the last frame.
+    if (videoMode === 'frames' && data.framesSwapped) {
+      const images = items.filter((item) => item.kind === 'image');
+      if (images.length >= 2) {
+        const reversed = [...images].reverse();
+        let cursor = 0;
+        return items.map((item) => (item.kind === 'image' ? reversed[cursor++] : item));
+      }
+    }
+    return items;
+  }, [currentInputSchema.audio.enabled, currentInputSchema.images.enabled, currentInputSchema.video.enabled, incomingReferenceItems, videoMode, data.framesSwapped]);
   const functionPickerItems = useMemo(() => (
     promptPresets.length > 0
       ? [{
