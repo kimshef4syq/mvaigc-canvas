@@ -30,6 +30,10 @@ export interface VideoCatalogEntry {
   supportedDurations: string[];
   supportedResolutions: string[];
   supportedAspectRatios: string[];
+  /** Per-model reference slot limits declared via `extraParams.perModel`. Absent = not declared. */
+  supportedImageCount?: number;
+  supportedVideoCount?: number;
+  supportedAudioCount?: number;
   inputSchema: VideoInputSchema;
   usable: boolean;
   notReadyReason?: string;
@@ -66,6 +70,59 @@ function uniqueStrings(values: unknown, fallback: string[]): string[] {
     normalized.push(text);
   });
   return normalized.length > 0 ? normalized : fallback;
+}
+
+function positiveIntegerOrUndefined(value: unknown): number | undefined {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : undefined;
+}
+
+function stringArrayOrUndefined(value: unknown): string[] | undefined {
+  const normalized = uniqueStrings(value, []);
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+export interface PerModelCapabilities {
+  durations?: string[];
+  resolutions?: string[];
+  aspectRatios?: string[];
+  images?: number;
+  videos?: number;
+  audios?: number;
+}
+
+/**
+ * Read a model's capability override from `extraParams.perModel[modelId]`.
+ * Every field is optional; absent or invalid fields are omitted so the caller
+ * falls back to the provider-level declaration.
+ */
+export function resolvePerModelCapabilities(
+  provider: CustomProviderConfig,
+  modelId: string
+): PerModelCapabilities {
+  const perModel = provider.extraParams?.perModel;
+  if (!perModel || typeof perModel !== 'object' || Array.isArray(perModel)) {
+    return {};
+  }
+  const raw = (perModel as Record<string, unknown>)[modelId];
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+  const record = raw as Record<string, unknown>;
+  const result: PerModelCapabilities = {};
+  const durations = stringArrayOrUndefined(record.durations);
+  if (durations) result.durations = durations;
+  const resolutions = stringArrayOrUndefined(record.resolutions);
+  if (resolutions) result.resolutions = resolutions;
+  const aspectRatios = stringArrayOrUndefined(record.aspectRatios);
+  if (aspectRatios) result.aspectRatios = aspectRatios;
+  const images = positiveIntegerOrUndefined(record.images);
+  if (images !== undefined) result.images = images;
+  const videos = positiveIntegerOrUndefined(record.videos);
+  if (videos !== undefined) result.videos = videos;
+  const audios = positiveIntegerOrUndefined(record.audios);
+  if (audios !== undefined) result.audios = audios;
+  return result;
 }
 
 function resolveModelDescription(
@@ -123,6 +180,7 @@ export function buildVideoModelCatalog(
     const usable = hasBaseUrl && hasCredential && !comfyError;
 
     for (const modelId of models) {
+      const perModel = resolvePerModelCapabilities(provider, modelId);
       const inputSchema = resolveVideoInputSchemaFromExtraParams(provider.extraParams, modelId);
       const defaults = provider.extraParams?.defaultRequestParams;
       const imageMode = defaults && typeof defaults === 'object' && !Array.isArray(defaults)
@@ -137,9 +195,12 @@ export function buildVideoModelCatalog(
         providerLabel: provider.label,
         modelId,
         modelLabel: resolveModelDescription(provider, modelId) ?? modelId,
-        supportedDurations,
-        supportedResolutions,
-        supportedAspectRatios,
+        supportedDurations: perModel.durations ?? supportedDurations,
+        supportedResolutions: perModel.resolutions ?? supportedResolutions,
+        supportedAspectRatios: perModel.aspectRatios ?? supportedAspectRatios,
+        ...(perModel.images !== undefined ? { supportedImageCount: perModel.images } : {}),
+        ...(perModel.videos !== undefined ? { supportedVideoCount: perModel.videos } : {}),
+        ...(perModel.audios !== undefined ? { supportedAudioCount: perModel.audios } : {}),
         inputSchema,
         ...(defaultExtraParams ? { defaultExtraParams } : {}),
         ...(comfyCapabilities ?? {}),
