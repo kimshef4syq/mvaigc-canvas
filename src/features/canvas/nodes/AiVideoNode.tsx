@@ -1523,7 +1523,6 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       </div>
       <VideoSlotHeader
         schema={currentInputSchema}
-        framesSwapped={data.framesSwapped}
         onSwap={() => updateNodeData(id, { framesSwapped: !data.framesSwapped })}
       />
       {(addMenuKindEnabled.image || addMenuKindEnabled.video || addMenuKindEnabled.audio) && (

@@ -17,11 +17,11 @@ describe('VideoSlotHeader', () => {
     expect(html).toContain('video-swap-first-last');
   });
 
-  it('frames mode with framesSwapped reverses the label order', () => {
-    const html = renderToStaticMarkup(<VideoSlotHeader schema={videoModeInputSchema('frames')} framesSwapped />);
+  it('frames mode labels stay 首帧/尾帧 regardless of swap (text never flips)', () => {
+    const html = renderToStaticMarkup(<VideoSlotHeader schema={videoModeInputSchema('frames')} />);
     const first = html.indexOf('node.aiVideo.slotFirstFrame');
     const last = html.indexOf('node.aiVideo.slotLastFrame');
-    expect(last).toBeLessThan(first); // 尾帧 label 出现在首帧之前
+    expect(first).toBeLessThan(last); // 槽1=首帧，槽2=尾帧，固定不变
   });
 
   it('image mode shows only the first-frame label, no swap button', () => {

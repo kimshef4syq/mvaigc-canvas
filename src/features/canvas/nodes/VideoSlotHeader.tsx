@@ -6,24 +6,22 @@ import type { VideoInputSchema } from '@/features/canvas/application/videoInputS
 export interface VideoSlotHeaderProps {
   /** The merged (mode × model) input schema driving which slots exist. */
   schema: VideoInputSchema;
-  /** Frames mode only: swap the first/last frame labels + the sent order. */
-  framesSwapped?: boolean;
-  /** Frames mode only: toggle the first/last frame order. */
+  /** Frames mode only: toggles the sent frame order (labels stay 首帧/尾帧). */
   onSwap?: () => void;
 }
 
 /**
  * Renders the named input-slot labels for the current mode (首帧/尾帧 for frames,
  * 首帧 for image, 参考图/视频/音频 for reference) plus the frames-mode swap
- * button. Returns null when the mode has no named slots (文生).
+ * button. Labels are fixed (槽1=首帧、槽2=尾帧); the swap button only changes
+ * which image occupies each slot. Returns null when the mode has no named slots (文生).
  */
-export function VideoSlotHeader({ schema, framesSwapped, onSwap }: VideoSlotHeaderProps) {
+export function VideoSlotHeader({ schema, onSwap }: VideoSlotHeaderProps) {
   const { t } = useTranslation();
   const slotKeys = videoSlotLabelKeys(schema);
   if (slotKeys.length === 0) return null;
   const isFrames = slotKeys.length === 2 && slotKeys[0] === 'slotFirstFrame' && slotKeys[1] === 'slotLastFrame';
   const labels = slotKeys.map((key) => t(`node.aiVideo.${key}`));
-  if (isFrames && framesSwapped) labels.reverse();
   return (
     <div className="mb-1 flex shrink-0 items-center gap-1 text-[10px] text-text-muted">
       <span data-testid="video-slot-labels">{labels.join(' / ')}</span>
