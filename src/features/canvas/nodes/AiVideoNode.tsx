@@ -34,6 +34,15 @@ import {
   normalizeReferenceTokensForSubmission,
 } from '@/features/canvas/application/graphReferenceResolver';
 import { resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
+import { prepareNodeImageFromFile } from '@/features/canvas/application/imageData';
+import { prepareAudioNodeDataFromFile } from '@/features/canvas/application/audioUpload';
+import { prepareVideoNodeDataFromFile } from '@/features/canvas/application/videoUpload';
+import { findRelatedCanvasNodePositions } from '@/features/canvas/application/canvasNodePlacement';
+import {
+  canAddReferenceKind,
+  listReferenceCandidates,
+  type ReferenceMediaKind,
+} from '@/features/canvas/application/videoReferenceCandidates';
 import type { VideoGenerationMode } from '@/features/canvas/application/videoNodeGeneration';
 import { normalizeVideoHistory, resolveMainVideoEntry } from '@/features/canvas/application/generatedVideoHistory';
 import { buildCapturedFrameNodeData, captureVideoThumbnail, resolveFrameCaptureTime } from '@/features/canvas/application/videoUpload';
@@ -435,6 +444,101 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
     }
     return items;
   }, [currentInputSchema.audio.enabled, currentInputSchema.images.enabled, currentInputSchema.video.enabled, incomingReferenceItems, videoMode, data.framesSwapped]);
+
+  // "＋" reference picker: add media (local upload or canvas node) as a
+  // connected reference, gated by the current mode's schema.
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [canvasPickerKind, setCanvasPickerKind] = useState<ReferenceMediaKind | null>(null);
+  const referenceFileInputRef = useRef<HTMLInputElement>(null);
+  const canvasNodes = useCanvasStore((state) => state.nodes);
+  const canvasEdges = useCanvasStore((state) => state.edges);
+  const referenceCandidates = useMemo(
+    () => listReferenceCandidates(canvasNodes, canvasEdges, id),
+    [canvasNodes, canvasEdges, id]
+  );
+  const addSlotState = useMemo(() => ({
+    image: { enabled: currentInputSchema.images.enabled, count: schemaIncomingImageItems.length, max: currentInputSchema.images.max },
+    video: {
+      enabled: currentInputSchema.video.enabled,
+      count: incomingReferenceItems.filter((r) => r.kind === 'video').length,
+      max: currentInputSchema.video.max,
+    },
+    audio: {
+      enabled: currentInputSchema.audio.enabled,
+      count: incomingReferenceItems.filter((r) => r.kind === 'audio').length,
+      max: currentInputSchema.audio.max,
+    },
+  }), [
+    currentInputSchema.images.enabled, currentInputSchema.images.max,
+    currentInputSchema.video.enabled, currentInputSchema.video.max,
+    currentInputSchema.audio.enabled, currentInputSchema.audio.max,
+    schemaIncomingImageItems.length, incomingReferenceItems,
+  ]);
+  const addMenuKindEnabled = useMemo(
+    () => ({
+      image: canAddReferenceKind(addSlotState.image),
+      video: canAddReferenceKind(addSlotState.video),
+      audio: canAddReferenceKind(addSlotState.audio),
+    }),
+    [addSlotState]
+  );
+  const fileAcceptForKinds = useMemo(() => {
+    const parts: string[] = [];
+    if (addMenuKindEnabled.image) parts.push('image/*');
+    if (addMenuKindEnabled.video) parts.push('video/*');
+    if (addMenuKindEnabled.audio) parts.push('audio/*');
+    return parts.join(',');
+  }, [addMenuKindEnabled]);
+
+  const placeUploadedNode = useCallback(() => {
+    const [position] = findRelatedCanvasNodePositions({
+      nodes: canvasNodes,
+      relatedNodeId: id,
+      desired: { x: 0, y: 0 },
+      size: { width: EXPORT_RESULT_NODE_DEFAULT_WIDTH, height: EXPORT_RESULT_NODE_LAYOUT_HEIGHT },
+      count: 1,
+    });
+    return position ?? { x: 0, y: 0 };
+  }, [canvasNodes, id]);
+
+  const handleReferenceFile = useCallback(async (file: File) => {
+    const kind: ReferenceMediaKind = file.type.startsWith('video/')
+      ? 'video'
+      : file.type.startsWith('audio/')
+        ? 'audio'
+        : 'image';
+    if (!addMenuKindEnabled[kind]) return;
+    const position = placeUploadedNode();
+    try {
+      if (kind === 'video') {
+        const prepared = await prepareVideoNodeDataFromFile(file);
+        const nodeId = addNode(CANVAS_NODE_TYPES.video, position, { ...prepared, displayName: file.name });
+        addEdge(nodeId, id);
+      } else if (kind === 'audio') {
+        const prepared = await prepareAudioNodeDataFromFile(file);
+        const nodeId = addNode(CANVAS_NODE_TYPES.audio, position, { ...prepared, displayName: file.name });
+        addEdge(nodeId, id);
+      } else {
+        const prepared = await prepareNodeImageFromFile(file);
+        const nodeId = addNode(CANVAS_NODE_TYPES.upload, position, {
+          imageUrl: prepared.imageUrl,
+          previewImageUrl: prepared.previewImageUrl,
+          aspectRatio: prepared.aspectRatio || '1:1',
+          sourceFileName: file.name,
+        });
+        addEdge(nodeId, id);
+      }
+    } catch {
+      // Unreadable files simply produce no node.
+    }
+  }, [addMenuKindEnabled, placeUploadedNode, addNode, addEdge, id]);
+
+  const handleAddCanvasReference = useCallback((candidate: { nodeId: string }) => {
+    addEdge(candidate.nodeId, id);
+    setCanvasPickerKind(null);
+    setAddMenuOpen(false);
+  }, [addEdge, id]);
+
   const functionPickerItems = useMemo(() => (
     promptPresets.length > 0
       ? [{
@@ -1422,6 +1526,91 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         framesSwapped={data.framesSwapped}
         onSwap={() => updateNodeData(id, { framesSwapped: !data.framesSwapped })}
       />
+      {(addMenuKindEnabled.image || addMenuKindEnabled.video || addMenuKindEnabled.audio) && (
+        <div className="relative mb-1 flex shrink-0">
+          <button
+            type="button"
+            data-testid="video-add-reference"
+            className="nodrag flex h-8 w-8 shrink-0 items-center justify-center rounded border border-dashed border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] text-lg leading-none text-text-muted transition-colors hover:border-accent/50 hover:text-text-dark"
+            title={t('node.aiVideo.addReference')}
+            onClick={(event) => {
+              event.stopPropagation();
+              setAddMenuOpen((open) => !open);
+              setCanvasPickerKind(null);
+            }}
+          >
+            +
+          </button>
+          <input
+            ref={referenceFileInputRef}
+            type="file"
+            accept={fileAcceptForKinds || undefined}
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (file) void handleReferenceFile(file);
+            }}
+          />
+          {addMenuOpen && (
+            <div
+              className="nowheel absolute left-0 top-full z-40 mt-1 w-[160px] overflow-hidden rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] p-1 shadow-xl"
+              onMouseDown={(event) => event.stopPropagation()}
+              onWheelCapture={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                data-testid="video-add-local"
+                className="flex w-full rounded-md px-2 py-1.5 text-left text-[11px] text-[var(--canvas-node-button-text)] hover:bg-[var(--canvas-node-menu-hover)]"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setAddMenuOpen(false);
+                  referenceFileInputRef.current?.click();
+                }}
+              >
+                {t('node.aiVideo.addFromLocal')}
+              </button>
+              {(['image', 'video', 'audio'] as const)
+                .filter((kind) => addMenuKindEnabled[kind] && referenceCandidates[kind].length > 0)
+                .map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    className="flex w-full rounded-md px-2 py-1.5 text-left text-[11px] text-[var(--canvas-node-button-text)] hover:bg-[var(--canvas-node-menu-hover)]"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setCanvasPickerKind(kind);
+                    }}
+                  >
+                    {t(`node.aiVideo.addFromCanvas.${kind}`)}
+                  </button>
+                ))}
+            </div>
+          )}
+          {canvasPickerKind && (
+            <div
+              className="nowheel absolute left-0 top-full z-40 mt-1 max-h-[200px] w-[200px] overflow-y-auto rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] p-1 shadow-xl"
+              onMouseDown={(event) => event.stopPropagation()}
+              onWheelCapture={(event) => event.stopPropagation()}
+            >
+              {referenceCandidates[canvasPickerKind].map((candidate) => (
+                <button
+                  key={candidate.nodeId}
+                  type="button"
+                  className="flex w-full truncate rounded-md px-2 py-1.5 text-left text-[11px] text-[var(--canvas-node-button-text)] hover:bg-[var(--canvas-node-menu-hover)]"
+                  title={candidate.label}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleAddCanvasReference(candidate);
+                  }}
+                >
+                  {candidate.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {schemaReferencePickerItems.length > 0 && (
         <div className="mb-2 flex shrink-0 flex-wrap gap-1">
           {schemaReferencePickerItems.map((item, index) => (

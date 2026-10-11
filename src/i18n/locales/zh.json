@@ -1527,7 +1527,14 @@
       "slotReferenceImage": "参考图",
       "slotReferenceVideo": "参考视频",
       "slotReferenceAudio": "参考音频",
-      "swapFirstLastFrame": "调换顺序"
+      "swapFirstLastFrame": "调换顺序",
+      "addReference": "添加参考",
+      "addFromLocal": "从本地上传",
+      "addFromCanvas": {
+        "image": "从画布选择图片",
+        "video": "从画布选择视频",
+        "audio": "从画布选择音频"
+      }
     },
     "aiText": {
       "promptPlaceholder": "输入这次任务的 prompt",

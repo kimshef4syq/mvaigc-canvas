@@ -1531,7 +1531,14 @@
       "slotReferenceImage": "Reference image",
       "slotReferenceVideo": "Reference video",
       "slotReferenceAudio": "Reference audio",
-      "swapFirstLastFrame": "Swap order"
+      "swapFirstLastFrame": "Swap order",
+      "addReference": "Add reference",
+      "addFromLocal": "Upload from local",
+      "addFromCanvas": {
+        "image": "Pick image from canvas",
+        "video": "Pick video from canvas",
+        "audio": "Pick audio from canvas"
+      }
     },
     "aiText": {
       "promptPlaceholder": "Enter the prompt for this task",
