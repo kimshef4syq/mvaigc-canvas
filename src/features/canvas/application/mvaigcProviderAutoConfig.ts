@@ -32,6 +32,35 @@ const VIDEO_MODEL_HINT = [
   'wan_2_7',               // WAN-2.7
 ];
 
+/** 把整数秒区间展开成升序字符串数组（如 4..30）。 */
+function secondsRange(from: number, to: number): string[] {
+  return Array.from({ length: to - from + 1 }, (_, index) => String(from + index));
+}
+// 每模型时长档（用户口径）：Seedance 2.5 = 4-30s，SD2.0 系列 / MiniMax H3 = 4-15s，其余 = 4-10s。
+const DUR_4_30 = secondsRange(4, 30);
+const DUR_4_15 = secondsRange(4, 15);
+const DUR_4_10 = secondsRange(4, 10);
+
+/**
+ * Per-model capability overrides for the mvaigc video provider. Keyed by the
+ * model ids in VIDEO_MODEL_HINT; unlisted fields fall back to the provider-level
+ * declaration inside `buildMvaigcProviders`.
+ */
+const VIDEO_PER_MODEL: Record<string, Record<string, unknown>> = {
+  botsmart_seedance_2_5: { durations: DUR_4_30, resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], images: 30, videos: 3, audios: 3 },
+  botsmart_seedance_2: { durations: DUR_4_15, resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], images: 15 },
+  botsmart_seedance_2_hd: { durations: DUR_4_15, resolutions: ['1080p'], aspectRatios: ['16:9', '9:16'], images: 15 },
+  botsmart_seedance_2_fast: { durations: DUR_4_15, resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], images: 15 },
+  veo_3_1: { durations: DUR_4_10 },
+  minimax_h3: { durations: DUR_4_15 },
+  minimax_h3_768p: { durations: DUR_4_15 },
+  vidu_q3: { durations: DUR_4_10 },
+  happyhorse_1_720p: { durations: DUR_4_10 },
+  happyhorse_1_1080p: { durations: DUR_4_10 },
+  kling_v3_omni: { durations: DUR_4_10 },
+  wan_2_7: { durations: DUR_4_10 },
+};
+
 /**
  * Build the two OSC custom providers that point at the built-in mvaigc proxy.
  * The image provider uses the declarative `asyncTask` poll contract; the video
@@ -91,6 +120,7 @@ export function buildMvaigcProviders(port: number, credentials: string): CustomP
     extraParams: {
       supportedRatios: ['16:9', '9:16', '1:1'],
       supportedDurations: [5, 10],
+      perModel: VIDEO_PER_MODEL,
       // The local proxy accepts JSON only; without this OSC defaults video
       // providers to multipart and every submit fails with HTTP 415.
       videoRequestBodyMode: 'json',

@@ -97,3 +97,23 @@ describe('buildMvaigcProviders', () => {
     expect(updated).toEqual(['mvaigc-image', 'mvaigc-video']);
   });
 });
+
+describe('mvaigc video perModel', () => {
+  const video = () => buildMvaigcProviders(8787, 'u:p').find((p) => p.mediaType === 'video')!;
+  const perModel = () => (video().extraParams as Record<string, unknown>).perModel as Record<string, any>;
+
+  it('Seedance 2.5 = 4..30s, SD2.0 系列 = 4..15s', () => {
+    expect(perModel().botsmart_seedance_2_5.durations).toEqual(
+      Array.from({ length: 27 }, (_, i) => String(4 + i)),
+    );
+    expect(perModel().botsmart_seedance_2_5.durations).toContain('30');
+    expect(perModel().botsmart_seedance_2.durations).toContain('15');
+    expect(perModel().botsmart_seedance_2.durations).not.toContain('16');
+  });
+
+  it('MiniMax H3 = 4..15s, 其余 = 4..10s', () => {
+    expect(perModel().minimax_h3.durations[0]).toBe('4');
+    expect(perModel().minimax_h3.durations.at(-1)).toBe('15');
+    expect(perModel().wan_2_7.durations.at(-1)).toBe('10');
+  });
+});
