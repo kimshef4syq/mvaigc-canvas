@@ -117,3 +117,38 @@ describe('mvaigc video perModel', () => {
     expect(perModel().wan_2_7.durations.at(-1)).toBe('10');
   });
 });
+
+describe('mvaigc video perModel — 480p 与宽高比补齐（hd 后缀除外）', () => {
+  const video = () => buildMvaigcProviders(8787, 'u:p').find((p) => p.mediaType === 'video')!;
+  const perModel = () => (video().extraParams as Record<string, unknown>).perModel as Record<string, any>;
+  const EXTRA_RATIOS = ['21:9', '9:21', '4:3', '3:4', '3:2', '2:3'];
+
+  it('非 hd 模型都含 480p', () => {
+    for (const m of ['botsmart_seedance_2_5', 'botsmart_seedance_2', 'botsmart_seedance_2_fast', 'veo_3_1', 'minimax_h3', 'minimax_h3_768p', 'vidu_q3', 'happyhorse_1_720p', 'happyhorse_1_1080p', 'kling_v3_omni', 'wan_2_7']) {
+      expect(perModel()[m].resolutions, m).toContain('480p');
+    }
+  });
+
+  it('hd 后缀模型不含 480p', () => {
+    expect(perModel().botsmart_seedance_2_hd.resolutions).not.toContain('480p');
+  });
+
+  it('非 hd 模型都含这 6 个宽高比', () => {
+    for (const m of ['botsmart_seedance_2_5', 'botsmart_seedance_2', 'botsmart_seedance_2_fast', 'veo_3_1', 'minimax_h3', 'wan_2_7']) {
+      for (const r of EXTRA_RATIOS) expect(perModel()[m].aspectRatios, `${m} ${r}`).toContain(r);
+    }
+  });
+
+  it('hd 模型也补这 6 个宽高比（只是不加 480p）', () => {
+    for (const r of EXTRA_RATIOS) expect(perModel().botsmart_seedance_2_hd.aspectRatios).toContain(r);
+  });
+
+  it('已有的不重复：解析结果里无重复项', () => {
+    for (const m of Object.keys(perModel())) {
+      const res: string[] = perModel()[m].resolutions ?? [];
+      const ar: string[] = perModel()[m].aspectRatios ?? [];
+      expect(new Set(res).size, `${m} res dup`).toBe(res.length);
+      expect(new Set(ar).size, `${m} ar dup`).toBe(ar.length);
+    }
+  });
+});

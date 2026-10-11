@@ -41,24 +41,46 @@ const DUR_4_30 = secondsRange(4, 30);
 const DUR_4_15 = secondsRange(4, 15);
 const DUR_4_10 = secondsRange(4, 10);
 
+/** 合并两组取值并去重（保持先出现顺序）。 */
+function mergeUnique(a: readonly string[], b: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of [...a, ...b]) {
+    if (!seen.has(value)) {
+      seen.add(value);
+      out.push(value);
+    }
+  }
+  return out;
+}
+
+// 用户要求补齐的宽高比（已有则去重）。除 hd 后缀模型外，都要加上。
+const EXTRA_ASPECT_RATIOS = ['21:9', '9:21', '4:3', '3:4', '3:2', '2:3'];
+const BASE_RES_720_1080 = ['720p', '1080p'];
+const BASE_RATIOS_169_916_11 = ['16:9', '9:16', '1:1'];
+const BASE_RATIOS_169_916 = ['16:9', '9:16'];
+
 /**
  * Per-model capability overrides for the mvaigc video provider. Keyed by the
  * model ids in VIDEO_MODEL_HINT; unlisted fields fall back to the provider-level
  * declaration inside `buildMvaigcProviders`.
+ *
+ * 分辨率/宽高比口径：所有模型补 480p 与 EXTRA_ASPECT_RATIOS；`botsmart_seedance_2_hd`
+ * （hd 后缀）**不加 480p**（只补宽高比）。
  */
 const VIDEO_PER_MODEL: Record<string, Record<string, unknown>> = {
-  botsmart_seedance_2_5: { durations: DUR_4_30, resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], images: 30, videos: 3, audios: 3 },
-  botsmart_seedance_2: { durations: DUR_4_15, resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], images: 15 },
-  botsmart_seedance_2_hd: { durations: DUR_4_15, resolutions: ['1080p'], aspectRatios: ['16:9', '9:16'], images: 15 },
-  botsmart_seedance_2_fast: { durations: DUR_4_15, resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], images: 15 },
-  veo_3_1: { durations: DUR_4_10 },
-  minimax_h3: { durations: DUR_4_15 },
-  minimax_h3_768p: { durations: DUR_4_15 },
-  vidu_q3: { durations: DUR_4_10 },
-  happyhorse_1_720p: { durations: DUR_4_10 },
-  happyhorse_1_1080p: { durations: DUR_4_10 },
-  kling_v3_omni: { durations: DUR_4_10 },
-  wan_2_7: { durations: DUR_4_10 },
+  botsmart_seedance_2_5: { durations: DUR_4_30, resolutions: mergeUnique(BASE_RES_720_1080, ['480p']), aspectRatios: mergeUnique(BASE_RATIOS_169_916_11, EXTRA_ASPECT_RATIOS), images: 30, videos: 3, audios: 3 },
+  botsmart_seedance_2: { durations: DUR_4_15, resolutions: mergeUnique(BASE_RES_720_1080, ['480p']), aspectRatios: mergeUnique(BASE_RATIOS_169_916_11, EXTRA_ASPECT_RATIOS), images: 15 },
+  botsmart_seedance_2_hd: { durations: DUR_4_15, resolutions: ['1080p'], aspectRatios: mergeUnique(BASE_RATIOS_169_916, EXTRA_ASPECT_RATIOS), images: 15 },
+  botsmart_seedance_2_fast: { durations: DUR_4_15, resolutions: mergeUnique(['720p'], ['480p']), aspectRatios: mergeUnique(BASE_RATIOS_169_916, EXTRA_ASPECT_RATIOS), images: 15 },
+  veo_3_1: { durations: DUR_4_10, resolutions: mergeUnique(BASE_RES_720_1080, ['480p']), aspectRatios: mergeUnique(BASE_RATIOS_169_916_11, EXTRA_ASPECT_RATIOS) },
+  minimax_h3: { durations: DUR_4_15, resolutions: mergeUnique(BASE_RES_720_1080, ['480p']), aspectRatios: mergeUnique(BASE_RATIOS_169_916_11, EXTRA_ASPECT_RATIOS) },
+  minimax_h3_768p: { durations: DUR_4_15, resolutions: mergeUnique(BASE_RES_720_1080, ['480p']), aspectRatios: mergeUnique(BASE_RATIOS_169_916_11, EXTRA_ASPECT_RATIOS) },
+  vidu_q3: { durations: DUR_4_10, resolutions: mergeUnique(BASE_RES_720_1080, ['480p']), aspectRatios: mergeUnique(BASE_RATIOS_169_916_11, EXTRA_ASPECT_RATIOS) },
+  happyhorse_1_720p: { durations: DUR_4_10, resolutions: mergeUnique(BASE_RES_720_1080, ['480p']), aspectRatios: mergeUnique(BASE_RATIOS_169_916_11, EXTRA_ASPECT_RATIOS) },
+  happyhorse_1_1080p: { durations: DUR_4_10, resolutions: mergeUnique(BASE_RES_720_1080, ['480p']), aspectRatios: mergeUnique(BASE_RATIOS_169_916_11, EXTRA_ASPECT_RATIOS) },
+  kling_v3_omni: { durations: DUR_4_10, resolutions: mergeUnique(BASE_RES_720_1080, ['480p']), aspectRatios: mergeUnique(BASE_RATIOS_169_916_11, EXTRA_ASPECT_RATIOS) },
+  wan_2_7: { durations: DUR_4_10, resolutions: mergeUnique(BASE_RES_720_1080, ['480p']), aspectRatios: mergeUnique(BASE_RATIOS_169_916_11, EXTRA_ASPECT_RATIOS) },
 };
 
 /**
