@@ -21,7 +21,9 @@ import {
   type ExportImageNodeData,
   type GeneratedImageEntry,
   type ImageEditNodeData,
+  type CameraControlOptions,
 } from '@/features/canvas/domain/canvasNodes';
+import { CameraControlPanel } from '@/features/canvas/ui/CameraControlPanel';
 import { resolveMainImageEntry } from '@/features/canvas/application/generatedImageHistory';
 import {
   resolveMinEdgeFittedSize,
@@ -67,6 +69,7 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
   const { zoom } = useViewport();
   const [now, setNow] = useState(() => Date.now());
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [showCameraControl, setShowCameraControl] = useState(false);
   const isExportResultNode = type === CANVAS_NODE_TYPES.exportImage;
   const isGenerating = typeof data.isGenerating === 'boolean' ? data.isGenerating : false;
   const generationError =
@@ -523,8 +526,19 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
       />
 
       {isExportResultNode && selected ? (
-        <ImageNodePromptPanel nodeId={id} data={data as ExportImageNodeData} />
+        <ImageNodePromptPanel
+          nodeId={id}
+          data={data as ExportImageNodeData}
+          onOpenCameraControl={() => setShowCameraControl(true)}
+        />
       ) : null}
+
+      <CameraControlPanel
+        isOpen={showCameraControl}
+        onClose={() => setShowCameraControl(false)}
+        cameraControl={(data as { cameraControl?: CameraControlOptions }).cameraControl}
+        onApply={(next) => updateNodeData(id, { cameraControl: next })}
+      />
     </div>
   );
 });
