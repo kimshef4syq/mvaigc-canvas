@@ -75,6 +75,7 @@ import {
 } from '@/features/canvas/application/videoInputSchema';
 import {
   VIDEO_NODE_MODES,
+  mergeModeWithModelCapability,
   videoModeImageMode,
   videoModeInputSchema,
   type VideoNodeModeKind,
@@ -399,8 +400,12 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
   // provider: it decides how connected media is used and what imageMode we send.
   const videoMode: VideoNodeModeKind = data.videoMode ?? 'reference';
   const currentInputSchema = useMemo(
-    () => videoModeInputSchema(videoMode),
-    [videoMode]
+    () => mergeModeWithModelCapability(videoModeInputSchema(videoMode), {
+      images: selectedEntry?.supportedImageCount,
+      videos: selectedEntry?.supportedVideoCount,
+      audios: selectedEntry?.supportedAudioCount,
+    }),
+    [videoMode, selectedEntry]
   );
   const schemaIncomingImageItems = useMemo(
     () => currentInputSchema.images.enabled
@@ -732,7 +737,11 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       void showErrorDialog(message, t('common.error'));
       return null;
     }
-    const latestInputSchema = videoModeInputSchema(data.videoMode ?? 'reference');
+    const latestInputSchema = mergeModeWithModelCapability(videoModeInputSchema(data.videoMode ?? 'reference'), {
+      images: latestEntry.supportedImageCount,
+      videos: latestEntry.supportedVideoCount,
+      audios: latestEntry.supportedAudioCount,
+    });
     const latestIncomingImages = latestInputSchema.images.enabled
       ? latestReferences
         .filter((reference) => reference.kind === 'image' && reference.imageUrl)
