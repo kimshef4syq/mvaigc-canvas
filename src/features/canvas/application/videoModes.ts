@@ -60,3 +60,31 @@ export function videoModeImageMode(kind: VideoNodeModeKind): 'text' | 'firstFram
   if (kind === 'reference') return 'reference';
   return 'text';
 }
+
+export interface ModelSlotCapability {
+  images?: number;
+  videos?: number;
+  audios?: number;
+}
+
+/**
+ * Combine the mode's semantic skeleton (which kinds are enabled, image roles)
+ * with the selected model's declared numeric limits. A declared positive limit
+ * overrides the mode default; an omitted or invalid limit keeps the mode
+ * default. A kind the mode disabled stays disabled.
+ */
+export function mergeModeWithModelCapability(
+  mode: VideoInputSchema,
+  capability: ModelSlotCapability,
+): VideoInputSchema {
+  const overrideMax = (enabled: boolean, modeMax: number, declared?: number): number =>
+    enabled && typeof declared === 'number' && Number.isFinite(declared) && declared > 0
+      ? Math.trunc(declared)
+      : modeMax;
+  return {
+    ...mode,
+    images: { ...mode.images, max: overrideMax(mode.images.enabled, mode.images.max, capability.images) },
+    video: { ...mode.video, max: overrideMax(mode.video.enabled, mode.video.max, capability.videos) },
+    audio: { ...mode.audio, max: overrideMax(mode.audio.enabled, mode.audio.max, capability.audios) },
+  };
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { VIDEO_NODE_MODES, videoModeInputSchema, videoModeImageMode } from './videoModes';
+import { VIDEO_NODE_MODES, videoModeInputSchema, videoModeImageMode, mergeModeWithModelCapability } from './videoModes';
 
 describe('VIDEO_NODE_MODES', () => {
   it('lists the four modes in display order', () => {
@@ -50,5 +50,27 @@ describe('videoModeImageMode', () => {
     expect(videoModeImageMode('image')).toBe('firstFrame');
     expect(videoModeImageMode('frames')).toBe('frames');
     expect(videoModeImageMode('reference')).toBe('reference');
+  });
+});
+
+describe('mergeModeWithModelCapability', () => {
+  it('model count overrides mode default when declared', () => {
+    const reference = videoModeInputSchema('reference'); // 默认 images.max=9
+    const merged = mergeModeWithModelCapability(reference, { images: 30, videos: 3, audios: 3 });
+    expect(merged.images.max).toBe(30);
+    expect(merged.video.max).toBe(3);
+    expect(merged.audio.max).toBe(3);
+  });
+  it('falls back to mode default when capability omits a kind', () => {
+    const reference = videoModeInputSchema('reference');
+    const merged = mergeModeWithModelCapability(reference, { images: 30 });
+    expect(merged.images.max).toBe(30);
+    expect(merged.video.max).toBe(reference.video.max);
+  });
+  it('does not enable a kind the mode disabled', () => {
+    const text = videoModeInputSchema('text');
+    const merged = mergeModeWithModelCapability(text, { images: 30 });
+    expect(merged.images.enabled).toBe(false);
+    expect(merged.images.max).toBe(0);
   });
 });
