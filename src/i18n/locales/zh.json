@@ -1521,7 +1521,13 @@
       "segmentSeconds": "秒数",
       "frameLabel": "图{{index}}",
       "transitionPromptLabel": "图{{from}} 到图{{to}} 的转场提示词",
-      "transitionPromptPlaceholder": "描述图{{from}} 到图{{to}} 的动作、镜头与过渡"
+      "transitionPromptPlaceholder": "描述图{{from}} 到图{{to}} 的动作、镜头与过渡",
+      "slotFirstFrame": "首帧",
+      "slotLastFrame": "尾帧",
+      "slotReferenceImage": "参考图",
+      "slotReferenceVideo": "参考视频",
+      "slotReferenceAudio": "参考音频",
+      "swapFirstLastFrame": "调换顺序"
     },
     "aiText": {
       "promptPlaceholder": "输入这次任务的 prompt",

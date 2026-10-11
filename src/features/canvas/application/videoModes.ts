@@ -88,3 +88,33 @@ export function mergeModeWithModelCapability(
     audio: { ...mode.audio, max: overrideMax(mode.audio.enabled, mode.audio.max, capability.audios) },
   };
 }
+
+/** Label keys for a schema's input slot groups, in display order. */
+export type VideoSlotLabelKey =
+  | 'slotFirstFrame'
+  | 'slotLastFrame'
+  | 'slotReferenceImage'
+  | 'slotReferenceVideo'
+  | 'slotReferenceAudio';
+
+/**
+ * Derive the named input-slot labels for a merged schema. 首尾帧 → 首帧+尾帧;
+ * 图生 → 首帧; 参考 → 参考图/视频/音频（各按 enabled）。文生 → 空。
+ */
+export function videoSlotLabelKeys(schema: VideoInputSchema): VideoSlotLabelKey[] {
+  const roles = schema.images.roles;
+  if (roles.includes('firstFrame') && roles.includes('lastFrame')) {
+    return ['slotFirstFrame', 'slotLastFrame'];
+  }
+  if (roles.includes('firstFrame')) {
+    return ['slotFirstFrame'];
+  }
+  if (roles.includes('reference')) {
+    const keys: VideoSlotLabelKey[] = [];
+    if (schema.images.enabled) keys.push('slotReferenceImage');
+    if (schema.video.enabled) keys.push('slotReferenceVideo');
+    if (schema.audio.enabled) keys.push('slotReferenceAudio');
+    return keys;
+  }
+  return [];
+}

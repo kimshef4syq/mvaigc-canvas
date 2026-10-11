@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { VIDEO_NODE_MODES, videoModeInputSchema, videoModeImageMode, mergeModeWithModelCapability } from './videoModes';
+import { VIDEO_NODE_MODES, videoModeInputSchema, videoModeImageMode, mergeModeWithModelCapability, videoSlotLabelKeys } from './videoModes';
 
 describe('VIDEO_NODE_MODES', () => {
   it('lists the four modes in display order', () => {
@@ -72,5 +72,22 @@ describe('mergeModeWithModelCapability', () => {
     const merged = mergeModeWithModelCapability(text, { images: 30 });
     expect(merged.images.enabled).toBe(false);
     expect(merged.images.max).toBe(0);
+  });
+});
+
+describe('videoSlotLabelKeys', () => {
+  it('frames mode → first+last frame', () => {
+    expect(videoSlotLabelKeys(videoModeInputSchema('frames'))).toEqual(['slotFirstFrame', 'slotLastFrame']);
+  });
+  it('image mode → first frame only', () => {
+    expect(videoSlotLabelKeys(videoModeInputSchema('image'))).toEqual(['slotFirstFrame']);
+  });
+  it('reference mode → image/video/audio groups', () => {
+    expect(videoSlotLabelKeys(videoModeInputSchema('reference'))).toEqual([
+      'slotReferenceImage', 'slotReferenceVideo', 'slotReferenceAudio',
+    ]);
+  });
+  it('text mode → empty', () => {
+    expect(videoSlotLabelKeys(videoModeInputSchema('text'))).toEqual([]);
   });
 });

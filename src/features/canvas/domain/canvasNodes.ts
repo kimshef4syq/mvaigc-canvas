@@ -295,6 +295,8 @@ export interface AiVideoNodeData extends NodeDisplayData {
   generationErrorDetails?: string | null;
   /** Generation mode (文生/图生/首尾帧/参考). Model-independent; defaults to reference. */
   videoMode?: 'text' | 'image' | 'frames' | 'reference';
+  /** Frames mode only: when true, the first connected image is treated as the last frame. */
+  framesSwapped?: boolean;
 }
 
 export interface AiTextNodeData extends NodeDisplayData {

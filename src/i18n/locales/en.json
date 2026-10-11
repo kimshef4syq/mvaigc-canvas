@@ -1525,7 +1525,13 @@
       "segmentSeconds": "Seconds",
       "frameLabel": "Image {{index}}",
       "transitionPromptLabel": "Transition prompt from image {{from}} to image {{to}}",
-      "transitionPromptPlaceholder": "Describe the action, camera, and transition from image {{from}} to image {{to}}"
+      "transitionPromptPlaceholder": "Describe the action, camera, and transition from image {{from}} to image {{to}}",
+      "slotFirstFrame": "First frame",
+      "slotLastFrame": "Last frame",
+      "slotReferenceImage": "Reference image",
+      "slotReferenceVideo": "Reference video",
+      "slotReferenceAudio": "Reference audio",
+      "swapFirstLastFrame": "Swap order"
     },
     "aiText": {
       "promptPlaceholder": "Enter the prompt for this task",
