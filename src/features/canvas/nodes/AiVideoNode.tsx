@@ -77,7 +77,6 @@ import {
   VIDEO_NODE_MODES,
   mergeModeWithModelCapability,
   videoModeImageMode,
-  videoSlotLabelKeys,
   videoModeInputSchema,
   type VideoNodeModeKind,
 } from '@/features/canvas/application/videoModes';
@@ -92,6 +91,7 @@ import {
   resolveDefaultGeneratedVideoFileStem,
   resolveNextGeneratedMediaSequence,
 } from '@/features/canvas/application/generatedMediaNaming';
+import { VideoSlotHeader } from './VideoSlotHeader';
 import { CanvasNodeImage } from '@/features/canvas/ui/CanvasNodeImage';
 import { CameraControlPanel } from '@/features/canvas/ui/CameraControlPanel';
 import { DreaminaMultiframeEditor } from '@/features/canvas/ui/DreaminaMultiframeEditor';
@@ -1407,32 +1407,11 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
           );
         })}
       </div>
-      {(() => {
-        const slotKeys = videoSlotLabelKeys(currentInputSchema);
-        const isFrames = slotKeys.length === 2
-          && slotKeys[0] === 'slotFirstFrame' && slotKeys[1] === 'slotLastFrame';
-        const labels = slotKeys.map((key) => t(`node.aiVideo.${key}`));
-        if (isFrames && data.framesSwapped) labels.reverse();
-        if (labels.length === 0) return null;
-        return (
-          <div className="mb-1 flex shrink-0 items-center gap-1 text-[10px] text-text-muted">
-            <span data-testid="video-slot-labels">{labels.join(' / ')}</span>
-            {isFrames && (
-              <button
-                type="button"
-                data-testid="video-swap-first-last"
-                className="nodrag rounded border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] px-1.5 py-0.5 text-[10px] text-[var(--canvas-node-button-text)] hover:border-[var(--canvas-node-border-hover)]"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  updateNodeData(id, { framesSwapped: !data.framesSwapped });
-                }}
-              >
-                {t('node.aiVideo.swapFirstLastFrame')}
-              </button>
-            )}
-          </div>
-        );
-      })()}
+      <VideoSlotHeader
+        schema={currentInputSchema}
+        framesSwapped={data.framesSwapped}
+        onSwap={() => updateNodeData(id, { framesSwapped: !data.framesSwapped })}
+      />
       {schemaReferencePickerItems.length > 0 && (
         <div className="mb-2 flex shrink-0 flex-wrap gap-1">
           {schemaReferencePickerItems.map((item, index) => (

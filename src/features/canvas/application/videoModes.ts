@@ -81,9 +81,14 @@ export function mergeModeWithModelCapability(
     enabled && typeof declared === 'number' && Number.isFinite(declared) && declared > 0
       ? Math.trunc(declared)
       : modeMax;
+  // 图槽上限只对"参考模式"（roles 含 reference）采用模型数值；图生（首帧×1）与
+  // 首尾帧（首帧×1+尾帧×1）的槽数是模式语义，不由模型撑大。
+  const imagesMax = mode.images.roles.includes('reference')
+    ? overrideMax(mode.images.enabled, mode.images.max, capability.images)
+    : mode.images.max;
   return {
     ...mode,
-    images: { ...mode.images, max: overrideMax(mode.images.enabled, mode.images.max, capability.images) },
+    images: { ...mode.images, max: imagesMax },
     video: { ...mode.video, max: overrideMax(mode.video.enabled, mode.video.max, capability.videos) },
     audio: { ...mode.audio, max: overrideMax(mode.audio.enabled, mode.audio.max, capability.audios) },
   };

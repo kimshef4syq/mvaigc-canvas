@@ -91,3 +91,18 @@ describe('videoSlotLabelKeys', () => {
     expect(videoSlotLabelKeys(videoModeInputSchema('text'))).toEqual([]);
   });
 });
+
+describe('mergeModeWithModelCapability — 图槽只对参考模式生效 (I1 回归)', () => {
+  it('image mode keeps 1 slot even when model declares 30', () => {
+    const merged = mergeModeWithModelCapability(videoModeInputSchema('image'), { images: 30 });
+    expect(merged.images.max).toBe(1);
+  });
+  it('frames mode keeps 2 slots even when model declares 30', () => {
+    const merged = mergeModeWithModelCapability(videoModeInputSchema('frames'), { images: 30 });
+    expect(merged.images.max).toBe(2);
+  });
+  it('reference mode still takes the model number', () => {
+    const merged = mergeModeWithModelCapability(videoModeInputSchema('reference'), { images: 30 });
+    expect(merged.images.max).toBe(30);
+  });
+});
