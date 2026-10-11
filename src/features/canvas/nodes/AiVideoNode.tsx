@@ -1846,25 +1846,19 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-wrap gap-1">
-                      {selectedEntry.supportedDurations.map((duration) => {
-                        const active = resolvedModelConfig.duration === duration;
-                        return (
-                          <button
-                            key={duration}
-                            type="button"
-                            onClick={() => handleConfigChange({ duration })}
-                            className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${
-                              active
-                                ? 'border-accent/60 bg-accent/15 text-accent'
-                                : 'border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] text-[var(--canvas-node-button-text)] hover:border-[var(--canvas-node-border-hover)] hover:bg-[var(--canvas-node-menu-hover)]'
-                            }`}
-                          >
-                            {duration === 'workflow' ? t('node.aiVideo.workflow') : `${duration}s`}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <select
+                      data-testid="video-duration-select"
+                      className="nodrag nowheel w-full rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] px-2 py-1 text-[11px] text-[var(--canvas-node-button-text)] outline-none"
+                      value={resolvedModelConfig.duration}
+                      onChange={(event) => handleConfigChange({ duration: event.target.value })}
+                      onMouseDown={(event) => event.stopPropagation()}
+                    >
+                      {selectedEntry.supportedDurations.map((duration) => (
+                        <option key={duration} value={duration}>
+                          {duration === 'workflow' ? t('node.aiVideo.workflow') : `${duration}s`}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 </div>}
                 {isAgnesVideoModel && schemaIncomingImageItems.length > 1 && (
