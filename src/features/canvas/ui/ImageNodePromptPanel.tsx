@@ -1,9 +1,12 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { Maximize2, Send, Sparkles } from 'lucide-react';
+import { Camera, Maximize2, Send, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import type { ExportImageNodeData } from '@/features/canvas/domain/canvasNodes';
+import type { CameraControlOptions, ExportImageNodeData } from '@/features/canvas/domain/canvasNodes';
+import { CameraControlPanel } from '@/features/canvas/ui/CameraControlPanel';
+import { buildCameraPrompt } from '@/features/canvas/application/cameraPromptLibrary';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { resolveActiveModelForPanel } from '@/features/canvas/application/resolveActiveModelForPanel';
 import { normalizeImageRequestGeometry } from '@/features/canvas/application/imageRequestGeometry';
 import {
@@ -52,6 +55,11 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
   const [promptDraft, setPromptDraft] = useState(() => (typeof data.prompt === 'string' ? data.prompt : ''));
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerActiveIndex, setPickerActiveIndex] = useState(0);
+  const [showCameraControl, setShowCameraControl] = useState(false);
+  const cameraControl = (data as { cameraControl?: CameraControlOptions }).cameraControl;
+  const handleCameraControlApply = (next: CameraControlOptions) => {
+    updateNodeData(nodeId, { cameraControl: next });
+  };
   const promptCommitTimer = useRef<number | null>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
@@ -208,12 +216,31 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
         supportedAspectRatios: resolved.supportedRatios,
         fallbackResolution: '2K',
       });
+      // Camera control: append the generated camera prompt to the user prompt
+      // (same convention as the 生成视频 node).
+      let composedPrompt = prompt.trim();
+      const cc = (data as { cameraControl?: CameraControlOptions }).cameraControl;
+      if (cc?.enabled === true) {
+        try {
+          const cameraPrompt = buildCameraPrompt({
+            cameraId: cc.camera,
+            lensId: cc.lens,
+            focalLengthMm: cc.focalLength,
+            apertureF: cc.aperture,
+          }, useSettingsStore.getState());
+          if (cameraPrompt) {
+            composedPrompt = composedPrompt ? `${composedPrompt}, ${cameraPrompt}` : cameraPrompt;
+          }
+        } catch {
+          // Keep the user's prompt if camera prompt assembly fails.
+        }
+      }
       await submitImageNodeGeneration({
         nodeId,
         mode,
         count: normalizeGenerateCount(String(count), 1),
         payload: {
-          prompt: prompt.trim(),
+          prompt: composedPrompt,
           model: resolved.modelForGateway,
           size: geometry.requestSize,
           aspectRatio: geometry.requestAspectRatio,
@@ -396,6 +423,23 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
         <div className="relative flex shrink-0 items-center">
           <button
             type="button"
+            data-testid="image-camera-control"
+            className={`mr-[0.4em] flex items-center gap-[0.3em] rounded-md border px-[0.5em] py-[0.35em] text-[0.9em] ${
+              cameraControl?.enabled === true
+                ? 'border-accent/60 bg-accent/15 text-accent'
+                : 'border-[var(--canvas-node-field-border)] text-text-dark'
+            }`}
+            title={t('cameraControl.title') as string}
+            aria-label={t('cameraControl.title') as string}
+            onClick={(event) => {
+              event.stopPropagation();
+              setShowCameraControl(true);
+            }}
+          >
+            <Camera className="h-[1em] w-[1em]" />
+          </button>
+          <button
+            type="button"
             disabled={!canSubmit}
             className="flex items-center gap-[0.4em] rounded-md bg-accent px-[0.9em] py-[0.35em] text-[1em] text-white disabled:opacity-50"
             onClick={(event) => {
@@ -472,6 +516,13 @@ export const ImageNodePromptPanel = memo(({ nodeId, data }: ImageNodePromptPanel
           className="ui-scrollbar h-[60vh] w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-3 py-2 text-sm leading-7 text-text-dark outline-none placeholder:text-text-muted/80"
         />
       </UiModal>
+
+      <CameraControlPanel
+        isOpen={showCameraControl}
+        onClose={() => setShowCameraControl(false)}
+        cameraControl={cameraControl}
+        onApply={handleCameraControlApply}
+      />
     </div>
   );
 });
