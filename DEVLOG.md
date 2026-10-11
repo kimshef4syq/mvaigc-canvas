@@ -135,6 +135,7 @@
 - mvaigc 自动配置写入 `perModel`：**Seedance 2.5 = 4–30s、SD2.0 系列 / MiniMax H3 = 4–15s、其余 = 4–10s**（每个整数秒）——`mvaigcProviderAutoConfig.ts`
 - **时长控件由一排按钮改为下拉列表**（选项 = 当前模型时长表）
 - 验证命令：`npm test`、`npx tsc --noEmit`
+- 已知边界（非缺陷，本轮范围外）：①`extraParams.perModel` 目前**只由 mvaigc 自动配置写入**，供应商编辑面板没有 `perModel` 入口，手编其它供应商需直接改持久化 JSON；②节点目前只消费新字段（`supportedImageCount` 等），`VideoCatalogEntry.inputSchema`（`videoInputSchemasByModel`/即梦/ComfyUI 的每模型 schema）**仍未接入节点**；③真机界面自查（切模型看时长/分辨率、切模式看槽区、调换首尾帧）**待人工验证**。
 
 ---
 
