@@ -34,6 +34,8 @@ import { CanvasAgentAttachmentPicker } from './CanvasAgentAttachmentPicker';
 import { CanvasAgentComposer } from './CanvasAgentComposer';
 import { CanvasAgentFeedViewport } from './CanvasAgentFeedViewport';
 import { CanvasAgentHeader } from './CanvasAgentHeader';
+import { ExternalAgentApprovalCard } from './ExternalAgentApprovalCard';
+import { useExternalAgentApprovals } from './useExternalAgentApprovals';
 import { ExternalAgentConnectionPanel } from './ExternalAgentConnectionPanel';
 import { buildExternalCanvasMcpManifest } from '../application/externalAgentToolManifest';
 import {
@@ -139,6 +141,11 @@ export function CanvasAgentDock({ projectId }: Props) {
     clearFeed,
     replaceFeed,
   } = useCanvasAgentPanelStore();
+  const { pendingApprovals: externalPendingApprovals } = useExternalAgentApprovals();
+  const externalPendingCount = externalPendingApprovals.length;
+  useEffect(() => {
+    if (externalPendingCount > 0) setOpen(true);
+  }, [externalPendingCount, setOpen]);
   const catalog = useChatModelCatalog();
   const imageCatalog = useImageModelCatalog();
   const videoCatalog = useVideoModelCatalog();
@@ -962,9 +969,9 @@ export function CanvasAgentDock({ projectId }: Props) {
         tabIndex={isOpen ? -1 : 0}
       >
         <Bot className="h-5 w-5" aria-hidden="true" />
-        {pendingCount ? (
+        {pendingCount + externalPendingCount > 0 ? (
           <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-amber-400 px-1 text-[10px] font-semibold leading-4 text-black">
-            {Math.min(99, pendingCount)}
+            {Math.min(99, pendingCount + externalPendingCount)}
           </span>
         ) : null}
       </button>
@@ -1052,6 +1059,10 @@ export function CanvasAgentDock({ projectId }: Props) {
             onClose={() => setOpen(false)}
             closeRef={closeRef}
           />
+
+          <div className="px-3 [&:has(section)]:py-3">
+            <ExternalAgentApprovalCard />
+          </div>
 
         <CanvasAgentFeedViewport
           projectId={projectId}

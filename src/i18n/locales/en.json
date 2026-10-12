@@ -48,7 +48,7 @@
     "open": "Open Canvas Agent",
     "externalMcp": {
       "title": "Connect another Agent",
-      "description": "Connect a Codex or Claude Code session that you open separately to the current canvas. Storyboard Copilot must remain open.",
+      "description": "Connect your own Codex or Claude Code to the current canvas. Review and approve or deny requests directly in the right sidebar.",
       "refresh": "Refresh connection status",
       "statusLabel": "Status",
       "status": { "disconnected": "Disconnected", "ready": "Waiting for external Agent", "connected": "Connected", "expired": "Expired" },

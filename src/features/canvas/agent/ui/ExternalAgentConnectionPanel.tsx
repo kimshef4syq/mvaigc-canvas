@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Check,
@@ -12,24 +12,16 @@ import {
 } from 'lucide-react';
 import {
   createExternalAgentConnection,
-  inspectExternalAgentConnection,
-  listenExternalAgentEvents,
-  replayExternalAgentPendingToolCalls,
-  resolveExternalAgentToolCall,
   revokeExternalAgentConnection,
-  type ExternalAgentConnectionInfo,
   type ExternalAgentProviderConfig,
   type ExternalAgentToolDefinition,
 } from '@/commands/externalAgent';
 import {
-  prepareExternalAgentToolRequest,
-  resolveExternalAgentToolApproval,
-} from '../application/externalAgentCanvasBridge';
-import {
-  enqueueExternalAgentApproval,
-  type ExternalAgentPendingApproval,
-} from '../application/externalAgentApprovalQueue';
-import type { ExternalAgentToolRequest } from '../domain/agentModel';
+  useExternalAgentApprovals,
+  setExternalAgentConnection,
+  refreshExternalAgentConnection,
+} from './useExternalAgentApprovals';
+import { ExternalAgentApprovalCard } from './ExternalAgentApprovalCard';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 type ProviderTab = 'codex' | 'claude';
@@ -63,95 +55,24 @@ export function ExternalAgentConnectionPanel({
   const { t, i18n } = useTranslation();
   const claudeCodeProjectDir = useSettingsStore((s) => s.claudeCodeProjectDir);
   const setClaudeCodeProjectDir = useSettingsStore((s) => s.setClaudeCodeProjectDir);
-  const [connection, setConnection] = useState<ExternalAgentConnectionInfo | null>(null);
+  const { connection } = useExternalAgentApprovals();
   const [provider, setProvider] = useState<ProviderTab>('codex');
   const [busy, setBusy] = useState<'create' | 'refresh' | 'revoke' | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pendingApprovals, setPendingApprovals] = useState<ExternalAgentPendingApproval[]>([]);
-  const [approvalBusy, setApprovalBusy] = useState(false);
-
-  const refresh = useCallback(async (silent = false) => {
+  const refresh = async (silent = false) => {
     if (!silent) setBusy('refresh');
     try {
-      setConnection(await inspectExternalAgentConnection());
+      await refreshExternalAgentConnection();
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       if (!silent) setBusy(null);
     }
-  }, []);
-
-  useEffect(() => {
-    void refresh(true);
-    const timer = globalThis.setInterval(() => void refresh(true), 5_000);
-    return () => globalThis.clearInterval(timer);
-  }, [refresh]);
-
-  useEffect(() => {
-    const connectionId = connection?.connectionId;
-    if (!connectionId || !projectId) return undefined;
-    let active = true;
-    let unlisten: (() => void) | undefined;
-    void listenExternalAgentEvents(async (event) => {
-      if (!active || event.sessionId !== connectionId || event.kind !== 'toolRequested' || !event.toolCall) return;
-      const request: ExternalAgentToolRequest = {
-        version: 1,
-        runtime: event.runtime,
-        sessionId: event.sessionId,
-        turnId: event.turnId ?? `managed-${event.toolCall.callId}`,
-        callId: event.toolCall.callId,
-        toolName: event.toolCall.name as ExternalAgentToolRequest['toolName'],
-        arguments: event.toolCall.input,
-      };
-      if (connection?.project?.id !== projectId) {
-        await resolveExternalAgentToolCall({
-          sessionId: request.sessionId,
-          callId: request.callId,
-          resolution: {
-            outcome: 'error',
-            errorCode: 'active_project_changed',
-            message: t('canvasAgent.externalMcp.projectChangedResolution'),
-          },
-        }).catch(() => undefined);
-        if (active) setError(t('canvasAgent.externalMcp.projectChanged'));
-        return;
-      }
-      try {
-        const approval = await prepareExternalAgentToolRequest({ projectId, request });
-        if (active) setPendingApprovals((current) => enqueueExternalAgentApproval(current, {
-            request,
-            summary: approval.summary,
-            impactSummary: approval.impact.summary,
-          }));
-      } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause);
-        await resolveExternalAgentToolCall({
-          sessionId: request.sessionId,
-          callId: request.callId,
-          resolution: { outcome: 'error', errorCode: 'approval_prepare_failed', message },
-        }).catch(() => undefined);
-        if (active) setError(message);
-      }
-    }).then((dispose) => {
-      if (active) {
-        unlisten = dispose;
-        void replayExternalAgentPendingToolCalls().catch((cause) => {
-          if (active) setError(cause instanceof Error ? cause.message : String(cause));
-        });
-      } else dispose();
-    }).catch((cause) => {
-      if (active) setError(cause instanceof Error ? cause.message : String(cause));
-    });
-    return () => {
-      active = false;
-      unlisten?.();
-    };
-  }, [connection?.connectionId, connection?.project?.id, projectId, t]);
+  };
 
   const config = connection?.configs?.[provider] ?? null;
-  const pendingApproval = pendingApprovals[0] ?? null;
   const canCreate = Boolean(projectId && projectName && tools.length > 0 && busy === null);
   const activeConnection = Boolean(connection?.connectionId);
   const statusClass = connection?.status === 'connected'
@@ -166,7 +87,7 @@ export function ExternalAgentConnectionPanel({
     setBusy('create');
     setError(null);
     try {
-      setConnection(
+      setExternalAgentConnection(
         await createExternalAgentConnection({ projectId, projectName, tools, claudeCodeProjectDir })
       );
     } catch (cause) {
@@ -181,8 +102,7 @@ export function ExternalAgentConnectionPanel({
     setBusy('revoke');
     setError(null);
     try {
-      setConnection(await revokeExternalAgentConnection(connection.connectionId));
-      setPendingApprovals([]);
+      setExternalAgentConnection(await revokeExternalAgentConnection(connection.connectionId));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -198,27 +118,6 @@ export function ExternalAgentConnectionPanel({
       globalThis.setTimeout(() => setCopied(false), 1_500);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  };
-
-  const handleApproval = async (approve: boolean) => {
-    if (!pendingApproval || !projectId) return;
-    setApprovalBusy(true);
-    setError(null);
-    try {
-      const result = await resolveExternalAgentToolApproval({
-        projectId,
-        request: pendingApproval.request,
-        approve,
-      });
-      if (result.status === 'error') throw new Error(result.error ?? t('canvasAgent.externalMcp.executionFailed'));
-      setPendingApprovals((current) => current.filter((item) => item.request.callId !== pendingApproval.request.callId));
-      await refresh(true);
-      await replayExternalAgentPendingToolCalls();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setApprovalBusy(false);
     }
   };
 
@@ -344,37 +243,7 @@ export function ExternalAgentConnectionPanel({
         </button>
       )}
 
-      {pendingApproval ? (
-        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] p-3" role="alert">
-          <div className="text-xs font-semibold text-text-dark">{t('canvasAgent.externalMcp.approvalTitle')}</div>
-          {pendingApprovals.length > 1 ? (
-            <div className="mt-1 text-[10px] text-text-muted">
-              {t('canvasAgent.externalMcp.pendingCount', { count: pendingApprovals.length })}
-            </div>
-          ) : null}
-          <p className="mt-1 text-[11px] leading-5 text-text-muted">{pendingApproval.summary}</p>
-          <div className="mt-2 text-[10px] text-amber-700 dark:text-amber-300">{pendingApproval.impactSummary}</div>
-          <div className="mt-3 flex justify-end gap-2">
-            <button
-              type="button"
-              disabled={approvalBusy}
-              onClick={() => void handleApproval(false)}
-              className="h-9 rounded-lg border border-border-dark px-3 text-xs text-text-muted hover:bg-text-dark/[0.05] disabled:opacity-40"
-            >
-              {t('canvasAgent.externalMcp.deny')}
-            </button>
-            <button
-              type="button"
-              disabled={approvalBusy}
-              onClick={() => void handleApproval(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-accent px-3 text-xs font-semibold text-white disabled:opacity-40"
-            >
-              {approvalBusy ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" /> : null}
-              {t('canvasAgent.externalMcp.approve')}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <div className="mt-4"><ExternalAgentApprovalCard /></div>
 
       {!projectId || !projectName ? (
         <p className="mt-3 text-[11px] leading-5 text-amber-700 dark:text-amber-300">{t('canvasAgent.externalMcp.openProjectFirst')}</p>
