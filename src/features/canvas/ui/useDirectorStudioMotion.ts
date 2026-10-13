@@ -180,9 +180,56 @@ export function useDirectorStudioMotion({
     updateMotionProject((project) => {
       if (selection.kind === 'camera') return { ...project, cameraTrack: project.cameraTrack.filter((keyframe) => keyframe.id !== selection.keyframeId) };
       if (selection.kind === 'object') return { ...project, objectTracks: { ...project.objectTracks, [selection.trackId]: (project.objectTracks[selection.trackId] ?? []).filter((keyframe) => keyframe.id !== selection.keyframeId) } };
-      return { ...project, actionTracks: { ...project.actionTracks, [selection.trackId]: (project.actionTracks[selection.trackId] ?? []).filter((keyframe) => keyframe.id !== selection.keyframeId) } };
+      const remaining = (project.actionTracks[selection.trackId] ?? []).filter((keyframe) => keyframe.id !== selection.keyframeId);
+      if (remaining.length === 0) {
+        const item = latestDataRef.current.items.find((candidate) => candidate.id === selection.trackId);
+        if (item && item.category === 'person') {
+          onUpdateItemAction(item, '');
+        }
+      }
+      return { ...project, actionTracks: { ...project.actionTracks, [selection.trackId]: remaining } };
     });
     setMotionSelection(null);
+  }, [onUpdateItemAction, updateMotionProject]);
+
+  const clearCharacterAction = useCallback((itemId: string) => {
+    const item = latestDataRef.current.items.find((candidate) => candidate.id === itemId);
+    if (item && item.category === 'person') {
+      onUpdateItemAction(item, '');
+    }
+    updateMotionProject((project) => {
+      const actionTracks = { ...project.actionTracks };
+      delete actionTracks[itemId];
+      return { ...project, actionTracks };
+    });
+    setMotionSelection((current) => current?.trackId === itemId && current?.kind === 'action' ? null : current);
+  }, [onUpdateItemAction, updateMotionProject]);
+
+  const clearActionTrack = useCallback((itemId: string) => {
+    updateMotionProject((project) => {
+      const actionTracks = { ...project.actionTracks };
+      delete actionTracks[itemId];
+      return { ...project, actionTracks };
+    });
+    setMotionSelection((current) => current?.trackId === itemId && current?.kind === 'action' ? null : current);
+  }, [updateMotionProject]);
+
+  const deleteSkeletonRecording = useCallback((itemId: string) => {
+    updateMotionProject((project) => {
+      const skeletonRecordings = { ...project.skeletonRecordings };
+      delete skeletonRecordings[itemId];
+      return { ...project, skeletonRecordings };
+    });
+  }, [updateMotionProject]);
+
+  const clearRouteTrack = useCallback((kind: 'camera' | 'object', trackId: string) => {
+    updateMotionProject((project) => {
+      if (kind === 'camera') return { ...project, cameraTrack: [] };
+      const objectTracks = { ...project.objectTracks };
+      delete objectTracks[trackId];
+      return { ...project, objectTracks };
+    });
+    setMotionSelection((current) => current?.trackId === trackId && current?.kind === kind ? null : current);
   }, [updateMotionProject]);
 
   const saveCameraKeyframe = useCallback((snapshot: DirectorSceneCameraSnapshot) => {
@@ -599,6 +646,10 @@ export function useDirectorStudioMotion({
     retimeMotionTrack,
     duplicateMotionKeyframe,
     deleteMotionKeyframe,
+    clearCharacterAction,
+    clearActionTrack,
+    deleteSkeletonRecording,
+    clearRouteTrack,
     addCameraMotionKeyframe,
     recordPilotCamera: saveCameraKeyframe,
     addObjectMotionKeyframe,

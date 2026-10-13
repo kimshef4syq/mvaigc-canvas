@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Copy, Trash2 } from 'lucide-react';
+import { Copy, RotateCcw, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -39,6 +39,7 @@ type Props = {
   onPatch: (selection: DirectorKeyframeSelection, patch: DirectorKeyframePatch) => void;
   onDuplicate: (selection: DirectorKeyframeSelection) => void;
   onDelete: (selection: DirectorKeyframeSelection) => void;
+  onClearCharacterAction?: (itemId: string) => void;
   className?: string;
 };
 
@@ -161,6 +162,7 @@ export const DirectorMotionInspector = memo(function DirectorMotionInspector({
   onPatch,
   onDuplicate,
   onDelete,
+  onClearCharacterAction,
   className = '',
 }: Props) {
   const { t } = useTranslation();
@@ -341,6 +343,20 @@ export const DirectorMotionInspector = memo(function DirectorMotionInspector({
             <div className="rounded-md border border-teal-300/15 bg-teal-400/5 p-3">
               <div className="mb-1 text-white/55">{t('directorStudio.inspector.action')}</div>
               <div className="font-medium text-teal-100">{actionLabel}</div>
+              {onClearCharacterAction ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('确定要清除角色动作并恢复自然站立吗？')) {
+                      onClearCharacterAction(selection.trackId);
+                    }
+                  }}
+                  className={`${BUTTON_CLASS} mt-2.5 w-full border-amber-300/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20`}
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-amber-300" />
+                  清除动作 (恢复自然站立)
+                </button>
+              ) : null}
             </div>
           ) : null}
           <div className="flex gap-2 border-t border-white/10 pt-3">
@@ -356,7 +372,11 @@ export const DirectorMotionInspector = memo(function DirectorMotionInspector({
             </button>
             <button
               type="button"
-              onClick={() => onDelete(selection)}
+              onClick={() => {
+                if (window.confirm('确定要删除此关键帧吗？')) {
+                  onDelete(selection);
+                }
+              }}
               className={`${BUTTON_CLASS} w-8 text-red-200 hover:border-red-300/40 hover:bg-red-500/15 active:bg-red-500/25`}
               title={t('directorStudio.motion.inspector.delete')}
               data-director-tooltip={t('directorStudio.motion.inspector.delete')}

@@ -1238,6 +1238,10 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
     retimeMotionTrack,
     duplicateMotionKeyframe,
     deleteMotionKeyframe,
+    clearCharacterAction,
+    clearActionTrack,
+    deleteSkeletonRecording,
+    clearRouteTrack,
     addCameraMotionKeyframe,
     recordPilotCamera,
     addObjectMotionKeyframe,
@@ -2600,14 +2604,23 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
         claimShortcut();
         return;
       }
-      if (shortcutMatchesEvent(event, shortcuts.delete)) {
+      const isDeleteKey = shortcutMatchesEvent(event, shortcuts.delete) || (
+        (event.key === 'Backspace' || event.key === 'Delete') &&
+        !['input', 'textarea', 'select'].includes((event.target as HTMLElement)?.tagName?.toLowerCase() ?? '') &&
+        !(event.target as HTMLElement)?.isContentEditable
+      );
+      if (isDeleteKey) {
         if (motionSelection) {
-          deleteMotionKeyframe(motionSelection);
+          if (window.confirm('确定要删除选中的关键帧吗？')) {
+            deleteMotionKeyframe(motionSelection);
+          }
           claimShortcut();
           return;
         }
         if (!selectedItem) return;
-        deleteSelectedItem();
+        if (window.confirm(t('directorStudio.legacyPanel.confirmDeleteItem', { name: selectedItem.label }))) {
+          deleteSelectedItem();
+        }
         claimShortcut();
         return;
       }
@@ -4223,7 +4236,9 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
                   neuralActive={neuralBusy}
                   neuralControls={<NeuralCharacterControls pilot={neuralPilot} selectedItem={selectedItem} hasRecording={Boolean(selectedItem && motionProject.skeletonRecordings?.[selectedItem.id])} onDeleteRecording={() => {
                     if (!selectedItem) return;
-                    updateMotionProject(project => { const skeletonRecordings = { ...project.skeletonRecordings }; delete skeletonRecordings[selectedItem.id]; return { ...project, skeletonRecordings }; });
+                    if (window.confirm('确定要删除 AI 骨骼动作录制吗？')) {
+                      deleteSkeletonRecording(selectedItem.id);
+                    }
                   }} />}
                   hasPersonRoute={Boolean(selectedItem?.category === 'person' && (motionProject.objectTracks[selectedItem.id]?.length ?? 0) >= 2)}
                   onTransformMode={setActiveTransformMode}
@@ -4278,6 +4293,11 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
                   onAddCameraKeyframe={addCameraMotionKeyframe}
                   onAddObjectKeyframe={addObjectMotionKeyframe}
                   onAddActionKeyframe={(itemId) => addActionMotionKeyframe(itemId)}
+                  onDeleteKeyframe={deleteMotionKeyframe}
+                  onClearCharacterAction={clearCharacterAction}
+                  onClearActionTrack={clearActionTrack}
+                  onDeleteSkeletonRecording={deleteSkeletonRecording}
+                  onClearRouteTrack={clearRouteTrack}
                 />
               </div>
               {previsSidebarOpen ? <div className="absolute bottom-0 right-0 top-14 z-40 border-l border-white/10 bg-[#171a1f]" style={{ width: previsSidebarWidth }}>
@@ -4293,6 +4313,7 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
                   onPatchKeyframe={patchMotionKeyframe}
                   onDuplicateKeyframe={duplicateMotionKeyframe}
                   onDeleteKeyframe={deleteMotionKeyframe}
+                  onClearCharacterAction={clearCharacterAction}
                   onUpdateItem={updateItem}
                   onAddPerson={() => addPedestrians('direct')}
                   onAddCameraKeyframe={addCameraMotionKeyframe}
@@ -4524,6 +4545,10 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
         onDuplicateClip={duplicateMotionClip}
         onDeleteClip={deleteMotionClip}
         onLoopClip={(clipId, loop) => updateMotionClip(clipId, { loop })}
+        onClearAction={() => {
+          if (selectedItem) clearCharacterAction(selectedItem.id);
+          setActionLibraryOpen(false);
+        }}
       />
 
       <DirectorVideoExportDialog

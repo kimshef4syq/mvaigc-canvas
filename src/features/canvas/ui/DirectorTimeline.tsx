@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { Camera, Magnet, Minus, Pause, Play, Plus, Repeat2, Rewind, Sparkles, UserRound } from 'lucide-react';
+import { Camera, Magnet, Minus, Pause, Play, Plus, Repeat2, Rewind, RotateCcw, Sparkles, Trash2, UserRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { BlueprintItem, DirectorMotionProjectV1 } from '@/features/canvas/domain/canvasNodes';
@@ -35,6 +35,11 @@ type Props = {
   onAddCameraKeyframe: () => void;
   onAddObjectKeyframe: (itemId: string) => void;
   onAddActionKeyframe: (itemId: string) => void;
+  onDeleteKeyframe?: (selection: DirectorKeyframeSelection) => void;
+  onClearCharacterAction?: (itemId: string) => void;
+  onClearActionTrack?: (itemId: string) => void;
+  onDeleteSkeletonRecording?: (itemId: string) => void;
+  onClearRouteTrack?: (kind: 'camera' | 'object', trackId: string) => void;
 };
 
 type TrackRow = {
@@ -98,6 +103,7 @@ export const DirectorTimeline = memo(function DirectorTimeline({
   height, maxHeight, onHeightChange, project, items, selectedItemId, timeSource, playbackSource, playbackRate, onPlaybackRateChange, selection,
   onTimeChange, onTogglePlayback, onGoToStart, onLoopChange, onDurationChange, onSelectionChange,
   onSelectItem, onSelectCamera, onMoveKeyframe, onRetimeTrack, onAddCameraKeyframe, onAddObjectKeyframe, onAddActionKeyframe,
+  onDeleteKeyframe, onClearCharacterAction, onClearActionTrack, onDeleteSkeletonRecording, onClearRouteTrack,
 }: Props) {
   const { t } = useTranslation();
   const timelineRef = useRef<HTMLElement | null>(null);
@@ -109,6 +115,28 @@ export const DirectorTimeline = memo(function DirectorTimeline({
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [activeRowKey, setActiveRowKey] = useState('camera');
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    title?: string;
+    items: Array<{
+      label: string;
+      icon?: React.ReactNode;
+      danger?: boolean;
+      onClick: () => void;
+    }>;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const closeMenu = () => setContextMenu(null);
+    window.addEventListener('pointerdown', closeMenu);
+    window.addEventListener('wheel', closeMenu);
+    return () => {
+      window.removeEventListener('pointerdown', closeMenu);
+      window.removeEventListener('wheel', closeMenu);
+    };
+  }, [contextMenu]);
   const dragStateRef = useRef<DragState | null>(null);
   const setDrag = useCallback((next: DragState | null) => {
     // Keep pointerup synchronous with the latest pointermove, before React renders.
@@ -158,6 +186,135 @@ export const DirectorTimeline = memo(function DirectorTimeline({
     else onSelectItem(row.trackId);
     onSelectionChange(frame ? { kind: row.kind, trackId: row.trackId, keyframeId: frame.id } : null);
   }, [onSelectCamera, onSelectItem, onSelectionChange]);
+
+  const handleActionContextMenu = useCallback((
+    event: React.MouseEvent,
+    row: TrackRow,
+    frame: TrackRow['keyframes'][number],
+    actionLabel: string,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    selectRow(row, frame);
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      title: `${row.label} · ${actionLabel}`,
+      items: [
+        {
+          label: '删除此动作关键帧',
+          icon: <Trash2 className="h-3.5 w-3.5" />,
+          danger: true,
+          onClick: () => {
+            if (window.confirm(`确定要删除动作「${actionLabel}」（${frame.time.toFixed(2)}s）吗？`)) {
+              onDeleteKeyframe?.({ kind: 'action', trackId: row.trackId, keyframeId: frame.id });
+            }
+          },
+        },
+        {
+          label: '清除角色动作 (恢复自然站立)',
+          icon: <RotateCcw className="h-3.5 w-3.5" />,
+          danger: true,
+          onClick: () => {
+            if (window.confirm(`确定要清除角色「${row.label}」的动作并恢复自然站立吗？`)) {
+              onClearCharacterAction?.(row.trackId);
+            }
+          },
+        },
+        {
+          label: '清空整条动作轨',
+          icon: <Trash2 className="h-3.5 w-3.5" />,
+          danger: true,
+          onClick: () => {
+            if (window.confirm(`确定要清空「${row.label}」的所有动作关键帧吗？`)) {
+              onClearActionTrack?.(row.trackId);
+            }
+          },
+        },
+      ],
+    });
+  }, [onClearActionTrack, onClearCharacterAction, onDeleteKeyframe, selectRow]);
+
+  const handleSkeletonContextMenu = useCallback((
+    event: React.MouseEvent,
+    trackId: string,
+    label: string,
+    framesCount: number,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      title: `${label} · AI 骨骼录制`,
+      items: [
+        {
+          label: '删除 AI 骨骼动作录制',
+          icon: <Trash2 className="h-3.5 w-3.5" />,
+          danger: true,
+          onClick: () => {
+            if (window.confirm(`确定要删除角色「${label}」的 AI 骨骼动作录制（${framesCount} 帧）吗？`)) {
+              onDeleteSkeletonRecording?.(trackId);
+            }
+          },
+        },
+      ],
+    });
+  }, [onDeleteSkeletonRecording]);
+
+  const handleRouteContextMenu = useCallback((
+    event: React.MouseEvent,
+    row: TrackRow,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    selectRow(row);
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      title: `${row.label} · 移动路径`,
+      items: [
+        {
+          label: '清空此路径关键帧',
+          icon: <Trash2 className="h-3.5 w-3.5" />,
+          danger: true,
+          onClick: () => {
+            if (window.confirm(`确定要清空「${row.label}」的全部移动路径关键帧吗？`)) {
+              onClearRouteTrack?.(row.kind === 'camera' ? 'camera' : 'object', row.trackId);
+            }
+          },
+        },
+      ],
+    });
+  }, [onClearRouteTrack, selectRow]);
+
+  const handleKeyframeContextMenu = useCallback((
+    event: React.MouseEvent,
+    row: TrackRow,
+    frame: TrackRow['keyframes'][number],
+    index: number,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    selectRow(row, frame);
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      title: `${row.label} · 关键帧 #${index}`,
+      items: [
+        {
+          label: '删除此关键帧',
+          icon: <Trash2 className="h-3.5 w-3.5" />,
+          danger: true,
+          onClick: () => {
+            if (window.confirm(`确定要删除「${row.label}」在 ${frame.time.toFixed(2)}s 的关键帧吗？`)) {
+              onDeleteKeyframe?.({ kind: row.kind, trackId: row.trackId, keyframeId: frame.id });
+            }
+          },
+        },
+      ],
+    });
+  }, [onDeleteKeyframe, selectRow]);
 
   useLayoutEffect(() => {
     // Register before the first gesture, independently of drag-state rendering.
@@ -323,7 +480,23 @@ export const DirectorTimeline = memo(function DirectorTimeline({
         const target = event.target;
         if (target instanceof HTMLElement && target.closest('input, textarea, select, [contenteditable="true"]')) return;
         const current = timeSource.getSnapshot();
-        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setDrag(null); return; }
+        if (event.key === 'Escape') {
+          if (contextMenu) { setContextMenu(null); return; }
+          event.preventDefault();
+          event.stopPropagation();
+          setDrag(null);
+          return;
+        }
+        if (event.key === 'Delete' || event.key === 'Backspace') {
+          if (selection) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (window.confirm('确定要删除选中的关键帧吗？')) {
+              onDeleteKeyframe?.(selection);
+            }
+            return;
+          }
+        }
         if (event.key === ' ' && !(target instanceof HTMLElement && target.closest('button'))) { event.preventDefault(); onTogglePlayback(); }
         else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); onTimeChange(clampTime(current + (event.key === 'ArrowRight' ? 1 : -1) * (event.shiftKey ? 10 : 1) / FRAME_RATE, duration)); }
         else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -408,15 +581,71 @@ export const DirectorTimeline = memo(function DirectorTimeline({
                     </button>
                     {row.keyframes.length > 0 ? <button type="button" onClick={() => zoomToTrackKeyframes(row)} disabled={isDragging} className="max-w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] text-white/50 transition-colors hover:bg-white/10 hover:text-accent active:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 disabled:opacity-30" title={t('directorStudio.previs.timeline.keyframeCountHelp')} data-director-tooltip={t('directorStudio.previs.timeline.keyframeCountHelp')} aria-label={t('directorStudio.previs.timeline.keyframeCountAria', { name: row.label, count: row.keyframes.length })}>{t('directorStudio.previs.timeline.keyframeCount', { count: row.keyframes.length })}</button> : null}
                   </div>
+                  {row.kind === 'action' && (row.keyframes.length > 0 || Boolean(items.find((it) => it.id === row.trackId)?.action)) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`确定要清除角色「${row.label}」的动作并恢复自然站立吗？`)) {
+                          onClearCharacterAction?.(row.trackId);
+                        }
+                      }}
+                      className={`${buttonClass} w-7 px-0 text-amber-200/70 hover:bg-amber-400/15 hover:text-amber-100`}
+                      title="清除角色动作 (恢复自然站立)"
+                      aria-label={`${row.label} · 清除动作`}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
                   <button type="button" onClick={() => { selectRow(row); row.onAdd(); }} className={`${buttonClass} w-8 px-0`} aria-label={`${row.label} · ${t('directorStudio.motion.timeline.addKeyframe')}`} {...tooltip(row.kind === 'action' ? 'addActionHelp' : 'addKeyframeHelp')}><Plus className="h-3.5 w-3.5" /></button>
                 </div>
                 <div data-timeline-lane className="relative shrink-0 cursor-crosshair touch-none" style={{ width: laneWidth, backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: `${tickInterval / duration * laneWidth}px 100%` }}
                   onPointerDown={(event) => { if (event.button !== 0) return; selectRow(row); onTimeChange(timeFromPointer(event.clientX, event.currentTarget.getBoundingClientRect(), event.altKey)); }}>
-                  {skeletonClip && <div className="pointer-events-none absolute bottom-1 z-10 h-5 overflow-hidden rounded border border-emerald-300/40 bg-emerald-900/90 px-2 text-[10px] leading-5 text-emerald-100" style={{ left: `${skeletonClip.frames[0].time / duration * 100}%`, width: `${(skeletonClip.frames[skeletonClip.frames.length - 1].time - skeletonClip.frames[0].time) / duration * 100}%` }} title="已烘焙的 Geno 骨骼动作">AI 骨骼 · {skeletonClip.frames.length} 帧</div>}
+                  {skeletonClip && (
+                    <div
+                      className="group absolute bottom-1 z-10 flex h-5 cursor-pointer items-center justify-between overflow-hidden rounded border border-emerald-300/40 bg-emerald-900/90 pl-2 pr-1 text-[10px] leading-5 text-emerald-100 shadow-sm"
+                      style={{ left: `${skeletonClip.frames[0].time / duration * 100}%`, width: `${(skeletonClip.frames[skeletonClip.frames.length - 1].time - skeletonClip.frames[0].time) / duration * 100}%` }}
+                      title="已烘焙的 Geno 骨骼动作 (右键或悬停可删除)"
+                      onContextMenu={(event) => handleSkeletonContextMenu(event, row.trackId, row.label, skeletonClip.frames.length)}
+                    >
+                      <span className="truncate">AI 骨骼 · {skeletonClip.frames.length} 帧</span>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (window.confirm(`确定要删除「${row.label}」的 AI 骨骼动作录制（${skeletonClip.frames.length} 帧）吗？`)) {
+                            onDeleteSkeletonRecording?.(row.trackId);
+                          }
+                        }}
+                        className="ml-1 hidden h-3.5 w-3.5 shrink-0 items-center justify-center rounded text-emerald-200/70 transition-colors hover:bg-red-500/25 hover:text-red-200 group-hover:flex focus:flex"
+                        title="删除 AI 骨骼录制"
+                        aria-label={`删除 ${row.label} 的 AI 骨骼动作录制`}
+                      >
+                        <Trash2 className="h-2.5 w-2.5" />
+                      </button>
+                    </div>
+                  )}
                   {hasRouteClip ? (
-                    <div className={`absolute top-1.5 h-7 rounded border ${row.kind === 'camera' ? 'border-sky-200/30 bg-sky-300/15' : 'border-accent/35 bg-accent/15'} ${selectedTrack ? 'ring-1 ring-accent/50' : ''}`} style={{ left: `${clipStart / duration * 100}%`, width: `${(clipEnd - clipStart) / duration * 100}%` }}>
+                    <div
+                      className={`group absolute top-1.5 h-7 rounded border ${row.kind === 'camera' ? 'border-sky-200/30 bg-sky-300/15' : 'border-accent/35 bg-accent/15'} ${selectedTrack ? 'ring-1 ring-accent/50' : ''}`}
+                      style={{ left: `${clipStart / duration * 100}%`, width: `${(clipEnd - clipStart) / duration * 100}%` }}
+                      onContextMenu={(event) => handleRouteContextMenu(event, row)}
+                    >
                       <button type="button" onPointerDown={(event) => beginTrackDrag(event, row, 'move')} onClick={(event) => { if (event.detail === 0) selectRow(row); }} onKeyDown={(event) => moveTrackWithKeyboard(event, row, 'move')} className="absolute inset-0 w-full cursor-grab rounded px-4 text-left text-[11px] font-medium text-white/85 transition-colors hover:bg-white/10 active:cursor-grabbing active:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" title={t('directorStudio.previs.timeline.routeHelp')} data-director-tooltip={t('directorStudio.previs.timeline.routeHelp')} aria-label={t('directorStudio.motion.timeline.routeClipAria', { name: row.label, start: clipStart.toFixed(2), end: clipEnd.toFixed(2) })}>
                         <span className="block truncate">{t('directorStudio.motion.timeline.routeClip', { start: clipStart.toFixed(2), end: clipEnd.toFixed(2) })}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (window.confirm(`确定要清空「${row.label}」的全部移动路径关键帧吗？`)) {
+                            onClearRouteTrack?.(row.kind === 'camera' ? 'camera' : 'object', row.trackId);
+                          }
+                        }}
+                        className="absolute right-1 top-1 z-20 hidden h-5 w-5 items-center justify-center rounded text-white/50 transition-colors hover:bg-red-500/25 hover:text-red-200 group-hover:flex focus:flex"
+                        title="清空此路径关键帧"
+                        aria-label={`清空 ${row.label} 的路径`}
+                      >
+                        <Trash2 className="h-3 w-3" />
                       </button>
                       {(clipEnd - clipStart) / duration * laneWidth >= 36 ? (['start', 'end'] as const).map((handle) => <button key={handle} type="button" onPointerDown={(event) => beginTrackDrag(event, row, handle)} onClick={(event) => { if (event.detail === 0) selectRow(row); }} onKeyDown={(event) => moveTrackWithKeyboard(event, row, handle)} className={`absolute inset-y-0 z-10 w-3 cursor-ew-resize bg-white/10 transition-colors hover:bg-white/35 active:bg-white/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${handle === 'start' ? 'left-0 rounded-l border-r border-white/20' : 'right-0 rounded-r border-l border-white/20'}`} title={t(`directorStudio.previs.timeline.${handle === 'start' ? 'startHandleHelp' : 'endHelp'}`)} data-director-tooltip={t(`directorStudio.previs.timeline.${handle === 'start' ? 'startHandleHelp' : 'endHelp'}`)} aria-label={`${row.label} · ${t(`directorStudio.motion.timeline.${handle === 'start' ? 'trimStart' : 'trimEnd'}`)}`} />) : null}
                     </div>
@@ -426,7 +655,42 @@ export const DirectorTimeline = memo(function DirectorTimeline({
                     const labelKey = frame.actionId ? actionLabels.get(frame.actionId) : frame.poseId ? poseLabels.get(frame.poseId) : undefined;
                     const actionLabel = frame.clipId ? project.customClips.find((clip) => clip.id === frame.clipId)?.name ?? t('directorStudio.motion.timeline.actionClip') : labelKey ? t(labelKey) : t('directorStudio.motion.timeline.actionClip');
                     const selected = selection?.kind === 'action' && selection.trackId === row.trackId && selection.keyframeId === frame.id;
-                    return <button key={`action:${frame.id}`} type="button" onPointerDown={(event) => beginKeyframeDrag(event, row, frame)} onClick={(event) => { if (event.detail === 0) { selectRow(row, frame); onTimeChange(frame.time); } }} onKeyDown={(event) => moveFrameWithKeyboard(event, row, frame)} className={`absolute top-1.5 h-7 cursor-grab truncate rounded border border-amber-200/25 bg-amber-300/15 px-2 text-left text-[11px] text-amber-100/90 transition-colors hover:bg-amber-300/25 active:cursor-grabbing active:bg-amber-300/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${selected ? 'ring-1 ring-amber-200/70' : ''}`} style={{ left: `${frame.time / duration * 100}%`, width: `${Math.max(0, end - frame.time) / duration * 100}%` }} title={t('directorStudio.previs.timeline.actionHelp', { name: actionLabel })} data-director-tooltip={t('directorStudio.previs.timeline.actionHelp', { name: actionLabel })} aria-label={`${row.label} · ${actionLabel} · ${frame.time.toFixed(2)}s`} aria-pressed={selected}>{actionLabel}</button>;
+                    return (
+                      <div
+                        key={`action:${frame.id}`}
+                        className={`group absolute top-1.5 flex h-7 items-center justify-between overflow-hidden rounded border border-amber-200/25 bg-amber-300/15 pl-2 pr-1 text-[11px] text-amber-100/90 transition-colors hover:bg-amber-300/25 ${selected ? 'ring-1 ring-amber-200/70' : ''}`}
+                        style={{ left: `${frame.time / duration * 100}%`, width: `${Math.max(0, end - frame.time) / duration * 100}%` }}
+                        onContextMenu={(event) => handleActionContextMenu(event, row, frame, actionLabel)}
+                      >
+                        <button
+                          type="button"
+                          onPointerDown={(event) => beginKeyframeDrag(event, row, frame)}
+                          onClick={() => { selectRow(row, frame); onTimeChange(frame.time); }}
+                          onKeyDown={(event) => moveFrameWithKeyboard(event, row, frame)}
+                          className="min-w-0 flex-1 cursor-grab truncate text-left outline-none active:cursor-grabbing"
+                          title={t('directorStudio.previs.timeline.actionHelp', { name: actionLabel })}
+                          data-director-tooltip={t('directorStudio.previs.timeline.actionHelp', { name: actionLabel })}
+                          aria-label={`${row.label} · ${actionLabel} · ${frame.time.toFixed(2)}s`}
+                          aria-pressed={selected}
+                        >
+                          {actionLabel}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (window.confirm(`确定要删除动作「${actionLabel}」（${frame.time.toFixed(2)}s）吗？`)) {
+                              onDeleteKeyframe?.({ kind: 'action', trackId: row.trackId, keyframeId: frame.id });
+                            }
+                          }}
+                          className="ml-1 hidden h-5 w-5 shrink-0 items-center justify-center rounded text-amber-200/60 transition-colors hover:bg-red-500/20 hover:text-red-200 group-hover:flex focus:flex"
+                          title="删除动作关键帧"
+                          aria-label={`删除动作 ${actionLabel}`}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
                   }) : null}
                   {displayedFrames.length === 0 ? <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-[11px] text-white/30">{t(`directorStudio.previs.timeline.${row.kind === 'action' ? 'emptyAction' : 'emptyTrack'}`)}</span> : null}
                   {displayedFrames.map((frame, index) => {
@@ -438,7 +702,24 @@ export const DirectorTimeline = memo(function DirectorTimeline({
                     const markerWidth = neighborGap < 7 ? 'w-0.5' : 'w-1.5';
                     const edgeInset = compact ? 3 : 11;
                     const label = t('directorStudio.motion.timeline.keyframeAria', { name: row.label, index: index + 1, time: frame.time.toFixed(2) });
-                    return <button key={frame.id} type="button" onPointerDown={(event) => beginKeyframeDrag(event, row, frame)} onClick={(event) => { if (event.detail === 0) { selectRow(row, frame); onTimeChange(frame.time); } }} onKeyDown={(event) => moveFrameWithKeyboard(event, row, frame)} className={`group absolute flex -translate-x-1/2 cursor-ew-resize items-center justify-center rounded border text-[11px] font-medium shadow-sm transition-colors hover:z-[11] hover:bg-[#505a61] active:bg-accent/40 focus-visible:z-[11] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${compact ? `top-[43px] z-[5] h-3 ${markerWidth} hover:top-[38px] hover:h-[22px] hover:w-[22px] focus-visible:top-[38px] focus-visible:h-[22px] focus-visible:w-[22px]` : 'top-[38px] h-[22px] w-[22px]'} ${selected ? 'z-[9] border-accent bg-[#365d56] text-white' : 'border-white/30 bg-[#59636c] text-white/85'}`} style={{ left: `clamp(${edgeInset}px, ${frame.time / duration * 100}%, calc(100% - ${edgeInset}px))` }} title={`${label}. ${t('directorStudio.previs.timeline.keyframeHelp')}`} data-director-tooltip={`${label}. ${t('directorStudio.previs.timeline.keyframeHelp')}`} aria-label={label} aria-pressed={selected}><span className={compact ? 'pointer-events-none opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100' : 'pointer-events-none'}>{index + 1}</span></button>;
+                    return (
+                      <button
+                        key={frame.id}
+                        type="button"
+                        onPointerDown={(event) => beginKeyframeDrag(event, row, frame)}
+                        onClick={(event) => { if (event.detail === 0) { selectRow(row, frame); onTimeChange(frame.time); } }}
+                        onKeyDown={(event) => moveFrameWithKeyboard(event, row, frame)}
+                        onContextMenu={(event) => handleKeyframeContextMenu(event, row, frame, index + 1)}
+                        className={`group absolute flex -translate-x-1/2 cursor-ew-resize items-center justify-center rounded border text-[11px] font-medium shadow-sm transition-colors hover:z-[11] hover:bg-[#505a61] active:bg-accent/40 focus-visible:z-[11] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${compact ? `top-[43px] z-[5] h-3 ${markerWidth} hover:top-[38px] hover:h-[22px] hover:w-[22px] focus-visible:top-[38px] focus-visible:h-[22px] focus-visible:w-[22px]` : 'top-[38px] h-[22px] w-[22px]'} ${selected ? 'z-[9] border-accent bg-[#365d56] text-white' : 'border-white/30 bg-[#59636c] text-white/85'}`}
+                        style={{ left: `clamp(${edgeInset}px, ${frame.time / duration * 100}%, calc(100% - ${edgeInset}px))` }}
+                        title={`${label}. ${t('directorStudio.previs.timeline.keyframeHelp')}`}
+                        data-director-tooltip={`${label}. ${t('directorStudio.previs.timeline.keyframeHelp')}`}
+                        aria-label={label}
+                        aria-pressed={selected}
+                      >
+                        <span className={compact ? 'pointer-events-none opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100' : 'pointer-events-none'}>{index + 1}</span>
+                      </button>
+                    );
                   })}
                   <div className="pointer-events-none absolute inset-y-0 z-[6] w-px bg-accent/75" style={{ left: 'var(--director-motion-playhead, 0%)' }} />
                 </div>
@@ -447,6 +728,40 @@ export const DirectorTimeline = memo(function DirectorTimeline({
           })}
         </div>
       </div>
+      {contextMenu ? (
+        <div
+          className="fixed z-[100] min-w-[180px] rounded-md border border-white/15 bg-[#1e2227] py-1 text-xs text-white shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-75"
+          style={{
+            left: Math.max(8, Math.min(window.innerWidth - 190, contextMenu.x)),
+            top: Math.max(8, Math.min(window.innerHeight - (contextMenu.items.length * 36 + 40), contextMenu.y)),
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {contextMenu.title ? (
+            <div className="truncate border-b border-white/10 px-3 py-1.5 text-[10px] font-medium text-white/50">
+              {contextMenu.title}
+            </div>
+          ) : null}
+          {contextMenu.items.map((item, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => {
+                setContextMenu(null);
+                item.onClick();
+              }}
+              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors ${
+                item.danger
+                  ? 'text-red-300 hover:bg-red-500/20 hover:text-red-100'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 });

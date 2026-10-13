@@ -23,6 +23,7 @@ type Props = {
   onDuplicateClip: (clipId: string) => void;
   onDeleteClip: (clipId: string) => void;
   onLoopClip: (clipId: string, loop: boolean) => void;
+  onClearAction?: () => void;
 };
 
 type LibraryTab = 'poses' | 'actions' | 'clips';
@@ -42,6 +43,7 @@ export const DirectorActionLibrary = memo(function DirectorActionLibrary({
   onDuplicateClip,
   onDeleteClip,
   onLoopClip,
+  onClearAction,
 }: Props) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<LibraryTab>('actions');
@@ -94,6 +96,24 @@ export const DirectorActionLibrary = memo(function DirectorActionLibrary({
 
           {tab === 'poses' ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {onClearAction ? (
+                <button
+                  type="button"
+                  disabled={!personSelected}
+                  onClick={() => {
+                    if (window.confirm('确定要清除角色动作并恢复自然站立吗？')) {
+                      onClearAction();
+                    }
+                  }}
+                  className="flex min-h-[58px] flex-col items-start justify-between rounded border border-amber-400/40 bg-amber-400/15 px-2.5 py-2 text-left text-[10px] text-amber-100 hover:border-amber-300 hover:bg-amber-400/25 disabled:cursor-not-allowed disabled:opacity-35 focus:outline-none focus:ring-2 focus:ring-amber-300/60"
+                >
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-100">
+                    <RotateCcw className="h-3.5 w-3.5 text-amber-300" />
+                    清除动作
+                  </span>
+                  <span className="text-[10px] text-amber-200/70">恢复自然站立</span>
+                </button>
+              ) : null}
               {DIRECTOR_STATIC_POSES.map((pose) => (
                 <button
                   key={pose.id}
@@ -182,7 +202,7 @@ export const DirectorActionLibrary = memo(function DirectorActionLibrary({
                   <button type="button" onClick={() => { setEditingClipId(clip.id); setEditingClipName(clip.name); }} className="flex h-7 w-7 items-center justify-center rounded text-white/42 hover:bg-white/10 hover:text-white" title={t('directorStudio.motion.library.rename')} aria-label={t('directorStudio.motion.library.rename')}><Pencil className="h-3.5 w-3.5" /></button>
                   <button type="button" onClick={() => onDuplicateClip(clip.id)} className="flex h-7 w-7 items-center justify-center rounded text-white/42 hover:bg-white/10 hover:text-white" title={t('directorStudio.motion.library.duplicate')} aria-label={t('directorStudio.motion.library.duplicate')}><Copy className="h-3.5 w-3.5" /></button>
                   <button type="button" onClick={() => onLoopClip(clip.id, !clip.loop)} className={`flex h-7 w-7 items-center justify-center rounded ${clip.loop ? 'bg-accent/18 text-accent' : 'text-white/42 hover:bg-white/10 hover:text-white'}`} title={t('directorStudio.motion.library.loop')} aria-label={t('directorStudio.motion.library.loop')} aria-pressed={clip.loop}><RotateCcw className="h-3.5 w-3.5" /></button>
-                  <button type="button" onClick={() => onDeleteClip(clip.id)} className="flex h-7 w-7 items-center justify-center rounded text-red-200/55 hover:bg-red-500/12 hover:text-red-100" title={t('directorStudio.motion.library.delete')} aria-label={t('directorStudio.motion.library.delete')}><Trash2 className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => { if (window.confirm(`确定要删除动作片段「${clip.name}」吗？`)) onDeleteClip(clip.id); }} className="flex h-7 w-7 items-center justify-center rounded text-red-200/55 hover:bg-red-500/12 hover:text-red-100" title={t('directorStudio.motion.library.delete')} aria-label={t('directorStudio.motion.library.delete')}><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
               ))}
             </div>
