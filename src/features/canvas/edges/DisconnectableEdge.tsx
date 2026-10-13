@@ -16,6 +16,7 @@ import {
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { buildOrthogonalRoute } from './edgeRouting';
+import { getEdgeSelectionFocus } from './edgeSelectionFocus';
 
 export const DisconnectableEdge = memo(function DisconnectableEdge(props: EdgeProps) {
   const {
@@ -32,6 +33,10 @@ export const DisconnectableEdge = memo(function DisconnectableEdge(props: EdgePr
     markerEnd,
     style,
   } = props;
+  const selectionFocus = useCanvasStore((state) => getEdgeSelectionFocus(state.nodes, target));
+  const isUpstream = selectionFocus === 'upstream';
+  // An explicitly selected edge keeps its contrast and disconnect control.
+  const isDimmed = selectionFocus === 'dimmed' && !selected;
   const deleteEdge = useCanvasStore((state) => state.deleteEdge);
   const canvasEdgeRoutingMode = useSettingsStore((state) => state.canvasEdgeRoutingMode);
   const geometryIndex = useCanvasStore((state) => (
@@ -113,28 +118,51 @@ export const DisconnectableEdge = memo(function DisconnectableEdge(props: EdgePr
 
   return (
     <>
-      {isProcessingEdge && (
-        <path
-          d={edgePath}
-          fill="none"
-          stroke={processingDashStroke}
-          strokeWidth={selected ? 2.5 : 2.1}
-          strokeLinecap="round"
-          strokeDasharray="8 10"
-          className="canvas-processing-edge__flow"
-          style={{ pointerEvents: 'none' }}
+      <g className={`canvas-edge-appearance${isUpstream ? ' canvas-edge--upstream' : ''}${isDimmed ? ' canvas-edge--dimmed' : ''}`}>
+        {isUpstream && (
+          <path
+            d={edgePath}
+            fill="none"
+            stroke="rgb(var(--accent-rgb) / 0.14)"
+            strokeWidth={10}
+            strokeLinecap="round"
+            pointerEvents="none"
+          />
+        )}
+        {isProcessingEdge && (
+          <path
+            d={edgePath}
+            fill="none"
+            stroke={processingDashStroke}
+            strokeWidth={selected ? 2.5 : 2.1}
+            strokeLinecap="round"
+            strokeDasharray="8 10"
+            className="canvas-processing-edge__flow"
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
+        <BaseEdge
+          id={id}
+          path={edgePath}
+          markerEnd={markerEnd}
+          style={{
+            stroke: isProcessingEdge ? processingStroke : style?.stroke,
+            strokeWidth: baseStrokeWidth,
+            ...style,
+            ...(isUpstream ? { stroke: 'rgb(var(--accent-rgb))', strokeWidth: 3 } : {}),
+          }}
         />
-      )}
-      <BaseEdge
-        id={id}
-        path={edgePath}
-        markerEnd={markerEnd}
-        style={{
-          stroke: isProcessingEdge ? processingStroke : style?.stroke,
-          strokeWidth: baseStrokeWidth,
-          ...style,
-        }}
-      />
+        {isUpstream && [0, 1].map((index) => (
+          <g key={index} className="canvas-focus-edge__particle" pointerEvents="none" aria-hidden="true">
+            <animateMotion path={edgePath} dur="2s" begin={`${-index}s`} repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.08;0.92;1" dur="2s" begin={`${-index}s`} repeatCount="indefinite" />
+            <circle r={14} fill="rgb(var(--accent-rgb) / 0.2)" />
+            <circle r={9} fill="rgb(var(--accent-rgb) / 0.65)" />
+            <circle r={6.5} fill="rgb(255 255 255 / 0.3)" />
+            <circle r={4.8} fill="#fff" />
+          </g>
+        ))}
+      </g>
       {selected && (
         <EdgeLabelRenderer>
           <button

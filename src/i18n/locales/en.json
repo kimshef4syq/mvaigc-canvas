@@ -1751,11 +1751,21 @@
     }
   },
   "mainHome": {
+    "startupAnimation": "Startup animation",
+    "skipIntro": "Skip",
     "canvasProjects": "Canvas Projects",
     "promptLibrary": "Prompt Library",
     "views": "Workspace views",
     "canvasProjectsHint": "Manage local canvas projects",
-    "promptLibraryHint": "Browse community prompts, save favorites, and apply them to canvases"
+    "promptLibraryHint": "Browse community prompts, save favorites, and apply them to canvases",
+    "welcomeDescription": "Start with a canvas. Bring storyboards, images and stories to life.",
+    "background": "Home background",
+    "backgroundAssemble": "Pixel assembly",
+    "backgroundWave": "Pixel wave",
+    "backgroundOrbit": "Pixel orbit",
+    "backgroundNone": "Background off",
+    "pauseBackground": "Pause background animation",
+    "resumeBackground": "Play background animation"
   },
   "project": {
     "title": "Canvas Projects",

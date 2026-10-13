@@ -6,6 +6,7 @@ import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { UpdateAvailableDialog, type UpdateIgnoreMode } from './components/UpdateAvailableDialog';
 import { GlobalErrorDialog } from './components/GlobalErrorDialog';
 import { ProjectHome } from './features/project/ProjectHome';
+import { LaunchIntro } from './features/app/LaunchIntro';
 import { useThemeStore } from './stores/themeStore';
 import { useProjectStore } from './stores/projectStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -55,6 +56,7 @@ function App() {
   const autoCheckAppUpdateOnLaunch = useSettingsStore((state) => state.autoCheckAppUpdateOnLaunch);
   const enableUpdateDialog = useSettingsStore((state) => state.enableUpdateDialog);
   const setEnableUpdateDialog = useSettingsStore((state) => state.setEnableUpdateDialog);
+  const [showLaunchIntro, setShowLaunchIntro] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [hasOpenedSettings, setHasOpenedSettings] = useState(false);
   const [settingsInitialCategory, setSettingsInitialCategory] = useState<SettingsCategory>('general');
@@ -170,7 +172,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!isHydrated) {
+    if (!isHydrated || showLaunchIntro) {
       return;
     }
 
@@ -194,7 +196,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [isHydrated, autoCheckAppUpdateOnLaunch, enableUpdateDialog]);
+  }, [isHydrated, showLaunchIntro, autoCheckAppUpdateOnLaunch, enableUpdateDialog]);
 
   const handleManualCheckUpdate = async (): Promise<'has-update' | 'up-to-date' | 'failed'> => {
     const result = await checkForUpdate();
@@ -225,17 +227,12 @@ function App() {
     suppressUpdateVersion(latestVersion, mode === 'today-version' ? 'today' : 'forever');
   };
 
-  if (!isHydrated) {
-    return (
-      <AppErrorBoundary>
-        <div className="h-full w-full bg-bg-dark" />
-      </AppErrorBoundary>
-    );
-  }
 
   return (
     <AppErrorBoundary>
-        <div className="w-full h-full flex flex-col bg-bg-dark">
+      {showLaunchIntro && <LaunchIntro onComplete={() => setShowLaunchIntro(false)} />}
+      {!isHydrated ? <div className="h-full w-full bg-bg-dark" /> : (
+        <div className="w-full h-full flex flex-col bg-bg-dark" aria-hidden={showLaunchIntro || undefined} style={showLaunchIntro ? { visibility: 'hidden' } : undefined}>
           <TitleBar
             onSettingsClick={() => {
               setSettingsInitialCategory('general');
@@ -324,6 +321,7 @@ function App() {
             onClose={() => setGlobalError(null)}
           />
         </div>
+      )}
       </AppErrorBoundary>
   );
 }
