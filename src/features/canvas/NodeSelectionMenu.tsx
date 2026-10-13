@@ -6,6 +6,7 @@ import { UI_POPOVER_TRANSITION_MS } from '@/components/ui/motion';
 import type { CanvasNodeType } from '@/features/canvas/domain/canvasNodes';
 import { nodeCatalog } from '@/features/canvas/application/nodeCatalog';
 import type { MenuIconKey } from '@/features/canvas/domain/nodeRegistry';
+import { orderMenuDefinitions } from '@/features/canvas/domain/nodeRegistry';
 
 interface NodeSelectionMenuProps {
   position: { x: number; y: number };
@@ -18,6 +19,7 @@ interface NodeSelectionMenuProps {
 
 const iconMap: Record<MenuIconKey, typeof Upload> = {
   upload: Upload,
+  image: Image,
   sparkles: Sparkles,
   layout: LayoutGrid,
   text: Type,
@@ -63,7 +65,7 @@ export function NodeSelectionMenu({
       }
     }
 
-    return Array.from(dedupedByLabel.values());
+    return orderMenuDefinitions(Array.from(dedupedByLabel.values()));
   }, [allowedTypeSet, allowedTypes]);
 
   useEffect(() => {

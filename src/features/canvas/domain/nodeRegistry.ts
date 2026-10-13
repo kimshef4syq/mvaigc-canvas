@@ -26,7 +26,7 @@ import {
 import { DEFAULT_NODE_DISPLAY_NAME } from './nodeDisplay';
 import { DEFAULT_IMAGE_MODEL_ID } from '../models';
 
-export type MenuIconKey = 'upload' | 'sparkles' | 'layout' | 'text' | 'video' | 'audio' | 'tag' | 'tagGroup';
+export type MenuIconKey = 'upload' | 'image' | 'sparkles' | 'layout' | 'text' | 'video' | 'audio' | 'tag' | 'tagGroup';
 export type CanvasNodeSelectionToolbarMode = 'full' | 'deleteOnly' | 'none';
 
 export interface CanvasNodeCapabilities {
@@ -226,7 +226,7 @@ const aiAudioNodeDefinition: CanvasNodeDefinition<AiAudioNodeData> = {
 const exportImageNodeDefinition: CanvasNodeDefinition<ExportImageNodeData> = {
   type: CANVAS_NODE_TYPES.exportImage,
   menuLabelKey: 'node.menu.generateImage',
-  menuIcon: 'upload',
+  menuIcon: 'image',
   visibleInMenu: true,
   capabilities: {
     toolbar: true,
@@ -713,15 +713,19 @@ const MENU_TYPE_ORDER: CanvasNodeType[] = [
   CANVAS_NODE_TYPES.aiVideo,
 ];
 
-export function getMenuNodeDefinitions(): CanvasNodeDefinition[] {
-  const visible = Object.values(canvasNodeDefinitions).filter((definition) => definition.visibleInMenu);
-  return visible.sort((left, right) => {
+export function orderMenuDefinitions(definitions: CanvasNodeDefinition[]): CanvasNodeDefinition[] {
+  return [...definitions].sort((left, right) => {
     const leftIndex = MENU_TYPE_ORDER.indexOf(left.type);
     const rightIndex = MENU_TYPE_ORDER.indexOf(right.type);
     const leftKey = leftIndex === -1 ? MENU_TYPE_ORDER.length : leftIndex;
     const rightKey = rightIndex === -1 ? MENU_TYPE_ORDER.length : rightIndex;
     return leftKey - rightKey;
   });
+}
+
+export function getMenuNodeDefinitions(): CanvasNodeDefinition[] {
+  const visible = Object.values(canvasNodeDefinitions).filter((definition) => definition.visibleInMenu);
+  return orderMenuDefinitions(visible);
 }
 
 export function getNodeSelectionToolbarMode(type: CanvasNodeType): CanvasNodeSelectionToolbarMode {
