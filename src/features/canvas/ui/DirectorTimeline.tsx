@@ -137,12 +137,12 @@ export const DirectorTimeline = memo(function DirectorTimeline({
       result.push({ key: `object:${item.id}`, kind: 'object', trackId: item.id, label: item.label, keyframes: project.objectTracks[item.id] ?? [], onAdd: () => onAddObjectKeyframe(item.id) });
       // Keep authored actions visible; show an empty action lane only for the selected person.
       const actions = project.actionTracks[item.id] ?? [];
-      if (item.category === 'person' && (actions.length > 0 || selectedItemId === item.id || (selection?.kind === 'action' && selection.trackId === item.id))) {
+      if (item.category === 'person' && (actions.length > 0 || Boolean(project.skeletonRecordings?.[item.id]) || selectedItemId === item.id || (selection?.kind === 'action' && selection.trackId === item.id))) {
         result.push({ key: `action:${item.id}`, kind: 'action', trackId: item.id, label: t('directorStudio.motion.timeline.actionTrack', { name: item.label }), keyframes: actions, onAdd: () => onAddActionKeyframe(item.id) });
       }
     });
     return result;
-  }, [items, onAddActionKeyframe, onAddCameraKeyframe, onAddObjectKeyframe, project.actionTracks, project.cameraTrack, project.objectTracks, selectedItemId, selection, t]);
+  }, [items, onAddActionKeyframe, onAddCameraKeyframe, onAddObjectKeyframe, project.actionTracks, project.cameraTrack, project.objectTracks, project.skeletonRecordings, selectedItemId, selection, t]);
 
   const activeRow = rows.find((row) => row.key === activeRowKey);
   const selectedRowKey = selection
@@ -393,6 +393,7 @@ export const DirectorTimeline = memo(function DirectorTimeline({
               : activeDrag?.mode === 'keyframe'
                 ? row.keyframes.map((frame) => frame.id === activeDrag.selection.keyframeId ? { ...frame, time: activeDrag.time } : frame).sort((a, b) => a.time - b.time)
                 : row.keyframes;
+            const skeletonClip = row.kind === 'action' ? project.skeletonRecordings?.[row.trackId] : undefined;
             const hasRouteClip = row.kind !== 'action' && displayedFrames.length >= 2 && displayedFrames[displayedFrames.length - 1].time > displayedFrames[0].time;
             const clipStart = hasRouteClip ? displayedFrames[0].time : 0;
             const clipEnd = hasRouteClip ? displayedFrames[displayedFrames.length - 1].time : 0;
@@ -411,6 +412,7 @@ export const DirectorTimeline = memo(function DirectorTimeline({
                 </div>
                 <div data-timeline-lane className="relative shrink-0 cursor-crosshair touch-none" style={{ width: laneWidth, backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: `${tickInterval / duration * laneWidth}px 100%` }}
                   onPointerDown={(event) => { if (event.button !== 0) return; selectRow(row); onTimeChange(timeFromPointer(event.clientX, event.currentTarget.getBoundingClientRect(), event.altKey)); }}>
+                  {skeletonClip && <div className="pointer-events-none absolute bottom-1 z-10 h-5 overflow-hidden rounded border border-emerald-300/40 bg-emerald-900/90 px-2 text-[10px] leading-5 text-emerald-100" style={{ left: `${skeletonClip.frames[0].time / duration * 100}%`, width: `${(skeletonClip.frames[skeletonClip.frames.length - 1].time - skeletonClip.frames[0].time) / duration * 100}%` }} title="已烘焙的 Geno 骨骼动作">AI 骨骼 · {skeletonClip.frames.length} 帧</div>}
                   {hasRouteClip ? (
                     <div className={`absolute top-1.5 h-7 rounded border ${row.kind === 'camera' ? 'border-sky-200/30 bg-sky-300/15' : 'border-accent/35 bg-accent/15'} ${selectedTrack ? 'ring-1 ring-accent/50' : ''}`} style={{ left: `${clipStart / duration * 100}%`, width: `${(clipEnd - clipStart) / duration * 100}%` }}>
                       <button type="button" onPointerDown={(event) => beginTrackDrag(event, row, 'move')} onClick={(event) => { if (event.detail === 0) selectRow(row); }} onKeyDown={(event) => moveTrackWithKeyboard(event, row, 'move')} className="absolute inset-0 w-full cursor-grab rounded px-4 text-left text-[11px] font-medium text-white/85 transition-colors hover:bg-white/10 active:cursor-grabbing active:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" title={t('directorStudio.previs.timeline.routeHelp')} data-director-tooltip={t('directorStudio.previs.timeline.routeHelp')} aria-label={t('directorStudio.motion.timeline.routeClipAria', { name: row.label, start: clipStart.toFixed(2), end: clipEnd.toFixed(2) })}>

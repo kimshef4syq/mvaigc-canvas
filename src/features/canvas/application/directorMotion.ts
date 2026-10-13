@@ -13,7 +13,9 @@ import type {
   DirectorMotionProjectV1,
   DirectorMotionVector3,
   DirectorObjectKeyframe,
+  DirectorSkeletonFrame,
 } from '@/features/canvas/domain/canvasNodes';
+import { normalizeSkeletonRecordings, sampleSkeletonRecording } from './directorSkeletonMotion';
 import { ensurePos3d } from '@/features/canvas/ui/blueprintCoordinates';
 
 export const DIRECTOR_MOTION_SCHEMA_VERSION = 1 as const;
@@ -46,6 +48,7 @@ export interface SampledDirectorMotionFrame {
   camera: SampledDirectorCameraState | null;
   objects: Record<string, SampledDirectorObjectState>;
   actions: Record<string, SampledDirectorActionState>;
+  skeletons?: Record<string, { jointNames: string[]; frame: DirectorSkeletonFrame }>;
 }
 
 export interface DirectorStaticPoseDefinition {
@@ -356,6 +359,7 @@ export function normalizeDirectorMotionProject(value: unknown): DirectorMotionPr
     schemaVersion: DIRECTOR_MOTION_SCHEMA_VERSION,
     durationSeconds,
     loop: record?.loop === true,
+    ...(record?.skeletonRecordings !== undefined ? { skeletonRecordings: normalizeSkeletonRecordings(record.skeletonRecordings, durationSeconds) } : {}),
     cameraTrack: normalizeCameraTrack(record?.cameraTrack, durationSeconds),
     objectTracks,
     actionTracks,
@@ -677,12 +681,24 @@ export function sampleNormalizedDirectorMotion(
   Object.entries(project.actionTracks).forEach(([itemId, track]) => {
     if (track.length > 0) actions[itemId] = sampleActionTrack(track, time, project.customClips);
   });
+  const skeletons: NonNullable<SampledDirectorMotionFrame['skeletons']> = {};
+  Object.entries(project.skeletonRecordings ?? {}).forEach(([itemId, recording]) => {
+    const item = items.find(candidate => candidate.id === itemId);
+    if (item?.presetId !== recording.modelId) return;
+    const frame = sampleSkeletonRecording(recording, time);
+    if (!frame) return;
+    skeletons[itemId] = { jointNames: recording.jointNames, frame };
+    const rotation = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().fromArray(frame.rootRotation));
+    objects[itemId] = { position: { x: frame.rootPosition[0], y: frame.rootPosition[1], z: frame.rootPosition[2] }, rotation: { x: rotation.x, y: rotation.y, z: rotation.z }, scale: objects[itemId]?.scale ?? { x: 1, y: 1, z: 1 } };
+    delete actions[itemId];
+  });
   const itemsById = new Map(items.map((item) => [item.id, item]));
   return {
     time,
     camera: sampleCameraTrack(project.cameraTrack, time, objects, itemsById),
     objects,
     actions,
+    ...(Object.keys(skeletons).length ? { skeletons } : {}),
   };
 }
 

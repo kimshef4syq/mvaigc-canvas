@@ -1,0 +1,12 @@
+{
+  "locomotion_biped": {
+    "maxAbsoluteError": 6.198883056640625e-06,
+    "bytes": 46818575,
+    "cases": 4
+  },
+  "contacts_biped": {
+    "maxAbsoluteError": 4.76837158203125e-07,
+    "bytes": 1594054,
+    "cases": 4
+  }
+}

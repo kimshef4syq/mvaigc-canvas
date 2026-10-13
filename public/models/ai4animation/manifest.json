@@ -1,0 +1,17 @@
+{
+  "repository": "https://github.com/facebookresearch/ai4animationpy",
+  "revision": "bfb5866681f7ea6dac9984be05181de5955eb48b",
+  "license": "CC-BY-NC-4.0",
+  "modified": "ONNX export and guidance serialization; GLB assets unchanged",
+  "files": {
+    "contacts_biped.onnx": "106a6f7f845ad6fefc2494ab0e395cb2e91cb63c61006582247463b455da3448",
+    "cranberry.glb": "f9c86a0ef28c84647635f3494234bae3cdb2132ec8c086d742cbdfb69f2ab899",
+    "geno_definitions.py": "821468d9bf9e35b21a8389fea850286773bbbab0a03bfd14540d4689a60bddda",
+    "README.md": "eff8876ebfb5937cc5bc76db18337b33dd8d729f668d20fae3affa7b50bb8905",
+    "cranberry_definitions.py": "15df67316bc63efe49c3a81bef50da9d11409eb66e72c88985c5d466f2fca336",
+    "locomotion_biped.onnx": "0867cb08e7d5adb52633d409c9a0a1c991f40bc48a215fc9ea62b1f2320966e6",
+    "geno.glb": "b732b2c6cd070db21254ce6c25d8060388dc23678e72b1e77d7c99e00acdd7c4",
+    "LICENSE.txt": "a7950c0fed88e9a177617e3836e9dc0ae4f4a96e59b15c3706de38ace171aca4",
+    "locomotion_biped_meta.json": "6bc2c0c911a259a379b5e086332967d6594747801ee7c46f142aa40a7e71027a"
+  }
+}

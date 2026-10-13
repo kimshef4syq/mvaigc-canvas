@@ -1,6 +1,8 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { useNeuralCharacterPilot } from './director/motion/useNeuralCharacterPilot';
+import { NeuralCharacterControls } from './director/motion/NeuralCharacterControls';
 import {
   Aperture,
   Box,
@@ -1273,10 +1275,23 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
     onAddVideoToCanvas,
   });
 
+  const neuralPilot = useNeuralCharacterPilot({
+    enabled: timelineOpen && !pilotActive && !videoExportRecording && !activeDialog && !motionRouteDraft,
+    selectedItem,
+    scene: editorRef,
+    project: motionProject,
+    currentTime: motionTimeSource.getSnapshot,
+    onTime: setMotionTimeAndApply,
+    onBeforeStart: () => { setMotionPlaying(false); cancelMotionRouteDraft(); editorRef.current?.exitPilot(); setActiveTransformMode(null); },
+    onSave: (itemId, recording) => updateMotionProject(project => ({ ...project, skeletonRecordings: { ...project.skeletonRecordings, [itemId]: recording } })),
+  });
+  const neuralBusy = neuralPilot.status === 'active' || neuralPilot.status === 'loading';
+
   const handledRecordRequestIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!recordRequest || recordRequest.nodeId !== sourceNodeId) return;
     if (handledRecordRequestIdRef.current === recordRequest.requestId) return;
+    if (neuralBusy) { neuralPilot.stop(); return; }
     handledRecordRequestIdRef.current = recordRequest.requestId;
     void startVideoExport(recordRequest).then((result) => {
       if (!result) {
@@ -1296,7 +1311,7 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
         error: error instanceof Error ? error.message : String(error),
       });
     });
-  }, [getLastRecordedVideoNodeId, onRecordRequestResult, recordRequest, sourceNodeId, startVideoExport, t]);
+  }, [getLastRecordedVideoNodeId, neuralBusy, neuralPilot.stop, onRecordRequestResult, recordRequest, sourceNodeId, startVideoExport, t]);
 
   const commitInspectorTextDraft = useCallback(() => {
     if (inspectorTextCommitTimerRef.current !== null) {
@@ -1511,9 +1526,10 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
 
   const handleClose = useCallback(() => {
     commitPendingTextDrafts();
+    neuralPilot.stop();
     stopMotionActivity();
     onCloseRef.current();
-  }, [commitPendingTextDrafts, stopMotionActivity]);
+  }, [commitPendingTextDrafts, neuralPilot.stop, stopMotionActivity]);
 
   useEffect(() => {
     if (!selectedItem && activeTransformMode) {
@@ -1840,11 +1856,13 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
       const nextMotionProject = normalizeDirectorMotionProject(data.motionProject);
       const objectTracks = { ...nextMotionProject.objectTracks };
       const actionTracks = { ...nextMotionProject.actionTracks };
+      const skeletonRecordings = { ...nextMotionProject.skeletonRecordings };
       delete objectTracks[selectedItem.id];
       delete actionTracks[selectedItem.id];
+      delete skeletonRecordings[selectedItem.id];
       onUpdateNodeData({
         items: nextItems,
-        motionProject: { ...nextMotionProject, objectTracks, actionTracks },
+        motionProject: { ...nextMotionProject, objectTracks, actionTracks, skeletonRecordings },
       });
     }
     selectItemForEditing(null);
@@ -2702,6 +2720,7 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
   const switchStudioMode = (nextMode: 'director' | 'previs') => {
     if (nextMode === studioMode) return;
     if (nextMode === 'director') {
+      neuralPilot.stop();
       stopMotionActivity();
       setPilotActive(false);
       setActionLibraryOpen(false);
@@ -2792,7 +2811,7 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
             <>
               <DirectorPrevisButton compact showLabel={false} label={t('directorStudio.previs.undo')} icon={<RotateCcw size={15} />} onClick={undoCanvas} />
               <DirectorPrevisButton compact label={t('directorStudio.toolbar.screenshot')} icon={<Aperture size={15} />} onClick={() => { void captureScreenshot(); }} />
-              <DirectorPrevisButton compact label={t('directorStudio.previs.record')} description={t('directorStudio.motion.export.title')} disabled={motionProject.cameraTrack.length < 2} disabledReason={t('directorStudio.motion.export.needsCamera')} icon={<Clapperboard size={15} />} onClick={openVideoExport} />
+              <DirectorPrevisButton compact label={t('directorStudio.previs.record')} description={t('directorStudio.motion.export.title')} disabled={neuralBusy || motionProject.cameraTrack.length < 2} disabledReason={t('directorStudio.motion.export.needsCamera')} icon={<Clapperboard size={15} />} onClick={openVideoExport} />
               <DirectorPrevisButton compact showLabel={false} label={t('directorStudio.previs.toggleSidebar')} description={t('directorStudio.previs.toggleSidebarHelp')} active={previsSidebarOpen} icon={<PanelRight size={16} />} onClick={() => setPrevisSidebarOpen((value) => !value)} />
             </>
           ) : null}
@@ -3185,7 +3204,7 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
                 lighting={lighting}
                 grid={grid}
                 viewSettings={viewSettings}
-                keyboardShortcutsEnabled={activeDialog !== 'shortcuts'}
+                keyboardShortcutsEnabled={activeDialog !== 'shortcuts' && !neuralBusy}
                 motionProject={timelineOpen ? motionProject : undefined}
                 motionRoutesVisible={timelineOpen && motionShowRoutes}
                 motionRouteSelection={timelineOpen && motionSelection && motionSelection.kind !== 'action'
@@ -4201,6 +4220,11 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
                   previewMode={motionPreviewMode}
                   showRoutes={motionShowRoutes}
                   pilotActive={pilotActive}
+                  neuralActive={neuralBusy}
+                  neuralControls={<NeuralCharacterControls pilot={neuralPilot} selectedItem={selectedItem} hasRecording={Boolean(selectedItem && motionProject.skeletonRecordings?.[selectedItem.id])} onDeleteRecording={() => {
+                    if (!selectedItem) return;
+                    updateMotionProject(project => { const skeletonRecordings = { ...project.skeletonRecordings }; delete skeletonRecordings[selectedItem.id]; return { ...project, skeletonRecordings }; });
+                  }} />}
                   hasPersonRoute={Boolean(selectedItem?.category === 'person' && (motionProject.objectTracks[selectedItem.id]?.length ?? 0) >= 2)}
                   onTransformMode={setActiveTransformMode}
                   onStartRoute={startMotionRouteDraft}
@@ -4236,11 +4260,11 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
                   playbackRate={playbackRate}
                   onPlaybackRateChange={setPlaybackRate}
                   selection={motionSelection}
-                  onTimeChange={setMotionTimeAndApply}
-                  onTogglePlayback={() => setMotionPlaying((value) => !value)}
-                  onGoToStart={() => { setMotionPlaying(false); setMotionTimeAndApply(0); }}
+                  onTimeChange={(time) => { neuralPilot.stop(); setMotionTimeAndApply(time); }}
+                  onTogglePlayback={() => { neuralPilot.stop(); setMotionPlaying((value) => !value); }}
+                  onGoToStart={() => { neuralPilot.stop(); setMotionPlaying(false); setMotionTimeAndApply(0); }}
                   onLoopChange={(loop) => updateMotionProject((project) => ({ ...project, loop }))}
-                  onDurationChange={updateMotionDuration}
+                  onDurationChange={(duration) => { neuralPilot.stop(); updateMotionDuration(duration); }}
                   onSelectionChange={(selection) => {
                     cancelMotionRouteDraft();
                     setMotionSelection(selection);
@@ -4264,7 +4288,7 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
                   selection={motionSelection}
                   onSelectItem={(id) => { cancelMotionRouteDraft(); onSelectedItemChange(id); setMotionSelection(null); setActiveTransformMode(null); }}
                   onSelectionChange={setMotionSelection}
-                  onTimeChange={setMotionTimeAndApply}
+                  onTimeChange={(time) => { neuralPilot.stop(); setMotionTimeAndApply(time); }}
                   onRetimeTrack={retimeMotionTrack}
                   onPatchKeyframe={patchMotionKeyframe}
                   onDuplicateKeyframe={duplicateMotionKeyframe}

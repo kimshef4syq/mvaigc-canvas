@@ -42,6 +42,8 @@ import {
   onGltfPersonTemplateReady,
 } from './blueprintGltfFactory';
 
+import { applyBakedSkeleton, applyNeuralStaticPose, createNeuralCharacter, ensureNeuralModel, isNeuralModelReady, neuralModelId } from './director/motion/neuralCharacterAssets';
+
 /**
  * BlueprintScene
  * --------------
@@ -74,6 +76,7 @@ export interface BlueprintSceneHandle {
   getSuggestedInsertPosition: () => { x: number; y: number; z: number };
   getCameraSnapshot: () => DirectorSceneCameraSnapshot | null;
   getCanvas: () => HTMLCanvasElement | null;
+  getNeuralCharacterMesh: (itemId: string) => THREE.Group | null;
   applyMotionFrame: (frame: SampledDirectorMotionFrame, previewMode?: 'route' | 'shot') => void;
   setMotionPlaybackActive: (active: boolean) => void;
   renderFrame: () => void;
@@ -216,7 +219,8 @@ function getItemMeshCacheKey(
   const useGltf = item.category === 'person'
     && (globalThis as any).__BLUEPRINT_USE_GLTF__ === true
     && gltfReady;
-  const personVariant = item.category === 'person' ? (useGltf ? 'gltf' : 'proc') : 'na';
+  const neuralId = neuralModelId(item.presetId);
+  const personVariant = neuralId ? `${neuralId}:${isNeuralModelReady(neuralId)}` : item.category === 'person' ? (useGltf ? 'gltf' : 'proc') : 'na';
   const bodyControlsKey = item.category === 'person' ? JSON.stringify(bodyControls ?? {}) : '';
   const roleKey = item.category === 'person' ? (item.directorStudioRole ?? 'main') : 'na';
   return `${item.category}|${item.presetId ?? ''}|${item.action ?? ''}|${personVariant}|${roleKey}|${bodyControlsKey}|${detail}`;
@@ -232,7 +236,9 @@ function createBlueprintItemMesh(
   const color = new THREE.Color(item.color);
   const heightM = getItemHeight(item);
   let mesh: any;
-  if (item.category === 'person') {
+  if (item.category === 'person' && neuralModelId(item.presetId)) {
+    mesh = createNeuralCharacter(neuralModelId(item.presetId)!, heightM);
+  } else if (item.category === 'person') {
     const useGltf = (globalThis as any).__BLUEPRINT_USE_GLTF__ === true && gltfReady;
     const gltf = useGltf ? createGltfPersonMesh(color, heightM) : null;
     if (gltf) {
@@ -649,6 +655,21 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
   const motionRouteDraftRef = useRef(motionRouteDraft);
   motionRouteDraftRef.current = motionRouteDraft;
   const motionPlaybackActiveRef = useRef(false);
+  const [neuralAssetsVersion, setNeuralAssetsVersion] = useState(0);
+  const [neuralAssetErrors, setNeuralAssetErrors] = useState<Record<string, string>>({});
+  const neuralIds = [...new Set(items.map(item => neuralModelId(item.presetId)).filter(Boolean))].join(',');
+  useEffect(() => {
+    let cancelled = false;
+    const ids = neuralIds.split(',').filter(Boolean);
+    ids.forEach(value => {
+      const id = neuralModelId(value)!;
+      void ensureNeuralModel(id).then(() => {
+        if (!cancelled) { setNeuralAssetsVersion(v => v + 1); setNeuralAssetErrors(errors => { const next = { ...errors }; delete next[id]; return next; }); }
+      }).catch(error => { if (!cancelled) setNeuralAssetErrors(errors => ({ ...errors, [id]: error instanceof Error ? error.message : String(error) })); });
+    });
+    return () => { cancelled = true; };
+  }, [neuralIds]);
+
   const exportModeRef = useRef(false);
   const exportSizeRef = useRef<{ width: number; height: number } | null>(null);
   const exportVisibilityRef = useRef<{
@@ -1204,6 +1225,7 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
           group.add(mesh);
         }
       }
+      if (mesh.userData.neuralPilotActive) return;
       // Apply world-position. The pose transform may have stashed a
       // pose-induced Y delta (e.g. squat drops the figure so its feet
       // touch the floor). Read it back from userData and add to p.y so
@@ -1226,7 +1248,7 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
       mesh.position.set(p.x, p.y + poseYOffset, p.z);
     });
     requestRender();
-  }, [items, customActionPoses, gltfReady, meshDetail, requestRender]);
+  }, [items, customActionPoses, gltfReady, meshDetail, neuralAssetsVersion, requestRender]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -1457,7 +1479,7 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
       }
       requestRender();
     };
-    const handleDraggingChanged = (event: { value?: boolean }) => {
+    const handleDraggingChanged = (event: { value?: unknown }) => {
       transformDraggingRef.current = Boolean(event.value);
       if (!event.value && selectedItemIdRef.current) {
         commitTransformFromMesh(selectedItemIdRef.current);
@@ -1639,7 +1661,7 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
     if (!controls?.enabled || !transformMode || !selectedItemIdRef.current) return false;
     if (controls.dragging) return true;
     const n = ndc(lx, ly);
-    controls.pointerHover({ x: n.x, y: n.y, button });
+    controls.pointerHover({ x: n.x, y: n.y, button } as unknown as PointerEvent);
     return Boolean(controls.axis);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveWidth, effectiveHeight, transformMode]);
@@ -1917,6 +1939,7 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
   }, [applyPilotCamera, effectiveHeight, effectiveWidth, getCameraSnapshot, onPilotActiveChange, onPilotRecordCamera, onPilotTargetChange, pilotActive, raycastItem]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (Array.from(meshByIdRef.current.values()).some(mesh => mesh.userData.neuralPilotActive)) { e.preventDefault(); return; }
     if (!rendererRef.current) return;
     if (pilotStateRef.current.active) {
       requestPilotPointerLock(rendererRef.current.domElement as HTMLCanvasElement, () => {
@@ -2493,6 +2516,8 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
     const scene = sceneRef.current;
     const camera = cameraRef.current;
     if (!renderer || !scene || !camera) return;
+    const selectedMesh = selectedItemIdRef.current ? meshByIdRef.current.get(selectedItemIdRef.current) : null;
+    if (selectedMesh && selectionRingRef.current) selectionRingRef.current.position.set(selectedMesh.position.x, gridHeightRef.current + 0.02, selectedMesh.position.z);
     renderer.render(scene, camera);
     updateOverlayLabelsRef.current();
   }, []);
@@ -2503,9 +2528,15 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
     Object.entries(frame.objects).forEach(([itemId, sampled]) => {
       const item = itemsByIdRef.current.get(itemId);
       let mesh = meshByIdRef.current.get(itemId);
-      if (!mesh || !item) return;
+      if (!mesh || !item || mesh.userData.neuralPilotActive) return;
       const sampledAction = frame.actions[itemId];
       const pose = sampledAction?.pose;
+      const baked = frame.skeletons?.[itemId];
+      if (baked && mesh.userData.neuralReady) {
+        applyBakedSkeleton(mesh, baked.jointNames, baked.frame);
+        if (itemId === selectedItemIdRef.current && selectionRingRef.current) selectionRingRef.current.position.set(mesh.position.x, gridHeightRef.current + 0.02, mesh.position.z);
+        return;
+      }
       if (item.category === 'person') {
         const bodyControls = sampledAction?.bodyControls ?? item.bodyControls;
         const bodyControlsKey = JSON.stringify(bodyControls ?? {});
@@ -2531,7 +2562,8 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
           const customPoses = actionId && pose
             ? { ...customActionPosesRef.current, [actionId]: pose }
             : customActionPosesRef.current;
-          if ((globalThis as any).__BLUEPRINT_USE_GLTF__ === true && gltfReady) applyGltfPersonAction(mesh, actionId, { customPoses });
+          if (mesh.userData.neuralModelId) applyNeuralStaticPose(mesh, pose ?? DIRECTOR_STATIC_POSE_MAP[actionId ?? ''] ?? customPoses?.[actionId ?? '']);
+          else if ((globalThis as any).__BLUEPRINT_USE_GLTF__ === true && gltfReady) applyGltfPersonAction(mesh, actionId, { customPoses });
           else applyPersonActionTransform(mesh, actionId, { customPoses });
           mesh.userData.motionPoseKey = poseKey;
         }
@@ -2670,6 +2702,15 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
   }, [onPilotActiveChange]);
 
   return (
+    <>
+    {Object.entries(neuralAssetErrors).filter(([id]) => neuralIds.includes(id)).map(([id, error]) => (
+      <div key={id} role="alert" className="absolute bottom-12 left-36 z-40 rounded bg-red-950/95 p-3 text-xs text-white">
+        人物加载失败：{error}
+        <button type="button" className="ml-3 underline" onClick={() => {
+          void ensureNeuralModel(neuralModelId(id)!).then(() => { setNeuralAssetsVersion(v => v + 1); setNeuralAssetErrors(errors => { const next = { ...errors }; delete next[id]; return next; }); }).catch(error => setNeuralAssetErrors(errors => ({ ...errors, [id]: String(error) })));
+        }}>重试</button>
+      </div>
+    ))}
     <BlueprintSceneInternals
       hostElRef={hostElRef}
       canvasHostRef={canvasHostRef}
@@ -2702,6 +2743,7 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
       getSuggestedInsertPosition={getSuggestedInsertPosition}
       getCameraSnapshot={getCameraSnapshot}
       getCanvas={getCanvas}
+      getNeuralCharacterMesh={(itemId) => meshByIdRef.current.get(itemId) ?? null}
       applyMotionFrame={applyMotionFrame}
       setMotionPlaybackActive={setMotionPlaybackActive}
       renderFrame={renderFrame}
@@ -2714,6 +2756,7 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
       t={t}
       forwardRef={ref}
     />
+    </>
   );
 }));
 
@@ -2757,6 +2800,7 @@ interface InternalsProps {
   getSuggestedInsertPosition: () => { x: number; y: number; z: number };
   getCameraSnapshot: () => DirectorSceneCameraSnapshot | null;
   getCanvas: () => HTMLCanvasElement | null;
+  getNeuralCharacterMesh: (itemId: string) => THREE.Group | null;
   applyMotionFrame: (frame: SampledDirectorMotionFrame, previewMode?: 'route' | 'shot') => void;
   setMotionPlaybackActive: (active: boolean) => void;
   renderFrame: () => void;
@@ -2781,7 +2825,7 @@ function BlueprintSceneInternals({
   pointerMode, onPointerModeChange,
   hint, mode, referenceImages, fullBleed,
   handleResetCamera, handleFitCamera, handleFocusItem, exportPng, getSuggestedInsertPosition,
-  getCameraSnapshot, getCanvas, applyMotionFrame, setMotionPlaybackActive, renderFrame, setExportMode, enterPilot, exitPilot,
+  getCameraSnapshot, getCanvas, getNeuralCharacterMesh, applyMotionFrame, setMotionPlaybackActive, renderFrame, setExportMode, enterPilot, exitPilot,
   completeMotionRouteDraft, cancelMotionRouteDraft,
   t,
   forwardRef,
@@ -2794,6 +2838,7 @@ function BlueprintSceneInternals({
     getSuggestedInsertPosition,
     getCameraSnapshot,
     getCanvas,
+    getNeuralCharacterMesh,
     applyMotionFrame,
     setMotionPlaybackActive,
     renderFrame,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Box, Camera, Check, Clapperboard, Crosshair, Eye, EyeOff, Lightbulb, Maximize2, MousePointer2, Move3d, Pencil, Rotate3d, RotateCcw, Route, Scaling, Sparkles, UserRound, X, HelpCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { BlueprintItem, DirectorStudioTransformMode } from '@/features/canvas/domain/canvasNodes';
@@ -15,6 +15,8 @@ type Props = {
   previewMode: 'route' | 'shot';
   showRoutes: boolean;
   pilotActive: boolean;
+  neuralControls?: ReactNode;
+  neuralActive?: boolean;
   hasPersonRoute: boolean;
   onTransformMode: (mode: DirectorStudioTransformMode | null) => void;
   onStartRoute: (draft: DirectorMotionRouteDraft) => void;
@@ -38,6 +40,7 @@ export function DirectorPrevisControls(props: Props) {
   const { t } = useTranslation();
   const [helpOpen, setHelpOpen] = useState(false);
   const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
+  useEffect(() => { if (props.neuralActive) setCameraMenuOpen(false); }, [props.neuralActive]);
   const [cameraSubject, setCameraSubject] = useState<{ id: string | null; hasRoute: boolean }>({ id: null, hasRoute: false });
   const helpFocus = useModalFocus({ isOpen: helpOpen, onClose: () => setHelpOpen(false) });
   const person = props.selectedItem?.category === 'person' ? props.selectedItem : null;
@@ -66,7 +69,7 @@ export function DirectorPrevisControls(props: Props) {
         setCameraMenuOpen(false);
       }
     }}>
-      <nav className="pointer-events-auto ui-scrollbar absolute left-3 top-3 max-h-[calc(100%-60px)] w-[112px] overflow-y-auto rounded-xl border border-white/10 bg-[#202329]/95 p-1.5 shadow-xl" aria-label={t('directorStudio.previs.tools')}>
+      <nav {...(props.neuralActive ? { inert: '' } : {})} className="pointer-events-auto ui-scrollbar absolute left-3 top-3 max-h-[calc(100%-60px)] w-[112px] overflow-y-auto rounded-xl border border-white/10 bg-[#202329]/95 p-1.5 shadow-xl" aria-label={t('directorStudio.previs.tools')}>
         <div className="grid grid-cols-2 gap-1">
           <DirectorPrevisButton className={toolClass} label={t('directorStudio.previs.select')} description={t('directorStudio.previs.selectHelp')} icon={<MousePointer2 size={18} />} active={!props.transformMode && !props.routeDraft} onClick={cancelTools} />
           <DirectorPrevisButton className={toolClass} label={t('directorStudio.previs.move')} description={t('directorStudio.previs.moveHelp')} icon={<Move3d size={18} />} shortcut="1" disabled={!props.selectedItem} disabledReason={selectFirst} active={props.transformMode === 'move'} onClick={() => chooseTransform('move')} />
@@ -88,7 +91,7 @@ export function DirectorPrevisControls(props: Props) {
           <DirectorPrevisButton className={toolClass} label={t('directorStudio.previs.help')} description={t('directorStudio.previs.helpDescription')} icon={<HelpCircle size={18} />} active={helpOpen} onClick={() => setHelpOpen(!helpOpen)} />
         </div>
       </nav>
-      <div className="pointer-events-auto absolute right-3 top-3 flex max-w-[calc(100%-150px)] flex-wrap justify-end gap-1.5 rounded-lg border border-white/10 bg-[#202329]/95 p-1.5 shadow-lg">
+      <div {...(props.neuralActive ? { inert: '' } : {})} className="pointer-events-auto absolute right-3 top-3 flex max-w-[calc(100%-150px)] flex-wrap justify-end gap-1.5 rounded-lg border border-white/10 bg-[#202329]/95 p-1.5 shadow-lg">
         <DirectorPrevisButton compact label={t('directorStudio.motion.timeline.routePreview')} description={t('directorStudio.previs.routeViewHelp')} icon={<Route size={15} />} active={props.previewMode === 'route'} onClick={() => props.onPreviewMode('route')} />
         <DirectorPrevisButton compact label={t('directorStudio.motion.timeline.shotPreview')} description={t('directorStudio.previs.shotViewHelp')} icon={<Clapperboard size={15} />} active={props.previewMode === 'shot'} onClick={() => props.onPreviewMode('shot')} />
         <DirectorPrevisButton compact showLabel={false} label={t(props.showRoutes ? 'directorStudio.motion.timeline.hideRoutes' : 'directorStudio.motion.timeline.showRoutes')} icon={props.showRoutes ? <Eye size={16} /> : <EyeOff size={16} />} onClick={() => props.onShowRoutes(!props.showRoutes)} />
@@ -97,6 +100,7 @@ export function DirectorPrevisControls(props: Props) {
         {props.selectedItem ? <DirectorPrevisButton compact showLabel={false} label={t('directorStudio.previs.focus')} icon={<Crosshair size={16} />} onClick={props.onFocusItem} /> : null}
         {props.hasPersonRoute ? <DirectorPrevisButton compact label={t('directorStudio.previs.follow')} description={t('directorStudio.motion.cameraPresets.followActorRoute')} icon={<Camera size={15} />} onClick={() => props.onCameraPreset('follow-actor-route')} /> : null}
       </div>
+      {!cameraMenuOpen && !props.routeDraft ? props.neuralControls : null}
       {cameraMenuOpen ? (
         <section className="pointer-events-auto absolute bottom-12 left-[138px] top-16 flex w-[240px] flex-col rounded-lg border border-white/15 bg-[#202329] p-3 shadow-2xl" aria-label={t('directorStudio.motion.cameraPresets.title')}>
           <div className="mb-3 flex items-center justify-between text-xs font-medium">

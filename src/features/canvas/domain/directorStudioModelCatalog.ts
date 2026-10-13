@@ -75,6 +75,8 @@ const peopleModels: Array<{
   visualId: string;
   bodyControls?: BlueprintBodyControls;
 }> = [
+  { id: 'ai4animation-geno', displayName: 'Geno · AI 动作', presetId: 'ai4animation-geno', color: '#e2e8f0', visualId: 'person-adult-male' },
+  { id: 'ai4animation-cranberry', displayName: 'Cranberry', presetId: 'ai4animation-cranberry', color: '#f472b6', visualId: 'person-adult-female' },
   { id: 'adult-male-average', displayName: '成年-男性', presetId: 'person-adult-male-average', color: '#60a5fa', visualId: 'person-adult-male' },
   { id: 'adult-female-average', displayName: '成年-女性', presetId: 'person-adult-female-average', color: '#f472b6', visualId: 'person-adult-female' },
   { id: 'adult-male-slim', displayName: '瘦-成年-男性', presetId: 'person-adult-male-slim', color: '#38bdf8', visualId: 'person-adult-male-slim', bodyControls: { style: 'slim' } },

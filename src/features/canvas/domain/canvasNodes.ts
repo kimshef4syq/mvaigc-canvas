@@ -641,6 +641,24 @@ export interface DirectorActionClip {
   keyframes: DirectorActionClipKeyframe[];
 }
 
+/** Baked final local joint transforms. Quaternion order is x,y,z,w. */
+export interface DirectorSkeletonFrame {
+  time: number;
+  rootPosition: number[];
+  rootRotation: number[];
+  rootScale: number[];
+  /** Per joint: local position xyz, local quaternion xyzw. */
+  joints: number[];
+}
+
+export interface DirectorSkeletonRecording {
+  modelId: 'ai4animation-geno';
+  skeletonId: 'geno-biped-23-v1';
+  fps: 30;
+  jointNames: string[];
+  frames: DirectorSkeletonFrame[];
+}
+
 export interface DirectorMotionProjectV1 {
   schemaVersion: 1;
   durationSeconds: number;
@@ -649,6 +667,7 @@ export interface DirectorMotionProjectV1 {
   objectTracks: Record<string, DirectorObjectKeyframe[]>;
   actionTracks: Record<string, DirectorActionKeyframe[]>;
   customClips: DirectorActionClip[];
+  skeletonRecordings?: Record<string, DirectorSkeletonRecording>;
 }
 
 export interface DirectorStudioCameraSettings {
