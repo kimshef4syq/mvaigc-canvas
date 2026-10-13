@@ -1747,11 +1747,21 @@
     }
   },
   "mainHome": {
+    "startupAnimation": "启动动画",
+    "skipIntro": "跳过",
     "canvasProjects": "画布项目",
     "promptLibrary": "提示词库",
     "views": "工作区视图",
     "canvasProjectsHint": "管理本地画布工程",
-    "promptLibraryHint": "浏览社区提示词、收藏灵感并应用到画布"
+    "promptLibraryHint": "浏览社区提示词、收藏灵感并应用到画布",
+    "welcomeDescription": "从一张画布开始，让分镜、影像与故事在这里发生。",
+    "background": "启动页背景",
+    "backgroundAssemble": "像素聚合",
+    "backgroundWave": "像素波浪",
+    "backgroundOrbit": "星轨像素",
+    "backgroundNone": "关闭背景",
+    "pauseBackground": "暂停背景动画",
+    "resumeBackground": "播放背景动画"
   },
   "project": {
     "title": "画布项目",

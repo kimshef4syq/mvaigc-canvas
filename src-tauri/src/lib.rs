@@ -82,6 +82,7 @@ pub fn run() {
     let external_agent_state = external_agent::ExternalAgentState::new();
 
     tauri::Builder::default()
+        .manage(commands::startup::StartupSoundState::default())
         .manage(project_state::ProjectDb::new())
         .manage(portability::PortabilityJobs::new())
         .manage(external_agent_state)
@@ -190,6 +191,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             frontend_ready,
+            commands::startup::play_startup_sound,
+            commands::startup::stop_startup_sound,
             commands::check_dreamina_login,
             commands::dreamina_oauth_start,
             commands::dreamina_oauth_check,

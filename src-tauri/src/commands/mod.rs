@@ -8,6 +8,7 @@ pub mod image;
 pub mod mvaigc_proxy;
 pub mod portability;
 pub mod project_state;
+pub mod startup;
 pub mod system;
 pub mod update;
 

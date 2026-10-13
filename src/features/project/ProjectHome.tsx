@@ -2,6 +2,9 @@ import { Suspense, lazy, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FolderKanban, Library, type LucideIcon } from 'lucide-react';
 import { ProjectManager } from './ProjectManager';
+import { PixelBackground } from './backgrounds/PixelBackground';
+import { BackgroundPicker } from './backgrounds/BackgroundPicker';
+import './projectHome.css';
 
 type HomeBranch = 'projects' | 'prompts';
 
@@ -54,11 +57,12 @@ export function ProjectHome() {
   };
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-bg-dark">
-      <div className="shrink-0 border-b border-border-dark bg-bg-dark/95 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
+    <div className="project-home relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-bg-dark">
+      <PixelBackground />
+      <div className="home-navigation relative z-10 shrink-0 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
           <div
-            className="inline-flex max-w-full rounded-lg border border-border-dark bg-surface-dark p-1"
+            className="home-tabs inline-flex max-w-full rounded-lg p-1"
             role="tablist"
             aria-label={t('mainHome.views')}
           >
@@ -81,7 +85,7 @@ export function ProjectHome() {
                   onKeyDown={(event) => handleBranchKeyDown(event, branch.id)}
                   className={`inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-accent text-white shadow-sm'
+                      ? 'home-tab-active text-text-dark shadow-sm'
                       : 'text-text-muted hover:bg-bg-dark/75 hover:text-text-dark'
                   }`}
                 >
@@ -92,11 +96,7 @@ export function ProjectHome() {
             })}
           </div>
 
-          <div className="hidden text-sm text-text-muted md:block">
-            {activeBranch === 'projects'
-              ? t('mainHome.canvasProjectsHint')
-              : t('mainHome.promptLibraryHint')}
-          </div>
+          <BackgroundPicker />
         </div>
       </div>
 
@@ -106,7 +106,7 @@ export function ProjectHome() {
         role="tabpanel"
         aria-labelledby={`home-tab-${activeBranch}`}
         tabIndex={0}
-        className="ui-branch-enter min-h-0 flex-1 overflow-hidden outline-none"
+        className="ui-branch-enter relative z-[1] min-h-0 flex-1 overflow-hidden outline-none"
       >
         {activeBranch === 'projects' ? (
           <ProjectManager />

@@ -541,6 +541,26 @@ html[data-platform='macos'] #root {
   cursor: grabbing;
 }
 
+.canvas-edge-appearance {
+  opacity: 1;
+  transition: opacity 160ms ease-out;
+}
+
+.canvas-edge--dimmed {
+  opacity: 0.22;
+}
+
+.canvas-focus-edge__particle {
+  filter: drop-shadow(0 0 3px rgb(255 255 255 / 0.8))
+    drop-shadow(0 0 7px rgb(var(--accent-rgb) / 0.85));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-focus-edge__particle {
+    display: none;
+  }
+}
+
 @keyframes canvas-edge-flow {
   from {
     stroke-dashoffset: 0;
