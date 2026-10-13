@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
+import { Handle, NodeToolbar, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
 import { AlertTriangle, Bug, Camera, Check, ChevronDown, ChevronRight, Copy, History, Loader2, Maximize2, Sparkles, Video, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -1496,7 +1496,8 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       </div>
 
       {selected && (
-      <div className="mt-2 flex w-[563px] max-w-[92vw] shrink-0 flex-col rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2">
+      <NodeToolbar nodeId={id} isVisible position={Position.Bottom} align="center" offset={8} data-canvas-no-marquee="true">
+      <div className="nodrag nowheel flex w-[563px] max-w-[92vw] shrink-0 flex-col rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2">
       <div className="mb-2 flex shrink-0 flex-wrap items-center gap-1">
         <span className="mr-1 text-[10px] text-text-muted">{t('videoModeTabs.label')}</span>
         {VIDEO_NODE_MODES.map((mode) => {
@@ -2223,6 +2224,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
 
       {error && <div className="mt-1 shrink-0 text-xs text-red-700 dark:text-red-300">{error}</div>}
       </div>
+      </NodeToolbar>
       )}
 
       <Handle

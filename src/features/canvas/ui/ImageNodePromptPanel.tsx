@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
+import { NodeToolbar, Position } from '@xyflow/react';
 import { Camera, Maximize2, Send, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -268,7 +269,8 @@ export const ImageNodePromptPanel = memo(({ nodeId, data, onOpenCameraControl }:
   };
 
   return (
-    <div className="mt-2 flex justify-center">
+    <>
+      <NodeToolbar nodeId={nodeId} isVisible position={Position.Bottom} align="center" offset={8} data-canvas-no-marquee="true">
       <div
         className="nodrag nowheel w-[563px] max-w-[92vw] shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2 text-xs"
       >
@@ -492,6 +494,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data, onOpenCameraControl }:
         {mode === 'newNode' ? t('node.imageNode.modeNewNode') : t('node.imageNode.modeOverwrite')}
       </div>
       </div>
+      </NodeToolbar>
 
       <UiModal
         isOpen={promptExpanded}
@@ -513,7 +516,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data, onOpenCameraControl }:
           className="ui-scrollbar h-[60vh] w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-3 py-2 text-sm leading-7 text-text-dark outline-none placeholder:text-text-muted/80"
         />
       </UiModal>
-    </div>
+    </>
   );
 });
 
