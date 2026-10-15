@@ -1,3 +1,4 @@
+import { HAND_CHANNELS, HAND_POSES, normalizeHandPose } from '../domain/directorHandPose';
 import * as THREE from 'three';
 
 import type {
@@ -80,23 +81,25 @@ export type DirectorCameraPresetId =
 const EMPTY_POSE: BlueprintActionPose = {};
 
 export const DIRECTOR_STATIC_POSES: readonly DirectorStaticPoseDefinition[] = [
+  { id: 'hands-open', labelKey: 'directorStudio.motion.poses.handsOpen', pose: { leftHand: HAND_POSES.open, rightHand: HAND_POSES.open } },
+  { id: 'hands-fists', labelKey: 'directorStudio.motion.poses.handsFists', pose: { leftShoulder: { z: 0.1 }, rightShoulder: { z: -0.1 }, leftHand: HAND_POSES.fist, rightHand: HAND_POSES.fist } },
   { id: 'stand-neutral', labelKey: 'directorStudio.motion.poses.standNeutral', pose: {} },
-  { id: 'stand-attention', labelKey: 'directorStudio.motion.poses.standAttention', pose: { leftShoulder: { z: -0.06 }, rightShoulder: { z: 0.06 } } },
+  { id: 'stand-attention', labelKey: 'directorStudio.motion.poses.standAttention', pose: { leftShoulder: { z: -0.015 }, rightShoulder: { z: 0.015 } } },
   { id: 'lean-forward', labelKey: 'directorStudio.motion.poses.leanForward', pose: { torso: { x: -0.35 }, head: { x: 0.16 } } },
   { id: 'lean-back', labelKey: 'directorStudio.motion.poses.leanBack', pose: { torso: { x: 0.3 }, head: { x: -0.12 } } },
-  { id: 'hands-on-hips', labelKey: 'directorStudio.motion.poses.handsOnHips', pose: { leftShoulder: { z: -0.8 }, rightShoulder: { z: 0.8 }, leftElbow: { x: -1.15 }, rightElbow: { x: -1.15 } } },
-  { id: 'arms-crossed', labelKey: 'directorStudio.motion.poses.armsCrossed', pose: { leftShoulder: { x: -1.0, z: -0.45 }, rightShoulder: { x: -1.0, z: 0.45 }, leftElbow: { x: -1.2 }, rightElbow: { x: -1.2 } } },
+  { id: 'hands-on-hips', labelKey: 'directorStudio.motion.poses.handsOnHips', pose: { leftShoulder: { y: -Math.PI / 2, z: 0.5 }, rightShoulder: { y: Math.PI / 2, z: -0.5 }, leftElbow: { x: -1 }, rightElbow: { x: -1 } } },
+  { id: 'arms-crossed', labelKey: 'directorStudio.motion.poses.armsCrossed', pose: { leftShoulder: { x: -0.8, y: -Math.PI / 2, z: 0.15 }, rightShoulder: { x: -0.8, y: Math.PI / 2, z: -0.15 }, leftElbow: { x: -1.9 }, rightElbow: { x: -1.9 } } },
   { id: 'sit-upright', labelKey: 'directorStudio.motion.poses.sitUpright', pose: { leftHip: { x: -1.5 }, rightHip: { x: -1.5 }, leftKnee: { x: 1.5 }, rightKnee: { x: 1.5 }, groupY: -0.42 } },
   { id: 'sit-relaxed', labelKey: 'directorStudio.motion.poses.sitRelaxed', pose: { leftHip: { x: -1.45 }, rightHip: { x: -1.2 }, leftKnee: { x: 1.4 }, rightKnee: { x: 1.05 }, torso: { x: 0.18 }, groupY: -0.4 } },
-  { id: 'squat-low', labelKey: 'directorStudio.motion.poses.squatLow', pose: { leftHip: { x: -1.75 }, rightHip: { x: -1.75 }, leftKnee: { x: 1.75 }, rightKnee: { x: 1.75 }, torso: { x: -0.35 }, groupY: -0.55 } },
-  { id: 'kneel-one', labelKey: 'directorStudio.motion.poses.kneelOne', pose: { leftHip: { x: -1.15 }, leftKnee: { x: 1.7 }, rightHip: { x: 0.25 }, rightKnee: { x: 1.45 }, groupY: -0.48 } },
-  { id: 'kneel-two', labelKey: 'directorStudio.motion.poses.kneelTwo', pose: { leftHip: { x: 0.45 }, rightHip: { x: 0.45 }, leftKnee: { x: 1.65 }, rightKnee: { x: 1.65 }, groupY: -0.5 } },
+  { id: 'squat-low', labelKey: 'directorStudio.motion.poses.squatLow', pose: { leftHip: { x: -1.5 }, rightHip: { x: -1.5 }, leftKnee: { x: 2.4 }, rightKnee: { x: 2.4 }, torso: { x: -0.55 }, groupY: -0.55 } },
+  { id: 'kneel-one', labelKey: 'directorStudio.motion.poses.kneelOne', pose: { leftHip: { x: -Math.PI / 2 }, leftKnee: { x: Math.PI / 2 }, rightHip: { x: 0 }, rightKnee: { x: Math.PI / 2 }, groupY: -0.42 } },
+  { id: 'kneel-two', labelKey: 'directorStudio.motion.poses.kneelTwo', pose: { leftHip: { x: 0 }, rightHip: { x: 0 }, leftKnee: { x: Math.PI / 2 }, rightKnee: { x: Math.PI / 2 }, groupY: -0.42 } },
   { id: 'lie-back', labelKey: 'directorStudio.motion.poses.lieBack', pose: { groupRotX: -Math.PI / 2, groupY: 0.18 } },
   { id: 'walk-stride', labelKey: 'directorStudio.motion.poses.walkStride', pose: { leftHip: { x: -0.55 }, rightHip: { x: 0.3 }, leftKnee: { x: 0.55 }, rightShoulder: { x: -0.45 }, leftShoulder: { x: 0.4 } } },
   { id: 'run-stride', labelKey: 'directorStudio.motion.poses.runStride', pose: { leftHip: { x: -1 }, rightHip: { x: 0.6 }, leftKnee: { x: 1.5 }, rightShoulder: { x: -0.9 }, leftShoulder: { x: 0.7 }, torso: { x: -0.25 } } },
-  { id: 'point-forward', labelKey: 'directorStudio.motion.poses.pointForward', pose: { rightShoulder: { x: -Math.PI / 2 }, rightElbow: { x: -0.1 } } },
+  { id: 'point-forward', labelKey: 'directorStudio.motion.poses.pointForward', pose: { rightShoulder: { x: -Math.PI / 2 }, rightElbow: { x: -0.1 }, rightHand: HAND_POSES.point } },
   { id: 'reach-up', labelKey: 'directorStudio.motion.poses.reachUp', pose: { rightShoulder: { x: -2.65 }, rightElbow: { x: 0.08 }, head: { x: -0.15 } } },
-  { id: 'wave', labelKey: 'directorStudio.motion.poses.wave', pose: { rightShoulder: { x: -1.8, z: 0.18 }, rightElbow: { x: -1.1 } } },
+  { id: 'wave', labelKey: 'directorStudio.motion.poses.wave', pose: { rightShoulder: { x: -1.8, z: 0.18 }, rightElbow: { x: -1.1 }, rightHand: HAND_POSES.open, rightWrist: { z: 0.15 } } },
   { id: 'look-up', labelKey: 'directorStudio.motion.poses.lookUp', pose: { head: { x: -0.45 } } },
   { id: 'look-down', labelKey: 'directorStudio.motion.poses.lookDown', pose: { head: { x: 0.45 } } },
   { id: 'look-left', labelKey: 'directorStudio.motion.poses.lookLeft', pose: { head: { y: 0.75 }, torso: { x: -0.04 } } },
@@ -192,6 +195,10 @@ function normalizePose(value: unknown): BlueprintActionPose | undefined {
   const pose: BlueprintActionPose = {
     leftShoulder: rotation(record.leftShoulder),
     rightShoulder: rotation(record.rightShoulder),
+    leftWrist: rotation(record.leftWrist),
+    rightWrist: rotation(record.rightWrist),
+    leftHand: normalizeHandPose(record.leftHand),
+    rightHand: normalizeHandPose(record.rightHand),
     leftElbow: hinge(record.leftElbow),
     rightElbow: hinge(record.rightElbow),
     leftHip: rotation(record.leftHip),
@@ -230,13 +237,30 @@ function normalizeBodyControls(value: unknown): BlueprintBodyControls | undefine
   };
 }
 
+// Old projects saved a snapshot of built-in static poses in each keyframe.
+// Update only exact old defaults; preserve any user-edited pose parameters.
+const legacyStaticDefaults: Readonly<Record<string, BlueprintActionPose>> = {
+  'point-forward': { rightShoulder: { x: -Math.PI / 2 }, rightElbow: { x: -0.1 } },
+  'wave': { rightShoulder: { x: -1.8, z: 0.18 }, rightElbow: { x: -1.1 } },
+  'stand-attention': { leftShoulder: { z: -0.06 }, rightShoulder: { z: 0.06 } },
+  'hands-on-hips': { leftShoulder: { z: -0.8 }, rightShoulder: { z: 0.8 }, leftElbow: { x: -1.15 }, rightElbow: { x: -1.15 } },
+  'arms-crossed': { leftShoulder: { x: -1, z: -0.45 }, rightShoulder: { x: -1, z: 0.45 }, leftElbow: { x: -1.2 }, rightElbow: { x: -1.2 } },
+  'squat-low': { leftHip: { x: -1.75 }, rightHip: { x: -1.75 }, leftKnee: { x: 1.75 }, rightKnee: { x: 1.75 }, torso: { x: -0.35 }, groupY: -0.55 },
+  'kneel-one': { leftHip: { x: -1.15 }, leftKnee: { x: 1.7 }, rightHip: { x: 0.25 }, rightKnee: { x: 1.45 }, groupY: -0.48 },
+  'kneel-two': { leftHip: { x: 0.45 }, rightHip: { x: 0.45 }, leftKnee: { x: 1.65 }, rightKnee: { x: 1.65 }, groupY: -0.5 },
+};
 function normalizeActionState(record: UnknownRecord): DirectorActionState {
   const stringOrNull = (value: unknown) => typeof value === 'string' && value.trim() ? value : null;
+  const poseId = stringOrNull(record.poseId);
+  let pose = normalizePose(record.pose);
+  if (poseId && legacyStaticDefaults[poseId] && JSON.stringify(pose) === JSON.stringify(normalizePose(legacyStaticDefaults[poseId]))) {
+    pose = normalizePose(DIRECTOR_STATIC_POSE_MAP[poseId]);
+  }
   return {
-    poseId: stringOrNull(record.poseId),
+    poseId,
     actionId: stringOrNull(record.actionId),
     clipId: stringOrNull(record.clipId),
-    pose: normalizePose(record.pose),
+    pose,
     bodyControls: normalizeBodyControls(record.bodyControls),
   };
 }
@@ -451,6 +475,10 @@ function interpolatePose(from: BlueprintActionPose | undefined, to: BlueprintAct
   return {
     leftShoulder: rotation(start.leftShoulder, end.leftShoulder),
     rightShoulder: rotation(start.rightShoulder, end.rightShoulder),
+    ...((start.leftWrist || end.leftWrist) ? { leftWrist: rotation(start.leftWrist, end.leftWrist) } : {}),
+    ...((start.rightWrist || end.rightWrist) ? { rightWrist: rotation(start.rightWrist, end.rightWrist) } : {}),
+    ...((start.leftHand || end.leftHand) ? { leftHand: Object.fromEntries(HAND_CHANNELS.map(key => [key, lerpNumber(start.leftHand?.[key] ?? 0, end.leftHand?.[key] ?? 0, amount)])) } : {}),
+    ...((start.rightHand || end.rightHand) ? { rightHand: Object.fromEntries(HAND_CHANNELS.map(key => [key, lerpNumber(start.rightHand?.[key] ?? 0, end.rightHand?.[key] ?? 0, amount)])) } : {}),
     leftElbow: hinge(start.leftElbow, end.leftElbow),
     rightElbow: hinge(start.rightElbow, end.rightElbow),
     leftHip: rotation(start.leftHip, end.leftHip),
@@ -491,7 +519,7 @@ export function sampleDirectorProceduralAction(actionId: string, timeSeconds: nu
       const bend = positiveWave * 1.72;
       return {
         leftHip: { x: -bend }, rightHip: { x: -bend },
-        leftKnee: { x: bend }, rightKnee: { x: bend },
+        leftKnee: { x: bend * 1.5 }, rightKnee: { x: bend * 1.5 },
         leftShoulder: { x: -bend * 0.28 }, rightShoulder: { x: -bend * 0.28 },
         torso: { x: -bend * 0.2 }, groupY: -positiveWave * 0.55,
       };
@@ -518,20 +546,21 @@ export function sampleDirectorProceduralAction(actionId: string, timeSeconds: nu
       return {
         rightShoulder: { x: -1.75, z: 0.2 },
         rightElbow: { x: -1.05 + wave * 0.2 },
+        rightWrist: { z: wave * 0.35 }, rightHand: HAND_POSES.open,
         head: { y: wave * 0.08 },
       };
     case 'idle-breath':
-      return { torso: { x: wave * 0.018 }, leftShoulder: { z: -0.06 - wave * 0.025 }, rightShoulder: { z: 0.06 + wave * 0.025 }, scaleY: 1 + wave * 0.012 };
+      return { torso: { x: wave * 0.018 }, leftShoulder: { z: -wave * 0.012 }, rightShoulder: { z: wave * 0.012 }, scaleY: 1 + wave * 0.012 };
     case 'turn-look':
       return { head: { y: wave * 0.58 }, torso: { x: -0.025 }, rightShoulder: { x: -0.12 } };
     case 'clap':
-      return { leftShoulder: { x: -1.1, z: -0.5 - positiveWave * 0.48 }, rightShoulder: { x: -1.1, z: 0.5 + positiveWave * 0.48 }, leftElbow: { x: -0.8 }, rightElbow: { x: -0.8 } };
+      return { leftShoulder: { x: -0.45, z: -0.3 - positiveWave * 0.60 }, rightShoulder: { x: -0.45, z: 0.3 + positiveWave * 0.60 }, leftElbow: { x: -1.65 }, rightElbow: { x: -1.65 }, leftWrist: { z: positiveWave * 0.15 }, rightWrist: { z: -positiveWave * 0.15 }, leftHand: { ...HAND_POSES.open, spread: 0.35 * (1 - positiveWave) }, rightHand: { ...HAND_POSES.open, spread: 0.35 * (1 - positiveWave) } };
     case 'phone':
-      return { rightShoulder: { x: -0.68, z: 0.23 }, rightElbow: { x: -1.85 + wave * 0.05 }, head: { y: -0.12 + wave * 0.04 }, leftShoulder: { x: -0.08 } };
+      return { rightShoulder: { x: -1.4, y: 0.4, z: 0.74 }, rightElbow: { x: -2.56 + wave * 0.035 }, rightWrist: { x: -0.12, y: -0.1 }, rightHand: HAND_POSES.phone, head: { y: -0.12 + wave * 0.04 }, leftShoulder: { x: -0.08 } };
     case 'walk-back':
       return { leftHip: { x: -wave * 0.48 }, rightHip: { x: wave * 0.48 }, leftKnee: { x: Math.max(0, wave) * 0.55 }, rightKnee: { x: Math.max(0, -wave) * 0.55 }, leftShoulder: { x: wave * 0.35 }, rightShoulder: { x: -wave * 0.35 }, groupY: Math.abs(wave) * 0.02 };
     case 'side-step':
-      return { leftHip: { z: -0.18 - wave * 0.24 }, rightHip: { z: 0.18 + wave * 0.24 }, leftKnee: { x: positiveWave * 0.3 }, rightKnee: { x: (1 - positiveWave) * 0.3 }, leftShoulder: { z: -0.28 }, rightShoulder: { z: 0.28 }, groupY: Math.abs(wave) * 0.025 };
+      return { leftHip: { z: 0.18 + wave * 0.24 }, rightHip: { z: -0.18 - wave * 0.24 }, leftKnee: { x: positiveWave * 0.3 }, rightKnee: { x: (1 - positiveWave) * 0.3 }, leftShoulder: { z: 0.28 }, rightShoulder: { z: -0.28 }, groupY: Math.abs(wave) * 0.025 };
     case 'bow': {
       const bend = Math.sin(phase * Math.PI) ** 2;
       return { torso: { x: -bend * 0.78 }, head: { x: bend * 0.12 }, leftShoulder: { x: -bend * 0.2 }, rightShoulder: { x: -bend * 0.2 } };

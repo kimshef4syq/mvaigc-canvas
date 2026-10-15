@@ -1,3 +1,4 @@
+import { HAND_CHANNELS, HAND_POSES } from '@/features/canvas/domain/directorHandPose';
 import { memo, useCallback } from 'react';
 
 import type { BlueprintActionPose } from '@/features/canvas/domain/canvasNodes';
@@ -19,7 +20,7 @@ export interface BlueprintPoseEditorProps {
   onChange: (next: BlueprintActionPose) => void;
 }
 
-type BoneAxisKey = 'leftShoulder' | 'rightShoulder' | 'leftHip' | 'rightHip' | 'head';
+type BoneAxisKey = 'leftShoulder' | 'rightShoulder' | 'leftHip' | 'rightHip' | 'head' | 'leftWrist' | 'rightWrist';
 type SingleAxisKey = 'leftElbow' | 'rightElbow' | 'leftKnee' | 'rightKnee' | 'torso';
 
 const RAD_PER_DEG = Math.PI / 180;
@@ -43,6 +44,9 @@ const SLIDER_GROUPS: Array<{
       { label: '左肩 前后', bone: 'leftShoulder', axis: 'x', range: [-180, 180] },
       { label: '左肩 外展', bone: 'leftShoulder', axis: 'z', range: [-90, 90] },
       { label: '左肘 弯曲', bone: 'leftElbow', axis: 'x', range: [-150, 0] },
+      { label: '左腕 屈伸', bone: 'leftWrist', axis: 'x', range: [-80, 80] },
+      { label: '左腕 扭转', bone: 'leftWrist', axis: 'y', range: [-90, 90] },
+      { label: '左腕 侧偏', bone: 'leftWrist', axis: 'z', range: [-45, 45] },
     ],
   },
   {
@@ -51,6 +55,9 @@ const SLIDER_GROUPS: Array<{
       { label: '右肩 前后', bone: 'rightShoulder', axis: 'x', range: [-180, 180] },
       { label: '右肩 外展', bone: 'rightShoulder', axis: 'z', range: [-90, 90] },
       { label: '右肘 弯曲', bone: 'rightElbow', axis: 'x', range: [-150, 0] },
+      { label: '右腕 屈伸', bone: 'rightWrist', axis: 'x', range: [-80, 80] },
+      { label: '右腕 扭转', bone: 'rightWrist', axis: 'y', range: [-90, 90] },
+      { label: '右腕 侧偏', bone: 'rightWrist', axis: 'z', range: [-45, 45] },
     ],
   },
   {
@@ -164,6 +171,24 @@ export const BlueprintPoseEditor = memo(function BlueprintPoseEditor({ pose, onC
           </div>
         ))}
 
+        {(['leftHand', 'rightHand'] as const).map(hand => (
+          <div key={hand}>
+            <div className="mb-1 text-[10px] text-white/50">{hand === 'leftHand' ? '左手' : '右手'} · 手指</div>
+            <div className="mb-2 flex flex-wrap gap-1">
+              {(['relaxed', 'open', 'fist', 'point', 'phone'] as const).map(preset => (
+                <button type="button" key={preset} className="rounded bg-white/8 px-1.5 py-1 text-[10px] text-white/70 hover:bg-white/15"
+                  onClick={() => onChange({ ...pose, [hand]: { ...HAND_POSES[preset] } })}>
+                  {{relaxed:'放松',open:'张开',fist:'握拳',point:'指向',phone:'握持'}[preset]}
+                </button>
+              ))}
+            </div>
+            {HAND_CHANNELS.map(channel => (
+              <PoseSliderRow key={channel} label={(hand === 'leftHand' ? '左手 ' : '右手 ') + {thumb:'拇指弯曲',index:'食指弯曲',middle:'中指弯曲',ring:'无名指弯曲',pinky:'小指弯曲',spread:'手指张合',thumbOpposition:'拇指对掌'}[channel]}
+                value={Math.round((pose[hand]?.[channel] ?? 0) * 100)} min={channel === 'spread' ? -100 : 0} max={100} unit="%"
+                onChange={value => onChange({ ...pose, [hand]: { ...pose[hand], [channel]: value / 100 } })} />
+            ))}
+          </div>
+        ))}
         <div>
           <div className="mb-1 text-[10px] uppercase tracking-wide text-white/35">整体</div>
           <PoseSliderRow
@@ -205,6 +230,7 @@ function PoseSliderRow({ label, value, min, max, step = 1, unit = '°', onChange
       <span className="text-white/65">{label}</span>
       <input
         type="range"
+        aria-label={label}
         min={min}
         max={max}
         step={step}
@@ -217,6 +243,7 @@ function PoseSliderRow({ label, value, min, max, step = 1, unit = '°', onChange
       />
       <input
         type="number"
+        aria-label={label}
         min={min}
         max={max}
         step={step}

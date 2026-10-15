@@ -1,8 +1,9 @@
+import { HAND_POSES } from '@/features/canvas/domain/directorHandPose';
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import * as THREE from 'three';
 import type { BlueprintItem, DirectorMotionProjectV1, DirectorSkeletonFrame, DirectorSkeletonRecording } from '@/features/canvas/domain/canvasNodes';
 import type { BlueprintSceneHandle } from '../../BlueprintScene';
-import { NeuralSkeletonAdapter } from './neuralCharacterAssets';
+import { NeuralSkeletonAdapter, removeNeuralActionTransform } from './neuralCharacterAssets';
 import type { NeuralLocomotionEngine } from './NeuralLocomotionEngine';
 
 interface Options {
@@ -39,8 +40,15 @@ export function useNeuralCharacterPilot(options: Options) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'active' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
+  const [recordingStats, setRecordingStats] = useState<{ elapsed: number; frames: number }>({ elapsed: 0, frames: 0 });
   const [styles, setStyles] = useState<string[]>([]);
   const [style, setStyle] = useState('Neutral');
+  const [handPresets, setHandPresets] = useState<{ left: keyof typeof HAND_POSES | 'original'; right: keyof typeof HAND_POSES | 'original' }>({left:'original',right:'original'});
+  const handPresetsRef = useRef(handPresets); handPresetsRef.current = handPresets;
+  const setHandPreset = useCallback((side: 'left' | 'right', preset: keyof typeof HAND_POSES | 'original') => {
+    setHandPresets(current => ({ ...current, [side]: preset }));
+    if (session.current) session.current.adapter[side === 'left' ? 'leftHandPose' : 'rightHandPose'] = preset === 'original' ? {} : { ...HAND_POSES[preset] };
+  }, []);
   const styleRef = useRef(style); styleRef.current = style;
   const [inferenceMs, setInferenceMs] = useState(0);
 
@@ -49,13 +57,20 @@ export function useNeuralCharacterPilot(options: Options) {
     if (!s?.frames) return;
     const frames = s.frames; s.frames = null;
     setRecording(false);
-    if (frames.length > 1) latest.current.onSave(s.itemId, { modelId: 'ai4animation-geno', skeletonId: 'geno-biped-23-v1', fps: 30, jointNames: [...s.engine.meta.jointNames], frames });
+    setRecordingStats({ elapsed: 0, frames: 0 });
+    if (frames.length > 1) {
+      const modelId = s.adapter.modelId;
+      const skeletonId = modelId === 'ai4animation-cranberry' ? 'cranberry-biped-hands-53-v2' : 'geno-biped-hands-53-v2';
+      latest.current.onSave(s.itemId, { modelId, skeletonId, fps: 30, jointNames: [...s.adapter.jointNames], frames });
+    }
   }, []);
   const stop = useCallback(() => {
     generation.current++;
     cancelAnimationFrame(raf.current);
     finishRecording();
     const s = session.current; session.current = null;
+    setRecording(false);
+    setRecordingStats({ elapsed: 0, frames: 0 });
     if (s) { s.keys.clear(); s.adapter.group.userData.neuralPilotActive = false; void s.engine.dispose(); }
     if (loadingEngine.current) { void loadingEngine.current.dispose(); loadingEngine.current = null; }
     setStatus('idle');
@@ -65,9 +80,11 @@ export function useNeuralCharacterPilot(options: Options) {
   const start = useCallback(async () => {
     stop();
     const opts = latest.current;
-    if (!opts.enabled || opts.selectedItem?.presetId !== 'ai4animation-geno') return;
+    const item = opts.selectedItem;
+    const presetId = item?.presetId;
+    if (!opts.enabled || !item || (presetId !== 'ai4animation-geno' && presetId !== 'ai4animation-cranberry')) return;
     opts.onBeforeStart();
-    const id = opts.selectedItem.id, token = generation.current;
+    const id = item.id, token = generation.current;
     loadingItemId.current = id;
     setError(null); setStatus('loading');
     let engine: NeuralLocomotionEngine | null = null;
@@ -79,7 +96,10 @@ export function useNeuralCharacterPilot(options: Options) {
       if (token !== generation.current) { await engine.dispose(); return; }
       const mesh = opts.scene.current?.getNeuralCharacterMesh(id);
       if (!mesh) throw new Error('人物场景尚未准备好');
+      removeNeuralActionTransform(mesh);
       const adapter = new NeuralSkeletonAdapter(mesh, engine.meta);
+      adapter.leftHandPose = handPresetsRef.current.left === 'original' ? {} : { ...HAND_POSES[handPresetsRef.current.left] };
+      adapter.rightHandPose = handPresetsRef.current.right === 'original' ? {} : { ...HAND_POSES[handPresetsRef.current.right] };
       mesh.userData.neuralPilotActive = true;
       loadingEngine.current = null;
       const s: Session = { itemId: id, engine, adapter, keys: new Set(), yaw: null, clock: 0, accumulator: 0, lastNow: performance.now(), frames: null, recordingStart: 0, recordingElapsed: 0, recordingDuration: 0 };
@@ -87,7 +107,7 @@ export function useNeuralCharacterPilot(options: Options) {
       const names = Object.keys(engine.meta.guidances).filter(name => name !== 'Idle');
       setStyles(names); setStyle('Neutral'); styleRef.current = 'Neutral'; setStatus('active');
       let lastMetrics = 0;
-      const tick = (now: number) => {
+      const tick = async (now: number) => {
         if (session.current !== s) return;
         const currentMesh = latest.current.scene.current?.getNeuralCharacterMesh(id);
         if (currentMesh !== mesh) { stop(); return; }
@@ -98,12 +118,23 @@ export function useNeuralCharacterPilot(options: Options) {
           if (velocity.lengthSq() > 1) velocity.normalize();
           velocity.multiplyScalar(s.keys.has('ShiftLeft') || s.keys.has('ShiftRight') ? 2 : 1);
           const direction = s.yaw === null ? new THREE.Vector3() : new THREE.Vector3(Math.sin(s.yaw), 0, Math.cos(s.yaw));
-          adapter.apply(engine!.update({ velocity, direction, style: styleRef.current }, 1 / 60));
+          try {
+            const pose = await engine!.step({ velocity, direction, style: styleRef.current }, 1 / 60);
+            if (session.current !== s) return;
+            adapter.apply(pose);
+          } catch (error) {
+            if (session.current !== s) return;
+            const message = error instanceof Error ? error.message : String(error); stop(); setError(message); setStatus('error'); return;
+          }
           if (s.frames) {
             s.recordingElapsed += 1 / 60;
             const end = Math.min(s.recordingStart + s.recordingElapsed, s.recordingDuration);
             const due = s.recordingStart + s.frames.length / 30;
-            if (end + 1e-8 >= due && due <= s.recordingDuration) { s.frames.push(adapter.capture(Math.min(due, s.recordingDuration))); latest.current.onTime(Math.min(due, s.recordingDuration)); }
+            if (end + 1e-8 >= due && due <= s.recordingDuration) {
+              s.frames.push(adapter.capture(Math.min(due, s.recordingDuration)));
+              latest.current.onTime(Math.min(due, s.recordingDuration));
+              setRecordingStats({ elapsed: s.recordingElapsed, frames: s.frames.length });
+            }
             if (end >= s.recordingDuration - 1e-8) {
               if (s.frames[s.frames.length - 1].time < s.recordingDuration) s.frames.push(adapter.capture(s.recordingDuration));
               latest.current.onTime(s.recordingDuration);
@@ -130,11 +161,13 @@ export function useNeuralCharacterPilot(options: Options) {
     if (duration - start < 1 / 30) { setError('时间轴已到末尾，请先将播放头移到前面'); return; }
     s.recordingStart = start; s.recordingElapsed = 0; s.recordingDuration = duration;
     s.frames = [s.adapter.capture(start)]; setError(null); setRecording(true);
+    setRecordingStats({ elapsed: 0, frames: 1 });
   }, [finishRecording]);
 
   useEffect(() => {
     if (!options.enabled || options.selectedItem?.id !== session.current?.itemId && status === 'active') stop();
-    if (status === 'loading' && (!options.enabled || options.selectedItem?.id !== loadingItemId.current || options.selectedItem?.presetId !== 'ai4animation-geno')) stop();
+    const presetId = options.selectedItem?.presetId;
+    if (status === 'loading' && (!options.enabled || options.selectedItem?.id !== loadingItemId.current || (presetId !== 'ai4animation-geno' && presetId !== 'ai4animation-cranberry'))) stop();
   }, [options.enabled, options.selectedItem?.id, options.selectedItem?.presetId, status, stop]);
   useEffect(() => {
     if (status !== 'active') return;
@@ -168,5 +201,5 @@ export function useNeuralCharacterPilot(options: Options) {
     return () => { window.removeEventListener('keydown', down, true); window.removeEventListener('keyup', up, true); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', clear); document.removeEventListener('focusin', focus); window.removeEventListener('mousemove', mouse, true); window.removeEventListener('mouseup', release); clear(); };
   }, [status, stop, styles]);
   useEffect(() => () => { generation.current++; cancelAnimationFrame(raf.current); const s = session.current; if (s) { s.adapter.group.userData.neuralPilotActive = false; void s.engine.dispose(); } void loadingEngine.current?.dispose(); }, []);
-  return { status, error, recording, styles, style, setStyle, inferenceMs, start, stop, toggleRecording };
+  return { status, error, recording, recordingStats, styles, style, setStyle, handPresets, setHandPreset, inferenceMs, start, stop, toggleRecording };
 }

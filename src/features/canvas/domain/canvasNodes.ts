@@ -568,7 +568,17 @@ export interface BlueprintReferenceImageItem {
  * pose name in `BlueprintNodeData.customActionPoses`, that pose's bone
  * rotations override the keyword mapping for the same name.
  */
+/** Finger curl/opposition 0–1; spread -1–1. */
+export interface BlueprintHandPose {
+  thumb?: number; index?: number; middle?: number; ring?: number; pinky?: number;
+  spread?: number; thumbOpposition?: number;
+}
 export interface BlueprintActionPose {
+  /** Wrist radians: x flexes toward palm, y twists along fingers, z deviates toward thumb. */
+  leftWrist?: { x?: number; y?: number; z?: number };
+  rightWrist?: { x?: number; y?: number; z?: number };
+  leftHand?: BlueprintHandPose;
+  rightHand?: BlueprintHandPose;
   leftShoulder?: { x?: number; y?: number; z?: number };
   rightShoulder?: { x?: number; y?: number; z?: number };
   leftElbow?: { x?: number };
@@ -649,11 +659,14 @@ export interface DirectorSkeletonFrame {
   rootScale: number[];
   /** Per joint: local position xyz, local quaternion xyzw. */
   joints: number[];
+  /** Optional exact local 3x3 bases, column-major; preserves upstream matrix interpolation. */
+  jointBases?: number[];
 }
 
 export interface DirectorSkeletonRecording {
-  modelId: 'ai4animation-geno';
-  skeletonId: 'geno-biped-23-v1';
+  modelId: 'ai4animation-geno' | 'ai4animation-cranberry';
+  skeletonId: 'geno-biped-23-v1' | 'geno-biped-hands-53-v2' | 'cranberry-biped-23-v1' | 'cranberry-biped-hands-53-v2';
+  source?: { kind: 'upstream-motion'; motionId: string; label: string; sourceStart: number; sourceEnd: number };
   fps: 30;
   jointNames: string[];
   frames: DirectorSkeletonFrame[];

@@ -41,4 +41,53 @@ describe('baked director skeleton motion', () => {
     expect(normalizeSkeletonRecordings({ actor: { ...clip, frames: [clip.frames[0], clip.frames[0]] } }, 8)).toEqual({});
     expect(normalizeDirectorMotionProject(undefined).skeletonRecordings).toBeUndefined();
   });
+  it('supports Cranberry skeleton recordings with matching presetId', () => {
+    const cranRecording: DirectorSkeletonRecording = {
+      modelId: 'ai4animation-cranberry',
+      skeletonId: 'cranberry-biped-23-v1',
+      fps: 30,
+      jointNames: meta.jointNames,
+      frames: [frame(1, 5), frame(2, 7)]
+    };
+    const project = { ...createEmptyDirectorMotionProject(), skeletonRecordings: { actor: cranRecording } };
+    const actor = { id: 'actor', label: 'Cranberry', category: 'person' as const, presetId: 'ai4animation-cranberry', color: '#fff', x: 0, y: 0, pos3d: { x: 0, y: 0, z: 0 } };
+    const sampled = sampleDirectorMotion(project, 1.5, [actor]);
+    expect(sampled.skeletons?.actor.frame.rootPosition[0]).toBe(6);
+  });
+  it('supports 53-joint full body and hand skeleton recordings persistence and JSON serialization', async () => {
+    const { CRANBERRY_HAND_SKELETON_JOINT_NAMES } = await import('../domain/directorHandPose');
+    const f1: DirectorSkeletonFrame = {
+      time: 0,
+      rootPosition: [0, 0, 0],
+      rootRotation: [0, 0, 0, 1],
+      rootScale: [1, 1, 1],
+      joints: Array.from({ length: 53 * 7 }, (_, i) => i % 7 === 6 ? 1 : 0),
+      jointBases: Array.from({ length: 53 * 9 }, (_, i) => (i % 9 === 0 || i % 9 === 4 || i % 9 === 8) ? 1 : 0),
+    };
+    const f2: DirectorSkeletonFrame = {
+      time: 2,
+      rootPosition: [1, 0, 2],
+      rootRotation: [0, 0.7071, 0, 0.7071],
+      rootScale: [1, 1, 1],
+      joints: Array.from({ length: 53 * 7 }, (_, i) => i % 7 === 6 ? 1 : 0),
+      jointBases: Array.from({ length: 53 * 9 }, (_, i) => (i % 9 === 0 || i % 9 === 4 || i % 9 === 8) ? 1 : 0),
+    };
+    const recording53: DirectorSkeletonRecording = {
+      modelId: 'ai4animation-cranberry',
+      skeletonId: 'cranberry-biped-hands-53-v2',
+      fps: 30,
+      jointNames: [...CRANBERRY_HAND_SKELETON_JOINT_NAMES],
+      frames: [f1, f2],
+    };
+    const project = { ...createEmptyDirectorMotionProject(), skeletonRecordings: { actor53: recording53 } };
+    const serialized = JSON.stringify(project);
+    const restored = normalizeDirectorMotionProject(JSON.parse(serialized));
+    expect(restored.skeletonRecordings?.actor53.jointNames.length).toBe(53);
+    expect(restored.skeletonRecordings?.actor53.modelId).toBe('ai4animation-cranberry');
+    expect(restored.skeletonRecordings?.actor53.skeletonId).toBe('cranberry-biped-hands-53-v2');
+    expect(restored.skeletonRecordings?.actor53.frames[1].jointBases?.length).toBe(53 * 9);
+    const sampled = sampleSkeletonRecording(restored.skeletonRecordings!.actor53, 1);
+    expect(sampled?.rootPosition).toEqual([0.5, 0, 1]);
+  });
 });
+

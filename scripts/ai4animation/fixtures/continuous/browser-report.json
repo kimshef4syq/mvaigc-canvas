@@ -1,0 +1,103 @@
+{
+  "fps": 60,
+  "framesPerStyle": 600,
+  "rotationMetric": "orthonormal orientation from native forward/up axes; exact raw bases retained separately",
+  "cases": [
+    {
+      "style": "BigSteps",
+      "maxPosition": 6.790570930966657e-05,
+      "maxAngle": 0.01004075152955616,
+      "maxBasis": 0.00017114745882801374,
+      "maxRoot": 5.3928637968741036e-05,
+      "firstFailure": null
+    },
+    {
+      "style": "Chicken",
+      "maxPosition": 7.345002285826897e-06,
+      "maxAngle": 0.003541194967345525,
+      "maxBasis": 5.8806220905580076e-05,
+      "maxRoot": 3.4655367467434063e-06,
+      "firstFailure": null
+    },
+    {
+      "style": "Dinosaur",
+      "maxPosition": 1.0035914856978163e-05,
+      "maxAngle": 0.002421089511219455,
+      "maxBasis": 4.1423317891614575e-05,
+      "maxRoot": 6.119863900580793e-06,
+      "firstFailure": null
+    },
+    {
+      "style": "DragLeftLeg",
+      "maxPosition": 7.079654000630482e-06,
+      "maxAngle": 0.0014936169066772469,
+      "maxBasis": 2.3551332848717466e-05,
+      "maxRoot": 4.5280860574845135e-06,
+      "firstFailure": null
+    },
+    {
+      "style": "HandsBetweenLegs",
+      "maxPosition": 9.834217329382666e-06,
+      "maxAngle": 0.0014069443654728929,
+      "maxBasis": 2.2826048907242935e-05,
+      "maxRoot": 7.2451810538143285e-06,
+      "firstFailure": null
+    },
+    {
+      "style": "Idle",
+      "maxPosition": 0.0008135585961118468,
+      "maxAngle": 0.09738324001130602,
+      "maxBasis": 0.001286955303831161,
+      "maxRoot": 0.0001551693118593202,
+      "firstFailure": null
+    },
+    {
+      "style": "LeanRight",
+      "maxPosition": 1.023766736643371e-05,
+      "maxAngle": 0.002674242580277398,
+      "maxBasis": 4.5516311343848925e-05,
+      "maxRoot": 5.325964929206707e-06,
+      "firstFailure": null
+    },
+    {
+      "style": "LegsApart",
+      "maxPosition": 9.929446178202692e-06,
+      "maxAngle": 0.0028294903639229786,
+      "maxBasis": 4.3640881366935336e-05,
+      "maxRoot": 3.6299188877737915e-06,
+      "firstFailure": null
+    },
+    {
+      "style": "Neutral",
+      "maxPosition": 5.710330979998819e-05,
+      "maxAngle": 0.008134698492279973,
+      "maxBasis": 0.00011559361325452766,
+      "maxRoot": 1.3052805992292039e-05,
+      "firstFailure": null
+    },
+    {
+      "style": "OnHeels",
+      "maxPosition": 3.105832041605421e-05,
+      "maxAngle": 0.003050743388737106,
+      "maxBasis": 5.052432483165781e-05,
+      "maxRoot": 1.5293490845384104e-05,
+      "firstFailure": null
+    },
+    {
+      "style": "Star",
+      "maxPosition": 9.223348728115483e-06,
+      "maxAngle": 0.0016984439977723838,
+      "maxBasis": 2.432722947690036e-05,
+      "maxRoot": 7.823631483526846e-06,
+      "firstFailure": null
+    },
+    {
+      "style": "Zombie",
+      "maxPosition": 1.5446001677526012e-05,
+      "maxAngle": 0.002037802277293055,
+      "maxBasis": 3.16735701031412e-05,
+      "maxRoot": 9.623195681794645e-06,
+      "firstFailure": null
+    }
+  ]
+}

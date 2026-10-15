@@ -573,6 +573,7 @@ export function useDirectorStudioMotion({
         fps,
         format: availableVideoFormat,
         signal: controller.signal,
+        stepMode: 'fixed',
         renderAtTime: (time) => {
           editorRef.current?.applyMotionFrame(sampleNormalizedDirectorMotion(motionProject, time, latestDataRef.current.items), 'shot');
           editorRef.current?.renderFrame();

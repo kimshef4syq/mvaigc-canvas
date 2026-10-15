@@ -345,4 +345,86 @@ describe('Director Studio recording capability', () => {
     expect(stopTrack).toHaveBeenCalledOnce();
     expect(cleanModes).toEqual([true, false]);
   });
+
+  it('fixed-step mode renders every exact frame index regardless of platform latency spikes', async () => {
+    const harness = createSteppedRecordingPlatform();
+    const renderedTimes: number[] = [];
+    const recording = recordDirectorVideo({
+      canvas: {} as HTMLCanvasElement,
+      durationSeconds: 0.2, // 6 frames at 30 fps
+      resolution: '720p',
+      fps: 30,
+      format: { mimeType: 'video/webm', extension: 'webm' },
+      stepMode: 'fixed',
+      platform: harness.platform,
+      renderAtTime: (time) => {
+        if (harness.recorder.state === 'recording') {
+          renderedTimes.push(Number(time.toFixed(4)));
+        }
+      },
+      setCleanExportMode: () => undefined,
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Advance 6 frames with erratic latency spikes (e.g. 100ms, 500ms)
+    for (let i = 0; i < 7; i++) {
+      await harness.advanceFrame(100 + i * 50);
+    }
+    // Endpoint frames
+    await harness.advanceFrame(16);
+    await harness.advanceFrame(16);
+    await recording;
+
+    // All 7 frames (0/30, 1/30, ..., 6/30) must be visited without any skips
+    expect(renderedTimes).toEqual([
+      0,
+      Number((1 / 30).toFixed(4)),
+      Number((2 / 30).toFixed(4)),
+      Number((3 / 30).toFixed(4)),
+      Number((4 / 30).toFixed(4)),
+      Number((5 / 30).toFixed(4)),
+      Number((6 / 30).toFixed(4)),
+    ]);
+    expect(harness.stopRecorder).toHaveBeenCalledOnce();
+    expect(harness.stopTrack).toHaveBeenCalledOnce();
+  });
+
+  it('paces fixed-step frames to the authored timeline instead of the rAF rate', async () => {
+    const harness = createSteppedRecordingPlatform();
+    const renderedTimes: number[] = [];
+    const recording = recordDirectorVideo({
+      canvas: {} as HTMLCanvasElement,
+      durationSeconds: 0.5, // 12 frames at 24 fps
+      resolution: '720p',
+      fps: 24,
+      format: { mimeType: 'video/webm', extension: 'webm' },
+      stepMode: 'fixed',
+      platform: harness.platform,
+      renderAtTime: (time) => {
+        if (harness.recorder.state === 'recording') {
+          renderedTimes.push(Number(time.toFixed(4)));
+        }
+      },
+      setCleanExportMode: () => undefined,
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Drive rAF at ~60 Hz. Without real-time pacing the loop renders one frame per
+    // tick and finishes in ~13*16ms ≈ 0.2s; with pacing it must span the authored 0.5s.
+    let guard = 0;
+    while (harness.stopRecorder.mock.calls.length === 0 && guard < 1000) {
+      await harness.advanceFrame(16);
+      guard += 1;
+    }
+    await recording;
+
+    expect(harness.stopRecorder).toHaveBeenCalledOnce();
+    expect(renderedTimes[renderedTimes.length - 1]).toBe(0.5);
+    expect(harness.platform.now()).toBeGreaterThanOrEqual(500);
+  });
 });
+

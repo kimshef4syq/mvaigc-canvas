@@ -61,7 +61,7 @@ import {
   type DirectorStudioViewSettings,
 } from '@/features/canvas/domain/canvasNodes';
 import type { DirectorRecordedVideo } from '@/features/canvas/application/directorVideoRecording';
-import { normalizeDirectorMotionProject } from '@/features/canvas/application/directorMotion';
+import { normalizeDirectorMotionProject, sampleNormalizedDirectorMotion, DIRECTOR_STATIC_POSE_MAP } from '@/features/canvas/application/directorMotion';
 import {
   DIRECTOR_STUDIO_BODY_STYLES,
   normalizeBlueprintBodyControls,
@@ -83,6 +83,9 @@ import {
 import type { BlueprintReferenceImage } from '@/features/canvas/application/blueprintPrompt';
 import { showErrorDialog } from '@/features/canvas/application/errorDialog';
 import { BlueprintCustomActionModal } from '@/features/canvas/ui/BlueprintCustomActionModal';
+import { bakeOriginalMotion, loadOriginalMotion } from './director/motion/originalMotionAssets';
+import bipedMetaJson from '../../../../public/models/ai4animation/locomotion_biped_meta.json';
+import type { BipedMeta } from './director/motion/types';
 import { DirectorActionLibrary } from '@/features/canvas/ui/DirectorActionLibrary';
 import { DirectorCameraPilotHud } from '@/features/canvas/ui/DirectorCameraPilotHud';
 import {
@@ -1916,9 +1919,9 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
     commitInspectorTextDraft();
     const actionName = selectedActionValue || t('directorStudio.inspector.customActionDefaultName');
     setCustomActionName(actionName);
-    setCustomActionPose(cloneJson(data.customActionPoses?.[actionName] ?? {}));
+    setCustomActionPose(cloneJson(data.customActionPoses?.[actionName] ?? sampleNormalizedDirectorMotion(motionProject, motionTimeSource.getSnapshot(), data.items).actions[selectedItem.id]?.pose ?? DIRECTOR_STATIC_POSE_MAP[actionName] ?? {}));
     setCustomActionModalOpen(true);
-  }, [commitInspectorTextDraft, data.customActionPoses, selectedActionValue, selectedItem, t]);
+  }, [commitInspectorTextDraft, data.customActionPoses, data.items, motionProject, motionTimeSource, selectedActionValue, selectedItem, t]);
 
   const saveCustomActionPose = useCallback(() => {
     if (!selectedItem) return;
@@ -1930,7 +1933,8 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
         [actionName]: customActionPose,
       },
     });
-    updateItemActionImmediately(selectedItem, actionName);
+    if (studioMode === 'previs') applyMotionActionState({ poseId: actionName, pose: customActionPose });
+    else updateItemActionImmediately(selectedItem, actionName);
     setCustomActionModalOpen(false);
   }, [
     customActionName,
@@ -1941,6 +1945,8 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
     selectedItem,
     t,
     updateItemActionImmediately,
+    studioMode,
+    applyMotionActionState,
   ]);
 
   const deleteCustomActionPreset = useCallback((preset: string) => {
@@ -4537,9 +4543,23 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
         currentTime={motionTimeSource.getSnapshot()}
         customActionPoses={data.customActionPoses ?? {}}
         onClose={() => setActionLibraryOpen(false)}
+        onEditCustomPose={() => { neuralPilot.stop(); openCustomActionEditor(); }}
         onApplyStaticPose={(poseId, pose) => { applyMotionActionState({ poseId, pose }); setActionLibraryOpen(false); }}
         onApplyProceduralAction={(actionId) => { applyMotionActionState({ actionId }); setActionLibraryOpen(false); }}
         onApplyClip={(clip) => { applyMotionActionState({ clipId: clip.id }); setActionLibraryOpen(false); }}
+        onApplyOriginalMotion={timelineOpen ? async (id, start, end) => {
+          if (selectedItem?.presetId !== 'ai4animation-geno' && selectedItem?.presetId !== 'ai4animation-cranberry') throw new Error('请选择 Geno 或 Cranberry');
+          neuralPilot.stop(); setMotionPlaying(false);
+          const motion = await loadOriginalMotion(id);
+          const mesh = editorRef.current?.getNeuralCharacterMesh(selectedItem.id);
+          if (!mesh) throw new Error('人物模型尚未加载');
+          const time = motionTimeSource.getSnapshot();
+          try {
+            const recording = bakeOriginalMotion(mesh, bipedMetaJson as BipedMeta, motion, start, end, time, motionProject.durationSeconds);
+            updateMotionProject(project => ({...project,skeletonRecordings:{...project.skeletonRecordings,[selectedItem.id]:recording}}));
+            setActionLibraryOpen(false);
+          } finally { setMotionTimeAndApply(time); }
+        } : undefined}
         onSaveClip={saveMotionClip}
         onRenameClip={(clipId, name) => updateMotionClip(clipId, { name: name.trim() || t('directorStudio.motion.library.untitledClip') })}
         onDuplicateClip={duplicateMotionClip}

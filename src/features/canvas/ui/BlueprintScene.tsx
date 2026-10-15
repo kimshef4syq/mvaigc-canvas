@@ -42,7 +42,7 @@ import {
   onGltfPersonTemplateReady,
 } from './blueprintGltfFactory';
 
-import { applyBakedSkeleton, applyNeuralStaticPose, createNeuralCharacter, ensureNeuralModel, isNeuralModelReady, neuralModelId } from './director/motion/neuralCharacterAssets';
+import { applyBakedSkeleton, applyNeuralCharacterTransform, applyNeuralStaticPose, createNeuralCharacter, ensureNeuralModel, isNeuralModelReady, neuralModelId } from './director/motion/neuralCharacterAssets';
 
 /**
  * BlueprintScene
@@ -203,6 +203,7 @@ function getMotionPoseKey(
     actionId ?? '',
     read(pose.leftShoulder), read(pose.rightShoulder),
     read(pose.leftElbow), read(pose.rightElbow),
+    read(pose.leftWrist), read(pose.rightWrist), JSON.stringify(pose.leftHand ?? null), JSON.stringify(pose.rightHand ?? null),
     read(pose.leftHip), read(pose.rightHip),
     read(pose.leftKnee), read(pose.rightKnee),
     read(pose.head), read(pose.torso),
@@ -238,6 +239,7 @@ function createBlueprintItemMesh(
   let mesh: any;
   if (item.category === 'person' && neuralModelId(item.presetId)) {
     mesh = createNeuralCharacter(neuralModelId(item.presetId)!, heightM);
+    applyNeuralStaticPose(mesh, DIRECTOR_STATIC_POSE_MAP[item.action ?? ''] ?? customActionPoses?.[item.action ?? ''], item.action);
   } else if (item.category === 'person') {
     const useGltf = (globalThis as any).__BLUEPRINT_USE_GLTF__ === true && gltfReady;
     const gltf = useGltf ? createGltfPersonMesh(color, heightM) : null;
@@ -1246,6 +1248,7 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
         baseScale.z * scale.z,
       );
       mesh.position.set(p.x, p.y + poseYOffset, p.z);
+      if (mesh.userData.neuralModelId) applyNeuralCharacterTransform(mesh, p, rotation, scale);
     });
     requestRender();
   }, [items, customActionPoses, gltfReady, meshDetail, neuralAssetsVersion, requestRender]);
@@ -2562,7 +2565,7 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
           const customPoses = actionId && pose
             ? { ...customActionPosesRef.current, [actionId]: pose }
             : customActionPosesRef.current;
-          if (mesh.userData.neuralModelId) applyNeuralStaticPose(mesh, pose ?? DIRECTOR_STATIC_POSE_MAP[actionId ?? ''] ?? customPoses?.[actionId ?? '']);
+          if (mesh.userData.neuralModelId) applyNeuralStaticPose(mesh, pose ?? DIRECTOR_STATIC_POSE_MAP[actionId ?? ''] ?? customPoses?.[actionId ?? ''], actionId);
           else if ((globalThis as any).__BLUEPRINT_USE_GLTF__ === true && gltfReady) applyGltfPersonAction(mesh, actionId, { customPoses });
           else applyPersonActionTransform(mesh, actionId, { customPoses });
           mesh.userData.motionPoseKey = poseKey;
@@ -2574,6 +2577,7 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
       mesh.position.set(sampled.position.x, sampled.position.y + poseYOffset, sampled.position.z);
       mesh.rotation.set(baseRotation.x + sampled.rotation.x, baseRotation.y + sampled.rotation.y, baseRotation.z + sampled.rotation.z);
       mesh.scale.set(baseScale.x * sampled.scale.x, baseScale.y * sampled.scale.y, baseScale.z * sampled.scale.z);
+      if (mesh.userData.neuralModelId) applyNeuralCharacterTransform(mesh, sampled.position, sampled.rotation, sampled.scale);
       if (itemId === selectedItemIdRef.current && selectionRingRef.current) {
         selectionRingRef.current.position.set(sampled.position.x, gridHeightRef.current + 0.02, sampled.position.z);
       }

@@ -607,7 +607,7 @@ export const DirectorTimeline = memo(function DirectorTimeline({
                       title="已烘焙的 Geno 骨骼动作 (右键或悬停可删除)"
                       onContextMenu={(event) => handleSkeletonContextMenu(event, row.trackId, row.label, skeletonClip.frames.length)}
                     >
-                      <span className="truncate">AI 骨骼 · {skeletonClip.frames.length} 帧</span>
+                      <span className="truncate">{skeletonClip.source ? `原版 · ${skeletonClip.source.label}` : 'AI 骨骼'} · {skeletonClip.frames.length} 帧</span>
                       <button
                         type="button"
                         onClick={(event) => {

@@ -2,7 +2,7 @@
   "repository": "https://github.com/facebookresearch/ai4animationpy",
   "revision": "bfb5866681f7ea6dac9984be05181de5955eb48b",
   "license": "CC-BY-NC-4.0",
-  "modified": "ONNX export and guidance serialization; GLB assets unchanged",
+  "modified": "ONNX export, guidance serialization and original Geno motion float32 conversion; GLB assets unchanged",
   "files": {
     "contacts_biped.onnx": "106a6f7f845ad6fefc2494ab0e395cb2e91cb63c61006582247463b455da3448",
     "cranberry.glb": "f9c86a0ef28c84647635f3494234bae3cdb2132ec8c086d742cbdfb69f2ab899",
@@ -12,6 +12,12 @@
     "locomotion_biped.onnx": "0867cb08e7d5adb52633d409c9a0a1c991f40bc48a215fc9ea62b1f2320966e6",
     "geno.glb": "b732b2c6cd070db21254ce6c25d8060388dc23678e72b1e77d7c99e00acdd7c4",
     "LICENSE.txt": "a7950c0fed88e9a177617e3836e9dc0ae4f4a96e59b15c3706de38ace171aca4",
-    "locomotion_biped_meta.json": "6bc2c0c911a259a379b5e086332967d6594747801ee7c46f142aa40a7e71027a"
+    "locomotion_biped_meta.json": "6bc2c0c911a259a379b5e086332967d6594747801ee7c46f142aa40a7e71027a",
+    "motions/ground1_subject1.bin": "1bab180ab31576d2eac87abe01cb24e56452cfb3721e7bcb52cb79a6af482445",
+    "motions/sprint1_subject4.bin": "722fa108058f6d102382ee7b83387ca426ea274b6b3f5c37b0cf97a5ec519e63",
+    "motions/run1_subject2.bin": "1dfe90dc7546a357886f2d829766445db42f79c198d0128f4e0487129d2d5523",
+    "motions/walk3_subject3.bin": "f7a39925a503cadc36f597df7a20f7cee728967ad90bc87bec8350afa4320566",
+    "motions/manifest.json": "3cc0282d100917e4892ec561148541195ca0961e1886ef33bb7859d706cb4fa8",
+    "motions/aiming1_subject1.bin": "555e02435e0e80c523a365a0d96ecbc26a72508a5453d2d9f0595c937878a0c4"
   }
 }

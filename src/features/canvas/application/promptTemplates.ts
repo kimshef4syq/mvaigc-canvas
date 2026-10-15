@@ -285,8 +285,8 @@ export const PROMPT_TEMPLATE_DEFINITIONS = [
     dynamicDescriptionKey: 'settings.promptManagement.dynamicNotes.directorStudioScreenshotHandoff',
     defaultLanguage: 'en',
     defaults: {
-      zh: '导演台截图参考：@图1 是导演台截图，请将它作为构图、空间布局、镜头取景、透视和场面调度参考。@图2、@图3 及后续连接图片是身份、主体、外观、材质和道具参考；在遵循 @图1 构图的同时保持这些参考的身份与材质特征。',
-      en: 'Director Studio screenshot reference: @图1 is the Director Studio screenshot and must be used as the composition, spatial layout, camera framing, perspective, and staging reference. @图2, @图3, and later connected images are identity, subject, appearance, material, and prop references; preserve those identities while following the @图1 composition.',
+      zh: '导演台截图参考：@图1 是导演台截图，请将它作为构图、空间布局、镜头取景、透视和场面调度参考。@图1 中出现的名称标签、彩色圆点、编号及其他标记都只是摆位提示，不要画进最终成图。@图2、@图3 及后续连接图片是身份、主体、外观、材质和道具参考；在遵循 @图1 构图的同时保持这些参考的身份与材质特征。',
+      en: 'Director Studio screenshot reference: @图1 is the Director Studio screenshot and must be used as the composition, spatial layout, camera framing, perspective, and staging reference. Any name labels, colored dots, numbers, and other markers visible in @图1 are placement hints only and must not be drawn into the final image. @图2, @图3, and later connected images are identity, subject, appearance, material, and prop references; preserve those identities while following the @图1 composition.',
     },
     placeholders: [] as const,
   },

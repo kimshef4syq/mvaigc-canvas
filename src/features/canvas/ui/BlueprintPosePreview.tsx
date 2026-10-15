@@ -1,3 +1,4 @@
+import { ensureNeuralModel, isNeuralModelReady, createNeuralCharacter, applyNeuralStaticPose, applyNeuralCharacterTransform } from './director/motion/neuralCharacterAssets';
 import { memo, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 
@@ -52,6 +53,12 @@ export const BlueprintPosePreview = memo(function BlueprintPosePreview({
   // to the real figure once the bundled GLB has loaded — only when the
   // explicit `__BLUEPRINT_USE_GLTF__` opt-in is set (otherwise we stay
   // procedural and skip the GLB load entirely).
+  const [neuralReady, setNeuralReady] = useState(isNeuralModelReady('ai4animation-geno'));
+  useEffect(() => {
+    let alive = true;
+    void ensureNeuralModel('ai4animation-geno').then(() => { if (alive) setNeuralReady(true); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const [gltfReady, setGltfReady] = useState(isGltfPersonTemplateReady());
   useEffect(() => {
     if (gltfReady) return;
@@ -115,7 +122,7 @@ export const BlueprintPosePreview = memo(function BlueprintPosePreview({
       }
       // Disposing geometries/materials in the scene to avoid GPU leaks.
       scene.traverse((obj: any) => {
-        if (obj.geometry?.dispose) obj.geometry.dispose();
+        if (!obj.userData.neuralSharedGeometry && obj.geometry?.dispose) obj.geometry.dispose();
         if (obj.material?.dispose) obj.material.dispose();
       });
       figureRef.current = null;
@@ -134,24 +141,27 @@ export const BlueprintPosePreview = memo(function BlueprintPosePreview({
     if (figureRef.current) {
       turntable.remove(figureRef.current);
       figureRef.current.traverse((obj: any) => {
-        if (obj.geometry?.dispose) obj.geometry.dispose();
+        if (!obj.userData.neuralSharedGeometry && obj.geometry?.dispose) obj.geometry.dispose();
         if (obj.material?.dispose) obj.material.dispose();
       });
     }
     const tint = new THREE.Color(color);
     const useGltf = gltfReady && SHOULD_USE_GLTF();
-    const figure = (useGltf ? createGltfPersonMesh(tint, 1.75) : null)
+    const figure = (neuralReady ? createNeuralCharacter('ai4animation-geno', 1.75) : null) ?? (useGltf ? createGltfPersonMesh(tint, 1.75) : null)
       ?? createPersonMeshGroup(tint, 1.75, 'man');
     turntable.add(figure);
     figureRef.current = figure;
-  }, [color, gltfReady]);
+  }, [color, gltfReady, neuralReady]);
 
   // ── Re-pose whenever the pose prop or GLTF readiness changes. We use
   //    the matching factory's pose applier so axis semantics stay consistent.
   useEffect(() => {
     const figure = figureRef.current;
     if (!figure) return;
-    if (figure.userData?.gltfVariant) {
+    if (figure.userData?.neuralModelId) {
+      applyNeuralStaticPose(figure, pose);
+      applyNeuralCharacterTransform(figure, {x:0,y:0,z:0}, {x:0,y:0,z:0}, {x:1,y:1,z:1});
+    } else if (figure.userData?.gltfVariant) {
       applyGltfPersonAction(figure, '__custom_preview__', {
         customPoses: { __custom_preview__: pose },
       });
@@ -160,7 +170,7 @@ export const BlueprintPosePreview = memo(function BlueprintPosePreview({
         customPoses: { __custom_preview__: pose },
       });
     }
-  }, [pose, gltfReady]);
+  }, [pose, gltfReady, neuralReady]);
 
   // ── Animation loop: gentle rotation + render.
   useEffect(() => {

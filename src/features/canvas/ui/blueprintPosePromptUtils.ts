@@ -1,3 +1,4 @@
+import { normalizeHandPose } from '@/features/canvas/domain/directorHandPose';
 import type { BlueprintActionPose } from '@/features/canvas/domain/canvasNodes';
 
 /**
@@ -13,7 +14,7 @@ import type { BlueprintActionPose } from '@/features/canvas/domain/canvasNodes';
 
 const POSE_FIELD_KEYS = [
   'leftShoulder', 'rightShoulder',
-  'leftElbow', 'rightElbow',
+  'leftElbow', 'rightElbow', 'leftWrist', 'rightWrist',
   'leftHip', 'rightHip',
   'leftKnee', 'rightKnee',
   'head', 'torso',
@@ -40,6 +41,10 @@ export function buildBlueprintPosePrompt(name: string, description: string): str
     '  "rightShoulder": { "x":  0.4, "y": 0.0,  "z": 0.0 },',
     '  "leftElbow":     { "x": -0.5 },                        // 肘弯曲，建议 -2.4 到 0',
     '  "rightElbow":    { "x": -0.5 },',
+    '  "leftWrist":     { "x": 0, "y": 0, "z": 0 },  // 手腕屈伸、扭转、侧偏（弧度）',
+    '  "rightWrist":    { "x": 0, "y": 0, "z": 0 },',
+    '  "leftHand":      { "thumb": 0.2, "index": 0.2, "middle": 0.2, "ring": 0.2, "pinky": 0.2, "spread": 0, "thumbOpposition": 0.1 },',
+    '  "rightHand":     { "index": 0, "middle": 1, "ring": 1, "pinky": 1 }, // 食指指向；弯曲/对掌0到1，张合-1到1',
     '  "leftHip":       { "x": -0.3, "y": 0.0,  "z": 0.0 },  // 髋 X前后摆 / Y外展 / Z外旋',
     '  "rightHip":      { "x":  0.3, "y": 0.0,  "z": 0.0 },',
     '  "leftKnee":      { "x": -0.6 },                        // 膝弯曲，建议 -2.8 到 0',
@@ -114,6 +119,9 @@ export function parseBlueprintPoseJson(rawText: string): { pose?: BlueprintActio
     const picked = pickAxes(obj[key], axes);
     if (picked) (pose as any)[key] = picked;
   }
+  const leftHand = normalizeHandPose(obj.leftHand), rightHand = normalizeHandPose(obj.rightHand);
+  if (leftHand) pose.leftHand = leftHand;
+  if (rightHand) pose.rightHand = rightHand;
   if (isFiniteNumber(obj.scaleY)) pose.scaleY = obj.scaleY;
   if (isFiniteNumber(obj.groupY)) pose.groupY = obj.groupY;
   if (isFiniteNumber(obj.groupRotX)) pose.groupRotX = obj.groupRotX;
