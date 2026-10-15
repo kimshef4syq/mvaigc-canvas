@@ -1,6 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import {
-  Handle,
   Position,
   useUpdateNodeInternals,
   useViewport,
@@ -40,6 +39,7 @@ import {
 } from '@/features/canvas/application/generatedMediaNaming';
 import { resolveNodeDisplayName } from '@/features/canvas/domain/nodeDisplay';
 import { renameLocalMediaFiles } from '@/commands/image';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import { CanvasNodeImage } from '@/features/canvas/ui/CanvasNodeImage';
@@ -506,13 +506,13 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
         ) : null}
       </div>
 
-      <Handle
+      <NodeConnectionHandle
         type="target"
         id="target"
         position={Position.Left}
         className="!h-2 !w-2 !border-surface-dark !bg-accent"
       />
-      <Handle
+      <NodeConnectionHandle
         type="source"
         id="source"
         position={Position.Right}

@@ -1,4 +1,4 @@
-import { Component, type ComponentType, type ErrorInfo, type ReactNode } from 'react';
+import { Component, type ComponentType, type ErrorInfo, type ReactNode, type MouseEvent } from 'react';
 import type { NodeProps } from '@xyflow/react';
 
 interface NodeRenderErrorBoundaryProps {
@@ -59,7 +59,18 @@ export function withNodeRenderErrorBoundary<TProps extends { id: string | number
   function SafeNode(props: TProps) {
     return (
       <NodeRenderErrorBoundary nodeId={String(props.id)}>
-        <NodeComponent {...props} />
+        <div
+          style={{ display: 'contents' }}
+          onMouseDownCapture={(event: MouseEvent<HTMLDivElement>) => {
+            // React Flow checks nodrag on native mousedown. Mark all actual
+            // controls before that check, including controls without a wrapper.
+            if (event.target instanceof Element) {
+              event.target.closest('button, input, textarea, select, a, [contenteditable="true"], [role="slider"]')?.classList.add('nodrag');
+            }
+          }}
+        >
+          <NodeComponent {...props} />
+        </div>
       </NodeRenderErrorBoundary>
     );
   }

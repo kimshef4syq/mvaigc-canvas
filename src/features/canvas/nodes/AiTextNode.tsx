@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import { AlertTriangle, Bug, Check, ChevronDown, Copy, LoaderCircle, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -34,6 +34,7 @@ import {
   submitCustomChatCompletion,
 } from '@/features/canvas/infrastructure/customProviderGateway';
 import { CanvasNodeImage } from '@/features/canvas/ui/CanvasNodeImage';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import {
@@ -1016,13 +1017,13 @@ export const AiTextNode = memo(({ id, data, selected, width, height }: AiTextNod
         <div className="mt-1 shrink-0 text-xs text-text-muted">{data.lastError}</div>
       ) : null}
 
-      <Handle
+      <NodeConnectionHandle
         type="target"
         id="target"
         position={Position.Left}
         className="!h-2 !w-2 !border-surface-dark !bg-accent"
       />
-      <Handle
+      <NodeConnectionHandle
         type="source"
         id="source"
         position={Position.Right}

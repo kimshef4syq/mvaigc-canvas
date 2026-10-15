@@ -1,12 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { NodeProps } from '@xyflow/react';
-import { Handle, Position } from '@xyflow/react';
+import { Position } from '@xyflow/react';
 import { Camera, Grid3x3, Loader2, Maximize2, RotateCcw, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Viewer } from '@photo-sphere-viewer/core';
 import '@photo-sphere-viewer/core/index.css';
 
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { canvasEventBus } from '@/features/canvas/application/canvasServices';
 import { subscribeCanvasGenerationTrigger } from '@/features/canvas/application/canvasGenerationTriggers';
@@ -352,8 +353,8 @@ const PanoramaViewerSurface = memo(({
   }, [initialFov, initialPitch, initialYaw]);
 
   return (
-    <div className={`nodrag nopan nowheel relative ${className ?? ''}`}>
-      <div ref={containerRef} className="nodrag nopan nowheel w-full h-full outline-none" tabIndex={0} />
+    <div className={`${expanded ? 'nodrag nopan nowheel' : 'cursor-grab active:cursor-grabbing'} relative ${className ?? ''}`}>
+      <div ref={containerRef} className={`${expanded ? 'nodrag nopan nowheel' : 'pointer-events-none'} w-full h-full outline-none`} tabIndex={expanded ? 0 : -1} />
       {normalizing && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white/85 text-xs">
           <Loader2 className="w-4 h-4 animate-spin mr-2" /> {t('node.panoramaViewer.loading')}
@@ -394,7 +395,7 @@ const PanoramaViewerSurface = memo(({
         </button>
       </div>
       <div className="absolute bottom-2 left-2 text-[10px] text-white/55 bg-black/55 px-2 py-0.5 rounded backdrop-blur-sm pointer-events-none">
-        {projection === 'spherical' ? t('node.panoramaViewer.spherical') : t('node.panoramaViewer.cylindrical')} · {t('node.panoramaViewer.controlsHint')}
+        {projection === 'spherical' ? t('node.panoramaViewer.spherical') : t('node.panoramaViewer.cylindrical')} · {t(expanded ? 'node.panoramaViewer.controlsHint' : 'node.panoramaViewer.nodeDragHint')}
       </div>
     </div>
   );
@@ -669,11 +670,11 @@ export const PanoramaNode = memo(({ id, data, selected }: PanoramaNodeProps) => 
     // panorama → panel-like setup" flow the user expects.
     return (
       <div
-        className={`relative w-[1080px] overflow-hidden rounded-xl border bg-[var(--canvas-node-bg)] shadow-[var(--canvas-node-shadow)] ${selected ? 'border-accent' : 'border-[var(--canvas-node-border)]'}`}
+        className={`relative w-[1080px] overflow-visible rounded-xl border bg-[var(--canvas-node-bg)] shadow-[var(--canvas-node-shadow)] ${selected ? 'border-accent' : 'border-[var(--canvas-node-border)]'}`}
         onDoubleClick={(e) => e.stopPropagation()}
       >
-        <Handle type="target" id="target" position={Position.Left} className="!bg-accent/70" />
-        <Handle type="source" id="source" position={Position.Right} className="!bg-accent/70" />
+        <NodeConnectionHandle type="target" id="target" position={Position.Left} className="!bg-accent/70" />
+        <NodeConnectionHandle type="source" id="source" position={Position.Right} className="!bg-accent/70" />
         <div className="flex items-center justify-between border-b border-[var(--canvas-node-divider)] px-4 py-2.5">
           <div>
             <div className="text-sm font-semibold text-text-dark">全景图生成</div>
@@ -736,15 +737,15 @@ export const PanoramaNode = memo(({ id, data, selected }: PanoramaNodeProps) => 
   return (
     <>
       <div
-        className={`h-[340px] w-[560px] overflow-hidden rounded-xl border bg-[var(--canvas-node-bg)] shadow-[var(--canvas-node-shadow)] ${selected ? 'border-accent' : 'border-[var(--canvas-node-border)]'}`}
+        className={`relative h-[340px] w-[560px] overflow-visible rounded-xl border bg-[var(--canvas-node-bg)] shadow-[var(--canvas-node-shadow)] ${selected ? 'border-accent' : 'border-[var(--canvas-node-border)]'}`}
         onDoubleClick={(e) => {
           e.stopPropagation();
           setIsExpanded(true);
         }}
       >
-        <Handle type="target" id="target" position={Position.Left} className="!bg-accent/70" />
-        <Handle type="source" id="source" position={Position.Right} className="!bg-accent/70" />
-        <div className="relative w-full h-full">
+        <NodeConnectionHandle type="target" id="target" position={Position.Left} className="!bg-accent/70" />
+        <NodeConnectionHandle type="source" id="source" position={Position.Right} className="!bg-accent/70" />
+        <div className="relative h-full w-full overflow-hidden rounded-xl">
           {viewerSurface}
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import { Check, Copy, Expand, FileText, PencilLine } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 
 import { CANVAS_NODE_TYPES, type TextAnnotationNodeData } from '@/features/canvas/domain/canvasNodes';
 import { resolveNodeDisplayName } from '@/features/canvas/domain/nodeDisplay';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import { TextPreviewModal } from '@/features/canvas/ui/TextPreviewModal';
@@ -199,13 +200,13 @@ export const TextAnnotationNode = memo(({
           </div>
         )}
 
-        <Handle
+        <NodeConnectionHandle
           type="target"
           id="target"
           position={Position.Left}
           className="!h-2 !w-2 !border-surface-dark !bg-accent"
         />
-        <Handle
+        <NodeConnectionHandle
           type="source"
           id="source"
           position={Position.Right}

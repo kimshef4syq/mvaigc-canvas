@@ -1613,7 +1613,8 @@
       "expandedHint": "Double-click the node or use the enlarge button to inspect details with drag, wheel, and arrow-key controls.",
       "spherical": "720° Sphere",
       "cylindrical": "360° Wrap",
-      "controlsHint": "Drag / arrow keys"
+      "controlsHint": "Drag / arrow keys",
+      "nodeDragHint": "Drag to move node · Double-click to explore"
     },
     "upload": {
       "uploadedAlt": "Uploaded image",

@@ -312,6 +312,62 @@ html[data-platform='macos'] #root {
   height: 8px;
 }
 
+/* The transparent side band is part of the handle, so both click-to-connect
+   and drag-to-connect work without moving existing edge anchors. */
+.canvas-flow .canvas-connection-handle {
+  z-index: 30;
+  overflow: visible;
+}
+
+.canvas-connection-handle.connectable::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: calc(64px * var(--connection-scale));
+  height: var(--connection-reach);
+  transform: translateY(-50%);
+  cursor: crosshair;
+}
+
+.canvas-connection-handle.react-flow__handle-right::before {
+  left: calc(-6px * var(--connection-scale));
+}
+
+.canvas-connection-handle.react-flow__handle-left::before {
+  right: calc(-6px * var(--connection-scale));
+}
+
+.canvas-connection-indicator {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--text-muted, #aaa);
+  border-radius: 50%;
+  background: var(--canvas-node-bg);
+  color: var(--text-muted, #aaa);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) translate(var(--connection-indicator-x), var(--connection-indicator-y, 0px)) scale(var(--connection-scale));
+  transition: opacity 100ms ease;
+}
+
+.canvas-connection-indicator svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 2;
+}
+
+.canvas-connection-handle.connectable:hover > .canvas-connection-indicator,
+.canvas-connection-handle.connectingfrom > .canvas-connection-indicator,
+.canvas-connection-handle.connectingto > .canvas-connection-indicator {
+  opacity: 1;
+}
+
 .canvas-flow {
   background: var(--canvas-bg);
 }

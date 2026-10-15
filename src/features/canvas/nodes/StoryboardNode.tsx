@@ -8,13 +8,12 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Handle,
   Position,
   useUpdateNodeInternals,
   useViewport,
   type NodeProps,
 } from '@xyflow/react';
-import { Download, FolderOpen, ImagePlus, SlidersHorizontal, SquareArrowOutUpRight } from 'lucide-react';
+import { Download, FolderOpen, GripVertical, ImagePlus, SlidersHorizontal, SquareArrowOutUpRight } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { openPath, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { join } from '@tauri-apps/api/path';
@@ -25,6 +24,7 @@ import {
   saveImageSourceToDirectory,
   type MergeStoryboardImagesResult,
 } from '@/commands/image';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import { CanvasNodeImage } from '@/features/canvas/ui/CanvasNodeImage';
@@ -334,8 +334,7 @@ const FrameCard = memo(
           event.stopPropagation();
           onSortHover(frame.id);
         }}
-        onMouseDown={(event) => event.stopPropagation()}
-        className={`nodrag relative bg-bg-dark/85 transition-colors ${dragging
+        className={`relative bg-bg-dark/85 transition-colors ${dragging
           ? 'z-10 opacity-55 ring-1 ring-accent/65'
           : asDropTarget
             ? 'z-10 ring-1 ring-emerald-400/70'
@@ -343,16 +342,8 @@ const FrameCard = memo(
           }`}
       >
         <div
-          className={`group/frame relative overflow-hidden bg-surface-dark ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className="group/frame relative cursor-grab overflow-hidden bg-surface-dark active:cursor-grabbing"
           style={{ aspectRatio: frameAspectRatioCss }}
-          onPointerDown={(event) => {
-            if (event.button !== 0) {
-              return;
-            }
-            event.preventDefault();
-            event.stopPropagation();
-            onSortStart(frame.id);
-          }}
         >
           {frame.imageUrl ? (
             <CanvasNodeImage
@@ -369,6 +360,20 @@ const FrameCard = memo(
             </div>
           )}
 
+          <button
+            type="button"
+            className="nodrag absolute left-1 top-1 cursor-grab rounded bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover/frame:opacity-100 active:cursor-grabbing"
+            title="拖动调整分镜顺序"
+            aria-label="拖动调整分镜顺序"
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              event.preventDefault();
+              event.stopPropagation();
+              onSortStart(frame.id);
+            }}
+          >
+            <GripVertical className="h-3 w-3" />
+          </button>
           <button
             type="button"
             className="absolute right-1 top-1 rounded bg-black/60 p-1 text-white opacity-0 transition-all duration-150 hover:bg-black/75 group-hover/frame:opacity-100"
@@ -1275,13 +1280,13 @@ export const StoryboardNode = memo(({ id, data, selected, width, height }: Story
 
       {exportError && <div className="mt-2 shrink-0 text-xs text-red-400">{exportError}</div>}
 
-      <Handle
+      <NodeConnectionHandle
         type="target"
         id="target"
         position={Position.Left}
         className="!h-2 !w-2 !border-surface-dark !bg-accent"
       />
-      <Handle
+      <NodeConnectionHandle
         type="source"
         id="source"
         position={Position.Right}

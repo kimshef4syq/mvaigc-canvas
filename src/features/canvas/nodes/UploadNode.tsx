@@ -10,7 +10,6 @@ import {
   type SyntheticEvent,
 } from 'react';
 import {
-  Handle,
   Position,
   useUpdateNodeInternals,
   useViewport,
@@ -35,6 +34,7 @@ import {
   resolveNodeDisplayName,
 } from '@/features/canvas/domain/nodeDisplay';
 import { canvasEventBus } from '@/features/canvas/application/canvasServices';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import {
@@ -450,7 +450,7 @@ export const UploadNode = memo(({ id, data, selected, width, height }: UploadNod
         onChange={handleFileChange}
       />
 
-      <Handle
+      <NodeConnectionHandle
         type="source"
         id="source"
         position={Position.Right}
