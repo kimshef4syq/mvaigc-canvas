@@ -203,13 +203,11 @@ export async function recordDirectorVideo(options: RecordDirectorVideoOptions): 
           // Hold each authored frame until its real-time slot elapses. Canvas
           // captureStream + MediaRecorder stamp frames by wall-clock time, so
           // rendering one frame per rAF would finish a 24fps clip at ~60fps and
-          // produce a sped-up video. Waiting also guarantees no frames are dropped.
-          if (startedAt !== null) {
-            const wait = nextFrameDueMs - platform.now();
-            if (wait > 0) {
-              frameHandle = platform.scheduleFrame(() => { void tick(); });
-              return;
-            }
+          // produce a sped-up video. The deadline is anchored to startedAt
+          // because platform.now() is an absolute clock, not a zero-based one.
+          if (startedAt !== null && platform.now() < startedAt + nextFrameDueMs) {
+            frameHandle = platform.scheduleFrame(() => { void tick(); });
+            return;
           }
           nextFrameDueMs += 1000 / options.fps;
         }

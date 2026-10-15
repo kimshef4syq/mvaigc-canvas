@@ -8,8 +8,8 @@ import {
   type DirectorRecordingPlatform,
 } from './directorVideoRecording';
 
-function createSteppedRecordingPlatform() {
-  let now = 0;
+function createSteppedRecordingPlatform(startNow = 0) {
+  let now = startNow;
   let nextHandle = 0;
   const frames = new Map<number, FrameRequestCallback>();
   const stopTrack = vi.fn();
@@ -392,7 +392,8 @@ describe('Director Studio recording capability', () => {
   });
 
   it('paces fixed-step frames to the authored timeline instead of the rAF rate', async () => {
-    const harness = createSteppedRecordingPlatform();
+    const startNow = 60_000; // a page already open a while; catches absolute-vs-relative clock bugs
+    const harness = createSteppedRecordingPlatform(startNow);
     const renderedTimes: number[] = [];
     const recording = recordDirectorVideo({
       canvas: {} as HTMLCanvasElement,
@@ -424,7 +425,7 @@ describe('Director Studio recording capability', () => {
 
     expect(harness.stopRecorder).toHaveBeenCalledOnce();
     expect(renderedTimes[renderedTimes.length - 1]).toBe(0.5);
-    expect(harness.platform.now()).toBeGreaterThanOrEqual(500);
+    expect(harness.platform.now() - startNow).toBeGreaterThanOrEqual(500);
   });
 });
 
