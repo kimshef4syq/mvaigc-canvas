@@ -8,7 +8,7 @@ import {
   type ChangeEvent,
   type DragEvent,
 } from 'react';
-import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
+import { Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
 import { AlertTriangle, CircleHelp, Film, Loader2, PauseCircle, RefreshCw, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -31,6 +31,7 @@ import {
 import { isVideoFile, resolveDroppedVideoFile } from '@/features/canvas/application/imageDragDrop';
 import { prepareVideoNodeDataFromFile } from '@/features/canvas/application/videoUpload';
 import { renameLocalMediaFiles } from '@/commands/image';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import { formatGenerationElapsedMs } from '@/features/canvas/ui/generationElapsed';
@@ -303,7 +304,8 @@ export const VideoNode = memo(({ id, data, selected, type, width, height }: Vide
             <video
               src={videoSource}
               poster={data.thumbnailUrl ? resolveImageDisplayUrl(data.thumbnailUrl) : undefined}
-              className="nodrag nowheel h-full w-full bg-black object-contain"
+              className="nowheel h-full w-full bg-black object-contain"
+              draggable={false}
               controls
               playsInline
               preload="metadata"
@@ -398,13 +400,13 @@ export const VideoNode = memo(({ id, data, selected, type, width, height }: Vide
         onChange={handleFileChange}
       />
 
-      <Handle
+      <NodeConnectionHandle
         type="target"
         id="target"
         position={Position.Left}
         className="!h-2 !w-2 !border-surface-dark !bg-accent"
       />
-      <Handle
+      <NodeConnectionHandle
         type="source"
         id="source"
         position={Position.Right}

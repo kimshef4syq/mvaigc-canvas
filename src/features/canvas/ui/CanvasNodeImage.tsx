@@ -150,6 +150,7 @@ export const CanvasNodeImage = memo(({
 
   return (
     <img
+      draggable={false}
       {...props}
       src={activeSrc}
       alt={alt}

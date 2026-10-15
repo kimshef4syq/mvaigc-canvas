@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import { Braces, Check, Expand, LoaderCircle, Pencil } from 'lucide-react';
 
 import { CANVAS_NODE_TYPES, type JsonCardNodeData } from '@/features/canvas/domain/canvasNodes';
@@ -10,6 +10,7 @@ import {
   tokenizeJsonPath,
 } from '@/features/canvas/application/aiText/helpers';
 import { resolveNodeDisplayName } from '@/features/canvas/domain/nodeDisplay';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import { TextPreviewModal } from '@/features/canvas/ui/TextPreviewModal';
@@ -614,9 +615,7 @@ export const JsonCardNode = memo(({ id, data, selected, width, height }: JsonCar
         />
 
         <div
-          className="ui-scrollbar nodrag nowheel min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-3"
-          onMouseDown={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
+          className="ui-scrollbar nowheel min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-3"
         >
           {isEditing ? (
             <textarea
@@ -754,13 +753,13 @@ export const JsonCardNode = memo(({ id, data, selected, width, height }: JsonCar
         }
         </div>
 
-        <Handle
+        <NodeConnectionHandle
           type="target"
           id="target"
           position={Position.Left}
           className="!h-2 !w-2 !border-surface-dark !bg-accent"
         />
-        <Handle
+        <NodeConnectionHandle
           type="source"
           id="source"
           position={Position.Right}

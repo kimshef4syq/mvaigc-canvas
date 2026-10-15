@@ -9,7 +9,7 @@ import {
   useEffect,
   useRef,
 } from 'react';
-import { Handle, Position, useUpdateNodeInternals, useViewport } from '@xyflow/react';
+import { Position, useUpdateNodeInternals, useViewport } from '@xyflow/react';
 import { Minus, Plus, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -64,6 +64,7 @@ import { CanvasNodeImage } from '@/features/canvas/ui/CanvasNodeImage';
 import {
   UiButton,
 } from '@/components/ui';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import {
@@ -1679,13 +1680,13 @@ export const StoryboardGenNode = memo(({ id, data, selected, width, height }: St
         </UiButton>
       </div>
 
-      <Handle
+      <NodeConnectionHandle
         type="target"
         id="target"
         position={Position.Left}
         className="!h-2 !w-2 !border-surface-dark !bg-accent"
       />
-      <Handle
+      <NodeConnectionHandle
         type="source"
         id="source"
         position={Position.Right}

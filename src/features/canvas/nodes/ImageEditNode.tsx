@@ -9,7 +9,7 @@ import {
   useEffect,
   useRef,
 } from 'react';
-import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
+import { Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
 import { Bug, Check, ChevronRight, Copy, Sparkles, Video, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -24,6 +24,7 @@ import {
   type CameraControlOptions,
 } from '@/features/canvas/domain/canvasNodes';
 import { resolveNodeDisplayName } from '@/features/canvas/domain/nodeDisplay';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import {
@@ -1628,13 +1629,13 @@ export const ImageEditNode = memo(({ id, data, selected, width, height }: ImageE
         </div>
       </UiModal>
 
-      <Handle
+      <NodeConnectionHandle
         type="target"
         id="target"
         position={Position.Left}
         className="!h-2 !w-2 !border-surface-dark !bg-accent"
       />
-      <Handle
+      <NodeConnectionHandle
         type="source"
         id="source"
         position={Position.Right}

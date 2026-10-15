@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { Handle, NodeToolbar, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
+import { NodeToolbar, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
 import { AlertTriangle, Bug, Camera, Check, ChevronDown, ChevronRight, Copy, History, Loader2, Maximize2, Sparkles, Video, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -105,6 +105,7 @@ import { CanvasNodeImage } from '@/features/canvas/ui/CanvasNodeImage';
 import { CameraControlPanel } from '@/features/canvas/ui/CameraControlPanel';
 import { DreaminaMultiframeEditor } from '@/features/canvas/ui/DreaminaMultiframeEditor';
 import { buildCameraPrompt } from '@/features/canvas/application/cameraPromptLibrary';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import {
@@ -1403,7 +1404,8 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
               poster={displayPosterUrl ? resolveImageDisplayUrl(displayPosterUrl) : undefined}
               controls
               playsInline
-              className="nodrag nowheel h-full w-full bg-black object-contain"
+              className="nowheel h-full w-full bg-black object-contain"
+              draggable={false}
             />
           ) : data.generationError ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-red-300">
@@ -2227,13 +2229,13 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       </NodeToolbar>
       )}
 
-      <Handle
+      <NodeConnectionHandle
         type="target"
         id="target"
         position={Position.Left}
         className="!h-2 !w-2 !border-surface-dark !bg-accent"
       />
-      <Handle
+      <NodeConnectionHandle
         type="source"
         id="source"
         position={Position.Right}

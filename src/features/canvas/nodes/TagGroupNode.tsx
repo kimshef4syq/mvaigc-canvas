@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import { AlertTriangle, Image, Type, Video } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,6 +10,7 @@ import {
 } from '@/features/canvas/domain/canvasNodes';
 import { resolveNodeDisplayName } from '@/features/canvas/domain/nodeDisplay';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { useCanvasStore } from '@/stores/canvasStore';
 
 type TagGroupNodeProps = NodeProps & {
@@ -68,7 +69,7 @@ export const TagGroupNode = memo(({ data, selected }: TagGroupNodeProps) => {
           </div>
           {members.length === 0 && missingMemberCount === 0 ? <p className="m-auto text-xs text-text-muted">{t('node.tag.noMembers')}</p> : null}
         </div>
-        <Handle type="source" id="source" position={Position.Right} className="!h-2 !w-2 !border-surface-dark !bg-accent" />
+        <NodeConnectionHandle type="source" id="source" position={Position.Right} className="!h-2 !w-2 !border-surface-dark !bg-accent" />
         <NodeResizeHandle minWidth={260} minHeight={160} maxWidth={1400} maxHeight={1000} />
       </div>
   );

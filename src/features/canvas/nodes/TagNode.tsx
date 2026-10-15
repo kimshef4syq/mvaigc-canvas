@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import { Copy, Link2, Power, Tag, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +13,7 @@ import {
   type TagNodeData,
 } from '@/features/canvas/domain/canvasNodes';
 import { resolveNodeDisplayName } from '@/features/canvas/domain/nodeDisplay';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { useCanvasStore } from '@/stores/canvasStore';
 
@@ -138,8 +139,8 @@ export const TagNode = memo(({ id, data, selected }: TagNodeProps) => {
           {error ? <p role="alert" className="mt-1 truncate text-[10px] text-red-500" title={error}>{error}</p> : null}
         </div>
 
-        <Handle type="target" id="target" position={Position.Left} className="!h-2.5 !w-2.5 !border-surface-dark !bg-accent" />
-        <Handle type="source" id="source" position={Position.Right} className="!h-2.5 !w-2.5 !border-surface-dark !bg-accent" />
+        <NodeConnectionHandle type="target" id="target" position={Position.Left} className="!h-2.5 !w-2.5 !border-surface-dark !bg-accent" />
+        <NodeConnectionHandle type="source" id="source" position={Position.Right} className="!h-2.5 !w-2.5 !border-surface-dark !bg-accent" />
       </div>
       <TagRelationsDialog
         isOpen={isConnectionsOpen}

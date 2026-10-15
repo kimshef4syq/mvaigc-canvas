@@ -1609,7 +1609,8 @@
       "expandedHint": "双击节点或点击放大按钮进入；拖动、滚轮和方向键可检查画面细节。",
       "spherical": "720° 球体",
       "cylindrical": "360° 环绕",
-      "controlsHint": "拖动 / 方向键浏览"
+      "controlsHint": "拖动 / 方向键浏览",
+      "nodeDragHint": "拖动移动节点 · 双击放大浏览"
     },
     "upload": {
       "uploadedAlt": "已上传图片",

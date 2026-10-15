@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { NodeProps } from '@xyflow/react';
-import { Handle, Position } from '@xyflow/react';
+import { Position } from '@xyflow/react';
 import { useTranslation } from 'react-i18next';
 import { Camera, Maximize2 } from 'lucide-react';
 
@@ -16,6 +16,7 @@ import {
   type BlueprintNodeData,
   type DirectorStudioProjectRecord,
 } from '@/features/canvas/domain/canvasNodes';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { canvasEventBus } from '@/features/canvas/application/canvasServices';
 import type { CanvasEventMap } from '@/features/canvas/application/ports';
@@ -416,12 +417,12 @@ export const BlueprintNode = memo(({ id, data, selected }: BlueprintNodeProps) =
 
   return (
     <div
-      className={`overflow-hidden rounded-xl border bg-[var(--canvas-node-bg)] shadow-[var(--canvas-node-shadow)] ${selected ? 'border-accent' : 'border-[var(--canvas-node-border)]'}`}
+      className={`relative overflow-visible rounded-xl border bg-[var(--canvas-node-bg)] shadow-[var(--canvas-node-shadow)] ${selected ? 'border-accent' : 'border-[var(--canvas-node-border)]'}`}
       style={{ width: BLUEPRINT_NODE_WIDTH }}
       onDoubleClick={(e) => e.stopPropagation()}
     >
-      <Handle type="target" id="target" position={Position.Left} className="!bg-accent/70" />
-      <Handle type="source" id="source" position={Position.Right} className="!bg-accent/70" />
+      <NodeConnectionHandle type="target" id="target" position={Position.Left} className="!bg-accent/70" />
+      <NodeConnectionHandle type="source" id="source" position={Position.Right} className="!bg-accent/70" />
 
       <div className="flex items-center justify-between gap-3 border-b border-[var(--canvas-node-divider)] px-3 py-2 text-xs text-text-muted">
         <div className="min-w-0">
@@ -436,11 +437,10 @@ export const BlueprintNode = memo(({ id, data, selected }: BlueprintNodeProps) =
         </div>
       </div>
 
-      <div className="nodrag nopan flex flex-col gap-3 bg-[var(--canvas-node-subtle-bg)] p-3" onPointerDown={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); openDirectorStudio(); }}
-          className="group relative overflow-hidden rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] text-left transition-colors hover:border-[var(--canvas-node-border-hover)] hover:bg-[var(--canvas-node-menu-hover)]"
+      <div className="flex flex-col gap-3 rounded-b-xl bg-[var(--canvas-node-subtle-bg)] p-3">
+        <div
+          onDoubleClick={(e) => { e.stopPropagation(); openDirectorStudio(); }}
+          className="group relative cursor-grab overflow-hidden rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] text-left transition-colors hover:border-[var(--canvas-node-border-hover)] hover:bg-[var(--canvas-node-menu-hover)] active:cursor-grabbing"
           title={t('directorStudio.openFullscreen')}
         >
           <div className="aspect-[16/9] bg-[var(--canvas-node-media-bg)]">
@@ -458,11 +458,11 @@ export const BlueprintNode = memo(({ id, data, selected }: BlueprintNodeProps) =
               </div>
             )}
           </div>
-          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-[var(--canvas-node-media-overlay)] px-3 py-2">
+          <button type="button" onClick={(e) => { e.stopPropagation(); openDirectorStudio(); }} className="nodrag absolute inset-x-0 bottom-0 flex w-full items-center justify-between gap-2 bg-[var(--canvas-node-media-overlay)] px-3 py-2">
             <span className="min-w-0 truncate text-xs font-medium text-white/90">{t('directorStudio.openFullscreen')}</span>
             <Maximize2 className="h-4 w-4 shrink-0 text-white/75 transition-transform group-hover:scale-110" />
-          </div>
-        </button>
+          </button>
+        </div>
 
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg-strong)] px-2 py-2">

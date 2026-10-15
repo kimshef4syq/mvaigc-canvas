@@ -9,7 +9,7 @@ import {
   type DragEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
+import { Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
 import { AlertTriangle, Check, Loader2, Music2, Pause, Play, RefreshCw, Scissors, Upload, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -22,6 +22,7 @@ import { isNodeUsingDefaultDisplayName, resolveNodeDisplayName } from '@/feature
 import { resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
 import { isAudioFile, resolveDroppedAudioFile } from '@/features/canvas/application/imageDragDrop';
 import { prepareAudioNodeDataFromFile } from '@/features/canvas/application/audioUpload';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import { formatGenerationElapsedMs } from '@/features/canvas/ui/generationElapsed';
@@ -796,13 +797,13 @@ export const AudioNode = memo(({ id, data, selected, type, width, height }: Audi
         onChange={handleFileChange}
       />
 
-      <Handle
+      <NodeConnectionHandle
         type="target"
         id="target"
         position={Position.Left}
         className="!h-2 !w-2 !border-surface-dark !bg-accent"
       />
-      <Handle
+      <NodeConnectionHandle
         type="source"
         id="source"
         position={Position.Right}

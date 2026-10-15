@@ -10,7 +10,7 @@ import {
   type FocusEvent,
   type KeyboardEvent,
 } from 'react';
-import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
+import { Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
 import { AlertTriangle, Bug, Check, ChevronDown, Copy, LoaderCircle, Music2, Settings2, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -38,6 +38,7 @@ import {
   transcribeVoxCpmReferenceAudio,
   type GenerateAudioRequest,
 } from '@/features/canvas/infrastructure/localAudioGateway';
+import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import {
@@ -1337,13 +1338,13 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
         <div className="mt-1 shrink-0 text-xs text-text-muted">{data.lastError}</div>
       ) : null}
 
-      <Handle
+      <NodeConnectionHandle
         type="target"
         id="target"
         position={Position.Left}
         className="!h-2 !w-2 !border-surface-dark !bg-accent"
       />
-      <Handle
+      <NodeConnectionHandle
         type="source"
         id="source"
         position={Position.Right}
