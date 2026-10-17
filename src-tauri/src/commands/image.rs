@@ -2995,6 +2995,79 @@ pub async fn embed_storyboard_image_metadata(
     persist_image_bytes(&app, &encoded, "png")
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalImageFile {
+    path: String,
+    width: u32,
+    height: u32,
+    bytes: u64,
+}
+
+fn prepare_external_image_bytes(directory: &Path, bytes: &[u8]) -> Result<ExternalImageFile, String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Write;
+    if bytes.is_empty() || bytes.len() > REMOTE_IMAGE_MAX_BYTES {
+        return Err("External image must contain between 1 byte and 64 MiB".into());
+    }
+    let reader = ImageReader::new(Cursor::new(bytes)).with_guessed_format()
+        .map_err(|e| format!("Image format validation failed: {e}"))?;
+    let format = reader.format();
+    let (width, height) = reader.into_dimensions().map_err(|e| format!("Image dimension validation failed: {e}"))?;
+    if width == 0 || height == 0 || width > 16_384 || height > 16_384 || u64::from(width) * u64::from(height) > 64_000_000 {
+        return Err("External image exceeds supported dimensions".into());
+    }
+    let image = image::load_from_memory(bytes).map_err(|e| format!("Image decode failed: {e}"))?;
+    // Keep full resolution; convert formats such as WebP/AVIF to an editor-safe PNG.
+    let png_bytes = if format == Some(ImageFormat::Png) { bytes.to_vec() } else { encode_dynamic_image_as_png(&image)? };
+    std::fs::create_dir_all(directory).map_err(|e| format!("Cannot create external media directory: {e}"))?;
+    let output = directory.join(format!("{:x}.png", Sha256::digest(&png_bytes)));
+    if std::fs::read(&output).ok().as_deref() != Some(png_bytes.as_slice()) {
+        let mut temporary = tempfile::NamedTempFile::new_in(directory).map_err(|e| format!("Cannot stage external image: {e}"))?;
+        temporary.write_all(&png_bytes).map_err(|e| format!("Cannot write external image: {e}"))?;
+        temporary.persist(&output).map_err(|e| format!("Cannot commit external image: {}", e.error))?;
+    }
+    let metadata = std::fs::File::open(&output).and_then(|file| file.metadata())
+        .map_err(|e| format!("External image is not readable: {e}"))?;
+    Ok(ExternalImageFile { path: output.to_string_lossy().into_owned(), width, height, bytes: metadata.len() })
+}
+
+#[cfg(test)]
+mod external_image_tests {
+    use super::*;
+
+    #[test]
+    fn external_image_preserves_resolution_and_validates_readable_png() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut jpeg = Cursor::new(Vec::new());
+        DynamicImage::new_rgb8(64, 32).write_to(&mut jpeg, ImageFormat::Jpeg).unwrap();
+        let output = prepare_external_image_bytes(directory.path(), jpeg.get_ref()).unwrap();
+        assert_eq!((output.width, output.height), (64, 32));
+        let bytes = std::fs::read(&output.path).unwrap();
+        assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
+        assert_eq!(image::load_from_memory(&bytes).unwrap().dimensions(), (64, 32));
+        assert_eq!(output.bytes, bytes.len() as u64);
+        assert_eq!(prepare_external_image_bytes(directory.path(), jpeg.get_ref()).unwrap().path, output.path);
+    }
+
+    #[test]
+    fn corrupt_external_images_do_not_create_files() {
+        let directory = tempfile::tempdir().unwrap();
+        assert!(prepare_external_image_bytes(directory.path(), b"not an image").is_err());
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+    }
+}
+
+#[tauri::command]
+pub async fn prepare_external_image_source(app: AppHandle, source: String) -> Result<ExternalImageFile, String> {
+    let (bytes, _) = resolve_source_bytes(source.trim()).await?;
+    // This directory is intentionally outside canvas images/: media referenced
+    // by an external editor must survive canvas orphan-image collection.
+    let directory = app.path().app_data_dir().map_err(|e| e.to_string())?.join("external-media").join("images");
+    tauri::async_runtime::spawn_blocking(move || prepare_external_image_bytes(&directory, &bytes))
+        .await.map_err(|e| format!("External image preparation interrupted: {e}"))?
+}
+
 #[tauri::command]
 pub async fn persist_image_source(app: AppHandle, source: String) -> Result<String, String> {
     let trimmed = source.trim();

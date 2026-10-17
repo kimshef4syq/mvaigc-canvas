@@ -4,6 +4,8 @@ import type { ChatCatalogEntry } from '@/features/canvas/application/chatModelCa
 import { resolveAgentModelReference } from './agentModelCapabilities';
 import { loadCanvasAgentSdkRuntime } from './agentRuntimeLoader';
 import { AgentSessionRepository } from '../infrastructure/agentSessionRepository';
+import { refreshInstalledAgentSkills } from './installedSkills';
+import { prepareAgentMcpConnections } from './mcpConnectionLifecycle';
 import {
   CANVAS_AGENT_DEFINITION_VERSION,
   CANVAS_AGENT_RUNTIME_VERSION,
@@ -94,6 +96,7 @@ function approvalId(item: RunToolApprovalItem): string {
 }
 
 function approvalEffect(toolName: string, command?: CanvasCommand): AgentEffect {
+  if (toolName.startsWith('mcp_')) return 'external-submit';
   if (toolName === 'config_patch') return 'config-write';
   if (toolName !== 'canvas_command' || !command) return 'read';
   if (command.type === 'node.tool.run' || command.type === 'generation.recover') return 'canvas-write';
@@ -242,10 +245,11 @@ function buildApprovalImpact(toolName: string, args: unknown): {
           ? asset
             ? `读取画布图片“${asset.title}”并仅发送给当前多模态模型。`
             : `读取一项稳定画布图片资产（${assetId ?? '未提供 assetId'}）。`
-          : '运行已列出的只读诊断，不发送付费生成请求。',
-      affectedNodeCount: asset ? 1 : 0,
+          : toolName === 'mcp_davinci_append_images' ? '将指定画布原图保存到本机，并追加到达芬奇当前打开时间线的末尾；默认每图 5 秒。'
+            : toolName.startsWith('mcp_') ? '调用已授权的外部 MCP 工具，可能修改外部软件、文件或发起渲染。' : '运行已列出的只读诊断，不发送付费生成请求。',
+      affectedNodeCount: toolName === 'mcp_davinci_append_images' && args && typeof args === 'object' && 'assetIds' in args && Array.isArray(args.assetIds) ? args.assetIds.length : asset ? 1 : 0,
       affectedEdgeCount: 0,
-      externalSideEffect: false,
+      externalSideEffect: toolName.startsWith('mcp_'),
     },
   };
 }
@@ -410,6 +414,7 @@ function getRunStateForResume(runId: string): {
 }
 
 async function createActiveRun(input: {
+  restoreExtensions?: boolean;
   runId: string;
   sessionId: string;
   projectId: string;
@@ -429,12 +434,17 @@ async function createActiveRun(input: {
     .slice(-6)
     .map((message) => message.text)
     .join('\n');
+  const [installed, mcp] = await Promise.all([refreshInstalledAgentSkills(), prepareAgentMcpConnections()]);
   const skillRoutingContext: SkillRoutingContext = {
     text: input.message,
+    installedSkills: installed.skills,
     recentUserText,
     attachmentKinds: input.media?.length ? ['image'] : [],
   };
   const agent = runtime.createCanvasAgent({
+    restoreExtensions: input.restoreExtensions,
+    mcpTools: mcp.tools,
+    mcpConnectionStatus: mcp.status,
     runtime: orchestrator,
     modelName: reference.catalogId,
     skillContext: skillRoutingContext,
@@ -763,13 +773,11 @@ export async function runCanvasAgentTurn(input: {
         onReasoningDelta: input.onReasoningDelta,
       });
       if (resumed.status === 'completed') return resumed;
-      prepared = await Promise.all(resumed.approvals.map((view) => prepareCanvasAgentToolApproval({
-        runId,
-        projectId: input.projectId,
-        callId: view.id,
-        toolName: view.toolName,
-        arguments: view.arguments,
-      })));
+      // Approval views contain redacted display data, never executable arguments.
+      // Rebind the next batch from the SDK's original pending tool calls.
+      const current = activeRuns.get(runId);
+      if (!current) throw new Error('Agent 运行状态已丢失，无法继续审批。');
+      prepared = await Promise.all(current.state.getInterruptions().map((item) => prepareApproval(item, runId, input.projectId)));
       iterations += 1;
     }
   }
@@ -817,7 +825,7 @@ async function performCanvasAgentApprovalResolution(input: {
     const record = getRunStateForResume(input.runId);
     const session = repository.getSession(record.sessionId);
     if (!session) throw new Error('Agent 对话已不存在。');
-    const partial = await createActiveRun({ runId: record.id, sessionId: record.sessionId, projectId: record.projectId, model: input.model, message: '恢复已中断的工具审批', onToolEvent: input.onToolEvent });
+    const partial = await createActiveRun({ runId: record.id, sessionId: record.sessionId, projectId: record.projectId, model: input.model, message: '恢复已中断的工具审批', onToolEvent: input.onToolEvent, restoreExtensions: true });
     const context = { projectId: record.projectId, runId: record.id, onToolEvent: input.onToolEvent };
     const restored = await partial.runtime.restoreStoryboardRunState(partial.agent as any, record.serializedState, { context } as any);
     active = { ...partial, state: restored };

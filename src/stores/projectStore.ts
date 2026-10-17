@@ -1184,13 +1184,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
     if (currentProjectId && currentProject && currentProject.id === currentProjectId) {
       const canvasState = useCanvasStore.getState();
+      // A fresh/HMR-reset store has never loaded a canvas (revision 0).
+      // Closing before hydration must retain the stored project, not save
+      // its transient empty arrays. Actual clear/delete operations increment
+      // the revision and continue to persist normally.
+      const unhydrated = canvasState.revision === 0 && canvasState.nodes.length === 0 && currentProject.nodes.length > 0;
       const nextProject: Project = {
         ...currentProject,
-        nodes: canvasState.nodes,
-        edges: canvasState.edges,
-        viewport: canvasState.currentViewport ?? currentProject.viewport ?? DEFAULT_VIEWPORT,
-        history: canvasState.history ?? currentProject.history ?? createEmptyHistory(),
-        nodeCount: canvasState.nodes.length,
+        nodes: unhydrated ? currentProject.nodes : canvasState.nodes,
+        edges: unhydrated ? currentProject.edges : canvasState.edges,
+        viewport: unhydrated ? currentProject.viewport : canvasState.currentViewport ?? currentProject.viewport ?? DEFAULT_VIEWPORT,
+        history: unhydrated ? currentProject.history : canvasState.history ?? currentProject.history ?? createEmptyHistory(),
+        nodeCount: unhydrated ? currentProject.nodes.length : canvasState.nodes.length,
         updatedAt: Date.now(),
       };
 
@@ -1228,6 +1233,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   saveCurrentProject: (nodes, edges, viewport, history) => {
     const { currentProjectId, currentProject } = get();
     if (!currentProjectId || !currentProject || currentProject.id !== currentProjectId) {
+      return;
+    }
+    if (useCanvasStore.getState().revision === 0 && nodes.length === 0 && currentProject.nodes.length > 0) {
       return;
     }
 

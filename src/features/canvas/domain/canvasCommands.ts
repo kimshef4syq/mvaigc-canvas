@@ -265,6 +265,7 @@ export type FocusViewportCommand = CanvasCommandBase<'viewport.focus', {
 }>;
 
 export type ListAssetsCommand = CanvasCommandBase<'asset.list', {
+  generatedOnly?: boolean;
   kind?: 'image' | 'video' | 'audio';
   query?: string;
   nodeIds?: string[];

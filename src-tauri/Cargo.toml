@@ -43,6 +43,7 @@ urlencoding = "2"
 sha2 = "0.10"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 regex = "1"
+rmcp = { version = "=3.5.1", default-features = false, features = ["client", "transport-child-process", "transport-streamable-http-client-reqwest", "reqwest-native-tls"] }
 tempfile = "3"
 
 [target.'cfg(unix)'.dependencies]

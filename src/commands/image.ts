@@ -178,6 +178,11 @@ export async function loadImage(filePath: string): Promise<string> {
   });
 }
 
+export interface ExternalImageFile { path: string; width: number; height: number; bytes: number }
+export async function prepareExternalImageSource(source: string): Promise<ExternalImageFile> {
+  return invoke('prepare_external_image_source', { source });
+}
+
 export async function persistImageSource(source: string): Promise<string> {
   if (!isTauri()) {
     return source;

@@ -737,6 +737,18 @@ export async function createAgentRequestFingerprint(toolName: string, input: unk
   return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
 }
 
+/** Bind execution to the same original JSON used to prepare the approval,
+ * before Zod strips unknown fields or inserts defaults. */
+export async function createAgentToolRequestFingerprint(
+  toolName: string,
+  parsedInput: unknown,
+  details?: { toolCall?: { arguments?: unknown } },
+): Promise<string> {
+  const raw = details?.toolCall?.arguments;
+  const original = typeof raw === 'string' ? JSON.parse(raw) as unknown : raw ?? parsedInput;
+  return createAgentRequestFingerprint(toolName, original);
+}
+
 export function createApprovalRecord(input: Omit<AgentApprovalRecord, 'status' | 'createdAt' | 'expiresAt'> & { ttlMs?: number }): AgentApprovalRecord {
   const now = Date.now();
   const { ttlMs, ...record } = input;

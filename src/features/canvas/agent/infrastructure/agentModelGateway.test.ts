@@ -99,6 +99,32 @@ async function collect(iterable: AsyncIterable<AgentModelStreamEvent>): Promise<
 }
 
 describe('agent model provider gateway', () => {
+  it('accepts empty null/array arguments only for an explicitly argument-free tool', async () => {
+    for (const argumentsValue of ['null', '[]']) {
+      const input = request(model('openai-chat-completions'));
+      input.tools = [{ name: 'get_resolve_status', description: 'Read status', strict: false, parameters: { type: 'object', properties: {}, required: [] } }];
+      const client = new FixtureHttpClient({ status: 200, text: JSON.stringify({ id: 'empty-tool', choices: [{ message: { tool_calls: [{ id: 'status-call', function: { name: 'get_resolve_status', arguments: argumentsValue } }] } }] }) }, []);
+      const result = await transport(client).getResponse(input);
+      expect(result.toolCalls[0].arguments).toBe('{}');
+      const required = request(model('openai-chat-completions'));
+      await expect(transport(client).getResponse(required)).rejects.toThrow('Tool arguments must be a JSON object');
+    }
+  });
+  it('unwraps a double-encoded JSON object without accepting non-object payloads', async () => {
+    const client = new FixtureHttpClient({ status: 200, text: JSON.stringify({ id: 'encoded-tool', choices: [{ message: { tool_calls: [{ id: 'call-encoded', function: { name: 'canvas__create_node', arguments: JSON.stringify(JSON.stringify({ title: 'Shot' })) } }] } }] }) }, []);
+    const result = await transport(client).getResponse(request(model('openai-chat-completions')));
+    expect(result.toolCalls[0].arguments).toBe('{"title":"Shot"}');
+  });
+  it('preserves whitespace-only argument fragments inside streamed JSON strings', async () => {
+    const chunks = [
+      'data: '+JSON.stringify({ id: 'spaces', choices: [{ delta: { tool_calls: [{ index: 0, id: 'call-space', function: { name: 'canvas__create_node', arguments: '{"title":"A' } }] } }] })+'\n',
+      'data: '+JSON.stringify({ id: 'spaces', choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: ' ' } }] } }] })+'\n',
+      'data: '+JSON.stringify({ id: 'spaces', choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: 'B"}' } }] }, finish_reason: 'tool_calls' }] })+'\n',
+      'data: [DONE]\n',
+    ];
+    const events = await collect(transport(new FixtureHttpClient({ status: 200, text: '' }, chunks)).getStreamedResponse(request(model('openai-chat-completions'))));
+    expect(events[events.length - 1]).toMatchObject({ type: 'completed', response: { toolCalls: [{ arguments: '{"title":"A B"}' }] } });
+  });
   it('normalizes an OpenAI Responses text and tool round without leaking credentials', async () => {
     const client = new FixtureHttpClient({
       status: 200,

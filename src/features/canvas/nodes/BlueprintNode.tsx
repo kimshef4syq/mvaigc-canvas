@@ -321,6 +321,7 @@ export const BlueprintNode = memo(({ id, data, selected }: BlueprintNodeProps) =
     const requestAspectRatio = resolveDirectorStudioRequestAspectRatio(data);
     const screenshotPosition = findNodePosition(id, 384, 288);
     const screenshotNodeId = addNode(CANVAS_NODE_TYPES.exportImage, screenshotPosition, {
+      assetPurpose: 'intermediate',
       imageUrl: snapshotUrl,
       previewImageUrl: null,
       aspectRatio,

@@ -3,6 +3,8 @@ pub mod diagnostic_log;
 pub mod dreamina;
 mod dreamina_cli;
 pub mod external_agent;
+pub mod extensions;
+pub mod mcp_client;
 pub mod http;
 pub mod image;
 pub mod mvaigc_proxy;

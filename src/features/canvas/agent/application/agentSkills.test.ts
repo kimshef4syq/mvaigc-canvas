@@ -33,7 +33,7 @@ describe('agent skill router', () => {
       skillContext: unmatched,
       supportsVision: true,
       supportsToolSearch: false,
-    })).toMatchObject({ mode: 'minimal', toolKinds: [] });
+    })).toMatchObject({ mode: 'minimal', toolKinds: ['canvas'] });
 
     const selected = buildSkillContext({ text: '帮我诊断 429 错误' });
     const allDetailTokens = BUILTIN_AGENT_SKILLS.reduce((sum, skill) => sum + skill.estimatedTokens, 0);
@@ -77,7 +77,7 @@ describe('agent skill router', () => {
     expect(local.mode).toBe('local-router');
     expect(searched.mode).toBe('tool-search');
     expect(searched.toolKinds).toEqual(local.toolKinds);
-    expect(local.toolKinds).toEqual(['diagnostics', 'config']);
+    expect(local.toolKinds).toEqual(['canvas', 'diagnostics', 'config']);
     expect(resolveAgentToolPolicy({
       skillContext: context,
       supportsVision: false,
