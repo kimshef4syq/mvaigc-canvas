@@ -1,5 +1,5 @@
 {
-  "name": "open-storyboard-canvas",
+  "name": "mvaigc-canvas",
   "private": false,
   "version": "0.1.27",
   "description": "开源的 AI 分镜与导演台画布，支持全景图、摄像机控制、提示词预设和多供应商调用。",

@@ -39,7 +39,7 @@
     "all-reference-video": "参考生视频"
   },
   "app": {
-    "title": "mvaigc 桌面画布",
+    "title": "mvaigc-canvas",
     "subtitle": "AI 图片 / 视频 / 分镜创作画布"
   },
   "canvasAgent": {
@@ -2555,7 +2555,7 @@
     "getApiKeyLink": "点击这里获取密钥",
     "missingAnyApiKeyMessage": "您还没配置任何供应商，请打开设置进行配置。",
     "openProvidersSettings": "打开设置",
-    "aboutAppName": "mvaigc 桌面画布",
+    "aboutAppName": "mvaigc-canvas",
     "aboutIntro": "面向 AI 图片 / 视频 / 分镜创作的本地桌面画布，支持全景图、摄像机控制、提示词预设与多供应商调用。基于 Open Storyboard Canvas 二次开发。",
     "aboutVersionLabel": "版本",
     "aboutVersionUnknown": "未知",

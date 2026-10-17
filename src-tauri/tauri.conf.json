@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Open Storyboard Canvas",
+  "productName": "mvaigc-canvas",
   "version": "0.1.27",
   "identifier": "com.ganbo-gab.open-storyboard-canvas",
   "build": {
@@ -16,7 +16,7 @@
       {
         "label": "main",
         "create": false,
-        "title": "开源画布 Open Storyboard Canvas",
+        "title": "mvaigc-canvas",
         "dragDropEnabled": false,
         "width": 1920,
         "height": 1080,

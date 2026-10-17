@@ -39,7 +39,7 @@
     "all-reference-video": "Reference to video"
   },
   "app": {
-    "title": "mvaigc Canvas",
+    "title": "mvaigc-canvas",
     "subtitle": "AI image / video / storyboard canvas"
   },
   "canvasAgent": {
@@ -2559,7 +2559,7 @@
     "getApiKeyLink": "click here to get API key",
     "missingAnyApiKeyMessage": "You have not configured any providers yet. Please open Settings to configure one.",
     "openProvidersSettings": "Open Settings",
-    "aboutAppName": "mvaigc Canvas",
+    "aboutAppName": "mvaigc-canvas",
     "aboutIntro": "A local desktop canvas for AI image / video / storyboard creation, with panoramas, camera controls, prompt presets, and multi-provider generation. Based on Open Storyboard Canvas.",
     "aboutVersionLabel": "Version",
     "aboutVersionUnknown": "Unknown",
