@@ -2695,5 +2695,27 @@
         "desc": "回溯5秒前的场景"
       }
     }
+  },
+  "canvasOrganize": {
+    "title": "整理",
+    "category": "分类整理",
+    "byConnection": "按连线关系",
+    "byConnectionTip": "按节点输入输出连接拓扑关系，将同链路节点分层水平有序排列",
+    "byMaterial": "按素材类型",
+    "byMaterialTip": "按文本、图片、视频、3D预演等不同素材类型分列归类网格排列",
+    "layout": "布局整理",
+    "horizontal": "水平排列",
+    "horizontalTip": "将选定节点沿水平单行均匀排开",
+    "vertical": "垂直排列",
+    "verticalTip": "将选定节点沿垂直单列均匀排开",
+    "grid": "网格排列",
+    "gridTip": "将选定节点按方阵网格规则整齐排布",
+    "gridToggle": "切换网格",
+    "snapToggle": "网格磁吸",
+    "edgeToggle": "连线样式",
+    "minimap": "小地图",
+    "zoomReset": "重置缩放 (100%)",
+    "selectionCount": "已选 {{count}} 个节点",
+    "allCount": "整理全画布 {{count}} 个节点"
   }
 }

@@ -98,6 +98,7 @@ import { SelectedNodeOverlay } from './ui/SelectedNodeOverlay';
 import { NodeToolDialog } from './ui/NodeToolDialog';
 import { ImageViewerModal } from './ui/ImageViewerModal';
 import { AssetPanel, type CanvasAssetItem } from './ui/AssetPanel';
+import { CanvasOrganizeToolbar } from './ui/CanvasOrganizeToolbar';
 import { MissingApiKeyHint } from '@/features/settings/MissingApiKeyHint';
 
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, zoom: 1 };
@@ -1032,6 +1033,51 @@ export function Canvas() {
   const enableCanvasWasdPan = useSettingsStore((state) => state.enableCanvasWasdPan);
   const canvasWasdPanSensitivity = useSettingsStore((state) => state.canvasWasdPanSensitivity);
   const useUploadFilenameAsNodeTitle = useSettingsStore((state) => state.useUploadFilenameAsNodeTitle);
+  const canvasEdgeRoutingMode = useSettingsStore((state) => state.canvasEdgeRoutingMode);
+  const setCanvasEdgeRoutingMode = useSettingsStore((state) => state.setCanvasEdgeRoutingMode);
+
+  const [showGrid, setShowGrid] = useState(() => {
+    const saved = localStorage.getItem('canvas_show_grid');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [isSnapEnabled, setIsSnapEnabled] = useState(() => {
+    const saved = localStorage.getItem('canvas_snap_grid');
+    return saved === 'true';
+  });
+  const [showMiniMap, setShowMiniMap] = useState(() => {
+    const saved = localStorage.getItem('canvas_show_minimap');
+    return saved === 'true';
+  });
+
+  const handleToggleGrid = useCallback(() => {
+    setShowGrid((prev) => {
+      const next = !prev;
+      localStorage.setItem('canvas_show_grid', String(next));
+      return next;
+    });
+  }, []);
+
+  const handleToggleSnap = useCallback(() => {
+    setIsSnapEnabled((prev) => {
+      const next = !prev;
+      localStorage.setItem('canvas_snap_grid', String(next));
+      return next;
+    });
+  }, []);
+
+  const handleToggleMiniMap = useCallback(() => {
+    setShowMiniMap((prev) => {
+      const next = !prev;
+      localStorage.setItem('canvas_show_minimap', String(next));
+      return next;
+    });
+  }, []);
+
+  const handleToggleEdgeRouting = useCallback(() => {
+    const nextMode = canvasEdgeRoutingMode === 'spline' ? 'orthogonal' : 'spline';
+    setCanvasEdgeRoutingMode(nextMode);
+  }, [canvasEdgeRoutingMode, setCanvasEdgeRoutingMode]);
+
   const customProviders = useCustomProvidersStore((state) => state.providers);
   const providerIds = useMemo(() => listModelProviders().map((provider) => provider.id), []);
   const hasConfiguredProvider = useMemo(
@@ -4118,22 +4164,28 @@ export function Canvas() {
         onlyRenderVisibleElements={!activeDirectorStudioNodeId}
         zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
+        snapToGrid={isSnapEnabled}
+        snapGrid={[20, 20]}
         className="canvas-flow"
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          color="var(--canvas-grid-dot)"
-        />
-        <MiniMap
-          className="canvas-minimap nopan nowheel"
-          style={{ pointerEvents: 'all', zIndex: 10000 }}
-          nodeColor="var(--canvas-minimap-node)"
-          maskColor="var(--canvas-minimap-mask)"
-          pannable
-          zoomable
-        />
+        {showGrid && (
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+            color="var(--canvas-grid-dot)"
+          />
+        )}
+        {showMiniMap && (
+          <MiniMap
+            className="canvas-minimap nopan nowheel"
+            style={{ pointerEvents: 'all', zIndex: 10000 }}
+            nodeColor="var(--canvas-minimap-node)"
+            maskColor="var(--canvas-minimap-mask)"
+            pannable
+            zoomable
+          />
+        )}
 
         <SelectedNodeOverlay />
       </ReactFlow>
@@ -4247,6 +4299,18 @@ export function Canvas() {
           </button>
         </div>
       )}
+
+      <CanvasOrganizeToolbar
+        showGrid={showGrid}
+        onToggleGrid={handleToggleGrid}
+        isSnapEnabled={isSnapEnabled}
+        onToggleSnap={handleToggleSnap}
+        showMiniMap={showMiniMap}
+        onToggleMiniMap={handleToggleMiniMap}
+        edgeRoutingType={canvasEdgeRoutingMode === 'spline' ? 'spline' : 'orthogonal'}
+        onToggleEdgeRouting={handleToggleEdgeRouting}
+        selectedNodeIds={selectedNodeIds}
+      />
 
       <CanvasSideToolbar onOpenAssets={handleOpenAssetPanel} />
       <AssetPanel

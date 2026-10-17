@@ -2699,5 +2699,27 @@
         "desc": " flashback to 5 seconds ago"
       }
     }
+  },
+  "canvasOrganize": {
+    "title": "Organize",
+    "category": "Categorized",
+    "byConnection": "By Connections",
+    "byConnectionTip": "Arrange nodes by directed input/output connection topology in hierarchical layers",
+    "byMaterial": "By Material Type",
+    "byMaterialTip": "Group and arrange nodes into columns by type: text, image, video, 3D director, etc.",
+    "layout": "Layout Align",
+    "horizontal": "Horizontal",
+    "horizontalTip": "Arrange nodes side-by-side in a single horizontal row",
+    "vertical": "Vertical",
+    "verticalTip": "Arrange nodes stacked in a single vertical column",
+    "grid": "Grid Matrix",
+    "gridTip": "Arrange nodes in a balanced multi-column grid matrix",
+    "gridToggle": "Grid",
+    "snapToggle": "Snap",
+    "edgeToggle": "Connector",
+    "minimap": "Minimap",
+    "zoomReset": "Reset Zoom (100%)",
+    "selectionCount": "{{count}} nodes selected",
+    "allCount": "Organize all {{count}} nodes"
   }
 }
