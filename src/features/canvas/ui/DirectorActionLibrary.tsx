@@ -1,5 +1,7 @@
 import { memo, useMemo, useState } from 'react';
 import { OriginalMotionLibrary } from './director/motion/OriginalMotionLibrary';
+import { MixamoMotionLibrary } from './director/motion/MixamoMotionLibrary';
+import { mixamoModelId } from './director/motion/mixamoCharacterAssets';
 import { Copy, Film, Pencil, Play, RotateCcw, Trash2, UserRound, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -27,6 +29,7 @@ type Props = {
   onClearAction?: () => void;
   onEditCustomPose?: () => void;
   onApplyOriginalMotion?: (id:string,start:number,end:number)=>Promise<void>;
+  onApplyMixamoMotion?: (clipId:string)=>Promise<void>;
 };
 
 type LibraryTab = 'original' | 'poses' | 'actions' | 'clips';
@@ -49,6 +52,7 @@ export const DirectorActionLibrary = memo(function DirectorActionLibrary({
   onClearAction,
   onEditCustomPose,
   onApplyOriginalMotion,
+  onApplyMixamoMotion,
 }: Props) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<LibraryTab>('original');
@@ -102,7 +106,11 @@ export const DirectorActionLibrary = memo(function DirectorActionLibrary({
             </div>
           ) : null}
 
-          {tab === 'original' && <OriginalMotionLibrary compatible={Boolean((selectedItem?.presetId === 'ai4animation-geno' || selectedItem?.presetId === 'ai4animation-cranberry') && onApplyOriginalMotion)} selectedModelId={selectedItem?.presetId} remaining={project.durationSeconds-currentTime} onApply={onApplyOriginalMotion ?? (async()=>{throw new Error('请打开预演台');})} />}
+          {tab === 'original' && (mixamoModelId(selectedItem?.presetId) ? (
+            <MixamoMotionLibrary modelId={mixamoModelId(selectedItem?.presetId)} remaining={project.durationSeconds-currentTime} onApply={onApplyMixamoMotion ?? (async()=>{throw new Error('请打开预演台');})} />
+          ) : (
+            <OriginalMotionLibrary compatible={Boolean((selectedItem?.presetId === 'ai4animation-geno' || selectedItem?.presetId === 'ai4animation-cranberry') && onApplyOriginalMotion)} selectedModelId={selectedItem?.presetId} remaining={project.durationSeconds-currentTime} onApply={onApplyOriginalMotion ?? (async()=>{throw new Error('请打开预演台');})} />
+          ))}
           {tab === 'poses' ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {onClearAction ? (

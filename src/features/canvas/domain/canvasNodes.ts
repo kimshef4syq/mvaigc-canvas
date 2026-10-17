@@ -664,8 +664,8 @@ export interface DirectorSkeletonFrame {
 }
 
 export interface DirectorSkeletonRecording {
-  modelId: 'ai4animation-geno' | 'ai4animation-cranberry';
-  skeletonId: 'geno-biped-23-v1' | 'geno-biped-hands-53-v2' | 'cranberry-biped-23-v1' | 'cranberry-biped-hands-53-v2';
+  modelId: 'ai4animation-geno' | 'ai4animation-cranberry' | `mixamo-${string}`;
+  skeletonId: 'geno-biped-23-v1' | 'geno-biped-hands-53-v2' | 'cranberry-biped-23-v1' | 'cranberry-biped-hands-53-v2' | `mixamo-${string}`;
   source?: { kind: 'upstream-motion'; motionId: string; label: string; sourceStart: number; sourceEnd: number };
   fps: 30;
   jointNames: string[];

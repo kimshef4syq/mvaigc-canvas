@@ -84,6 +84,8 @@ import type { BlueprintReferenceImage } from '@/features/canvas/application/blue
 import { showErrorDialog } from '@/features/canvas/application/errorDialog';
 import { BlueprintCustomActionModal } from '@/features/canvas/ui/BlueprintCustomActionModal';
 import { bakeOriginalMotion, loadOriginalMotion } from './director/motion/originalMotionAssets';
+import { bakeMixamoMotion } from './director/motion/mixamoMotionAssets';
+import { mixamoModelId } from './director/motion/mixamoCharacterAssets';
 import bipedMetaJson from '../../../../public/models/ai4animation/locomotion_biped_meta.json';
 import type { BipedMeta } from './director/motion/types';
 import { DirectorActionLibrary } from '@/features/canvas/ui/DirectorActionLibrary';
@@ -4556,6 +4558,18 @@ export const DirectorStudioShell = memo(function DirectorStudioShell(props: Dire
           const time = motionTimeSource.getSnapshot();
           try {
             const recording = bakeOriginalMotion(mesh, bipedMetaJson as BipedMeta, motion, start, end, time, motionProject.durationSeconds);
+            updateMotionProject(project => ({...project,skeletonRecordings:{...project.skeletonRecordings,[selectedItem.id]:recording}}));
+            setActionLibraryOpen(false);
+          } finally { setMotionTimeAndApply(time); }
+        } : undefined}
+        onApplyMixamoMotion={timelineOpen ? async (clipId) => {
+          if (!selectedItem || !mixamoModelId(selectedItem.presetId)) throw new Error('请选择 Mixamo 人物');
+          neuralPilot.stop(); setMotionPlaying(false);
+          const mesh = editorRef.current?.getNeuralCharacterMesh(selectedItem.id);
+          if (!mesh) throw new Error('人物模型尚未加载');
+          const time = motionTimeSource.getSnapshot();
+          try {
+            const recording = bakeMixamoMotion(mesh, clipId, time, motionProject.durationSeconds);
             updateMotionProject(project => ({...project,skeletonRecordings:{...project.skeletonRecordings,[selectedItem.id]:recording}}));
             setActionLibraryOpen(false);
           } finally { setMotionTimeAndApply(time); }

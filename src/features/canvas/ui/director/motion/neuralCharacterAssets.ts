@@ -263,6 +263,23 @@ export class NeuralSkeletonAdapter {
   }
 }
 export function applyBakedSkeleton(group: THREE.Group, names: string[], frame: DirectorSkeletonFrame) {
+  if (group.userData.mixamoModelId) {
+    // Mixamo rigs carry the whole skeleton; write root + every named bone
+    // straight from the baked frame (no hand/finger or 23-joint special cases).
+    group.position.fromArray(frame.rootPosition);
+    group.quaternion.fromArray(frame.rootRotation);
+    group.scale.fromArray(frame.rootScale);
+    names.forEach((name, i) => {
+      const bone = group.getObjectByName(name);
+      if (!bone) return;
+      bone.position.fromArray(frame.joints, i * 7);
+      bone.quaternion.fromArray(frame.joints, i * 7 + 3).normalize();
+      bone.matrixAutoUpdate = true;
+    });
+    group.userData.motionPoseKey = undefined;
+    group.updateMatrixWorld(true);
+    return;
+  }
   const isCranberry = group.userData.neuralModelId === 'ai4animation-cranberry';
   const fingerNames = isCranberry ? CRANBERRY_FINGER_JOINT_NAMES : GENO_FINGER_JOINT_NAMES;
   fingerNames.forEach(name => { const bone=group.getObjectByName(name); if(bone) bone.matrixAutoUpdate=true; });

@@ -9,6 +9,11 @@ export function normalizeSkeletonRecordings(value: unknown, duration: number): R
     if (!raw || typeof raw !== 'object') return;
     const r = raw as Partial<DirectorSkeletonRecording>;
     const modelId = r.modelId;
+    if (typeof modelId === 'string' && modelId.startsWith('mixamo-')) {
+      const normalized = normalizeMixamoRecording(r, duration);
+      if (normalized) result[id] = normalized;
+      return;
+    }
     if (modelId !== 'ai4animation-geno' && modelId !== 'ai4animation-cranberry') return;
     const isCranberry = modelId === 'ai4animation-cranberry';
     const jointCount = (r.skeletonId === 'geno-biped-23-v1' || r.skeletonId === 'cranberry-biped-23-v1') ? 23 : (r.skeletonId === 'geno-biped-hands-53-v2' || r.skeletonId === 'cranberry-biped-hands-53-v2') ? 53 : 0;
@@ -28,6 +33,25 @@ export function normalizeSkeletonRecordings(value: unknown, duration: number): R
     if (trimmed.length > 1) result[id] = { modelId, skeletonId: r.skeletonId!, fps: 30, jointNames: [...r.jointNames], ...(source ? {source} : {}), frames: trimmed.map(f => ({ time: f.time, rootPosition: [...f.rootPosition], rootRotation: [...f.rootRotation], rootScale: [...f.rootScale], joints: [...f.joints], ...(f.jointBases ? {jointBases:[...f.jointBases]} : {}) })) };
   });
   return result;
+}
+/** Mixamo recordings carry the model's full skeleton (variable joint count and
+ *  names), so they get a name-agnostic validation: every frame must be finite,
+ *  correctly sized and have non-zero quaternions — but no fixed joint list. */
+function normalizeMixamoRecording(r: Partial<DirectorSkeletonRecording>, duration: number): DirectorSkeletonRecording | null {
+  const jointCount = Array.isArray(r.jointNames) ? r.jointNames.length : 0;
+  if (!jointCount || !Array.isArray(r.jointNames) || !r.jointNames.every(n => typeof n === 'string' && n.length > 0) || new Set(r.jointNames).size !== jointCount || r.fps !== 30 || typeof r.skeletonId !== 'string' || !Array.isArray(r.frames)) return null;
+  const vector = (v: unknown, size: number): v is number[] => Array.isArray(v) && v.length === size && v.every(n => typeof n === 'number' && Number.isFinite(n));
+  const validQuaternion = (v: number[], offset = 0) => Math.hypot(...v.slice(offset, offset + 4)) > 1e-6;
+  const frames = r.frames.slice(0, 902).filter(f => f && typeof f.time === 'number' && Number.isFinite(f.time) && f.time >= 0 && f.time <= 30 && vector(f.rootPosition, 3) && vector(f.rootRotation, 4) && validQuaternion(f.rootRotation) && vector(f.rootScale, 3) && f.rootScale.every(n => n > 0) && vector(f.joints, jointCount * 7) && Array.from({ length: jointCount }, (_, i) => validQuaternion(f.joints, i * 7 + 3)).every(Boolean)).sort((a, b) => a.time - b.time);
+  const unique = frames.filter((f, i) => !i || f.time > frames[i - 1].time);
+  const trimmed = unique.filter(f => f.time <= duration);
+  if (unique.length > 1 && trimmed.length && unique[unique.length - 1].time > duration && trimmed[trimmed.length - 1].time < duration) {
+    const end = sampleSkeletonRecording({ modelId: r.modelId!, skeletonId: r.skeletonId as DirectorSkeletonRecording['skeletonId'], fps: 30, jointNames: r.jointNames, frames: unique }, duration);
+    if (end) trimmed.push(end);
+  }
+  if (trimmed.length <= 1) return null;
+  const source = r.source?.kind === 'upstream-motion' ? { ...r.source } : undefined;
+  return { modelId: r.modelId!, skeletonId: r.skeletonId as DirectorSkeletonRecording['skeletonId'], fps: 30, jointNames: [...r.jointNames], ...(source ? { source } : {}), frames: trimmed.map(f => ({ time: f.time, rootPosition: [...f.rootPosition], rootRotation: [...f.rootRotation], rootScale: [...f.rootScale], joints: [...f.joints] })) };
 }
 export function sampleSkeletonRecording(recording: DirectorSkeletonRecording, time: number): DirectorSkeletonFrame | null {
   const frames = recording.frames;

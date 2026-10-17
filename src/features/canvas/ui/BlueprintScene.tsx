@@ -43,6 +43,7 @@ import {
 } from './blueprintGltfFactory';
 
 import { applyBakedSkeleton, applyNeuralCharacterTransform, applyNeuralStaticPose, createNeuralCharacter, ensureNeuralModel, isNeuralModelReady, neuralModelId } from './director/motion/neuralCharacterAssets';
+import { createMixamoCharacter, ensureMixamoModel, isMixamoModelReady, mixamoModelId } from './director/motion/mixamoCharacterAssets';
 
 /**
  * BlueprintScene
@@ -221,7 +222,12 @@ function getItemMeshCacheKey(
     && (globalThis as any).__BLUEPRINT_USE_GLTF__ === true
     && gltfReady;
   const neuralId = neuralModelId(item.presetId);
-  const personVariant = neuralId ? `${neuralId}:${isNeuralModelReady(neuralId)}` : item.category === 'person' ? (useGltf ? 'gltf' : 'proc') : 'na';
+  const mixamoId = mixamoModelId(item.presetId);
+  const personVariant = neuralId
+    ? `${neuralId}:${isNeuralModelReady(neuralId)}`
+    : mixamoId
+      ? `${mixamoId}:${isMixamoModelReady(mixamoId)}`
+      : item.category === 'person' ? (useGltf ? 'gltf' : 'proc') : 'na';
   const bodyControlsKey = item.category === 'person' ? JSON.stringify(bodyControls ?? {}) : '';
   const roleKey = item.category === 'person' ? (item.directorStudioRole ?? 'main') : 'na';
   return `${item.category}|${item.presetId ?? ''}|${item.action ?? ''}|${personVariant}|${roleKey}|${bodyControlsKey}|${detail}`;
@@ -240,6 +246,8 @@ function createBlueprintItemMesh(
   if (item.category === 'person' && neuralModelId(item.presetId)) {
     mesh = createNeuralCharacter(neuralModelId(item.presetId)!, heightM);
     applyNeuralStaticPose(mesh, DIRECTOR_STATIC_POSE_MAP[item.action ?? ''] ?? customActionPoses?.[item.action ?? ''], item.action);
+  } else if (item.category === 'person' && mixamoModelId(item.presetId)) {
+    mesh = createMixamoCharacter(mixamoModelId(item.presetId)!, heightM);
   } else if (item.category === 'person') {
     const useGltf = (globalThis as any).__BLUEPRINT_USE_GLTF__ === true && gltfReady;
     const gltf = useGltf ? createGltfPersonMesh(color, heightM) : null;
@@ -660,6 +668,7 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
   const [neuralAssetsVersion, setNeuralAssetsVersion] = useState(0);
   const [neuralAssetErrors, setNeuralAssetErrors] = useState<Record<string, string>>({});
   const neuralIds = [...new Set(items.map(item => neuralModelId(item.presetId)).filter(Boolean))].join(',');
+  const mixamoIds = [...new Set(items.map(item => mixamoModelId(item.presetId)).filter(Boolean))].join(',');
   useEffect(() => {
     let cancelled = false;
     const ids = neuralIds.split(',').filter(Boolean);
@@ -671,6 +680,16 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
     });
     return () => { cancelled = true; };
   }, [neuralIds]);
+  useEffect(() => {
+    let cancelled = false;
+    const ids = mixamoIds.split(',').filter(Boolean);
+    ids.forEach(id => {
+      void ensureMixamoModel(id).then(() => {
+        if (!cancelled) { setNeuralAssetsVersion(v => v + 1); setNeuralAssetErrors(errors => { const next = { ...errors }; delete next[id]; return next; }); }
+      }).catch(error => { if (!cancelled) setNeuralAssetErrors(errors => ({ ...errors, [id]: error instanceof Error ? error.message : String(error) })); });
+    });
+    return () => { cancelled = true; };
+  }, [mixamoIds]);
 
   const exportModeRef = useRef(false);
   const exportSizeRef = useRef<{ width: number; height: number } | null>(null);
@@ -2707,11 +2726,12 @@ export const BlueprintScene = memo(forwardRef<BlueprintSceneHandle, BlueprintSce
 
   return (
     <>
-    {Object.entries(neuralAssetErrors).filter(([id]) => neuralIds.includes(id)).map(([id, error]) => (
+    {Object.entries(neuralAssetErrors).filter(([id]) => neuralIds.includes(id) || mixamoIds.includes(id)).map(([id, error]) => (
       <div key={id} role="alert" className="absolute bottom-12 left-36 z-40 rounded bg-red-950/95 p-3 text-xs text-white">
         人物加载失败：{error}
         <button type="button" className="ml-3 underline" onClick={() => {
-          void ensureNeuralModel(neuralModelId(id)!).then(() => { setNeuralAssetsVersion(v => v + 1); setNeuralAssetErrors(errors => { const next = { ...errors }; delete next[id]; return next; }); }).catch(error => setNeuralAssetErrors(errors => ({ ...errors, [id]: String(error) })));
+          const retry = mixamoModelId(id) ? ensureMixamoModel(id) : ensureNeuralModel(neuralModelId(id)!);
+          void retry.then(() => { setNeuralAssetsVersion(v => v + 1); setNeuralAssetErrors(errors => { const next = { ...errors }; delete next[id]; return next; }); }).catch(error => setNeuralAssetErrors(errors => ({ ...errors, [id]: String(error) })));
         }}>重试</button>
       </div>
     ))}

@@ -41,6 +41,17 @@ describe('baked director skeleton motion', () => {
     expect(normalizeSkeletonRecordings({ actor: { ...clip, frames: [clip.frames[0], clip.frames[0]] } }, 8)).toEqual({});
     expect(normalizeDirectorMotionProject(undefined).skeletonRecordings).toBeUndefined();
   });
+  it('accepts Mixamo recordings with the model\'s own variable-length skeleton', () => {
+    const mixamoFrame = (time: number, x: number): DirectorSkeletonFrame => ({ time, rootPosition: [x, 0, 0], rootRotation: [0, 0, 0, 1], rootScale: [1, 1, 1], joints: Array.from({ length: 5 }, () => [0, 0, 0, 0, 0, 0, 1]).flat() });
+    const mixamo: DirectorSkeletonRecording = { modelId: 'mixamo-vanguard', skeletonId: 'mixamo-vanguard-v1', fps: 30, jointNames: ['mixamorig:Hips', 'mixamorig:Spine', 'mixamorig:Head', 'mixamorig:LeftHand', 'mixamorig:RightHand'], frames: [mixamoFrame(1, 2), mixamoFrame(2, 4)] };
+    const normalized = normalizeSkeletonRecordings({ actor: mixamo }, 8);
+    expect(normalized.actor?.jointNames.length).toBe(5);
+    expect(normalized.actor?.frames.length).toBe(2);
+    expect(sampleSkeletonRecording(normalized.actor, 1.5)?.rootPosition).toEqual([3, 0, 0]);
+    // malformed: zero-length quaternion in a joint is rejected
+    const bad = { ...mixamo, frames: [{ ...mixamo.frames[0], joints: [0, 0, 0, 0, 0, 0, 0] }, mixamo.frames[1]] };
+    expect(normalizeSkeletonRecordings({ actor: bad }, 8)).toEqual({});
+  });
   it('supports Cranberry skeleton recordings with matching presetId', () => {
     const cranRecording: DirectorSkeletonRecording = {
       modelId: 'ai4animation-cranberry',
