@@ -1,16 +1,22 @@
 import { Suspense, lazy, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FolderKanban, Library, type LucideIcon } from 'lucide-react';
+import { Clapperboard, FolderKanban, Library, type LucideIcon } from 'lucide-react';
 import { ProjectManager } from './ProjectManager';
 import { PixelBackground } from './backgrounds/PixelBackground';
 import { BackgroundPicker } from './backgrounds/BackgroundPicker';
 import './projectHome.css';
 
-type HomeBranch = 'projects' | 'prompts';
+type HomeBranch = 'projects' | 'prompts' | 'cinematic';
 
 const PromptLibrary = lazy(() =>
   import('@/features/promptLibrary/PromptLibrary').then((module) => ({
     default: module.PromptLibrary,
+  }))
+);
+
+const CinematicTechniques = lazy(() =>
+  import('@/features/cinematicTechniques/CinematicTechniques').then((module) => ({
+    default: module.CinematicTechniques,
   }))
 );
 
@@ -20,6 +26,7 @@ export function ProjectHome() {
   const branchRefs = useRef<Record<HomeBranch, HTMLButtonElement | null>>({
     projects: null,
     prompts: null,
+    cinematic: null,
   });
 
   const branches: Array<{
@@ -36,6 +43,11 @@ export function ProjectHome() {
       id: 'prompts',
       label: t('mainHome.promptLibrary'),
       icon: Library,
+    },
+    {
+      id: 'cinematic',
+      label: t('mainHome.cinematicTechniques'),
+      icon: Clapperboard,
     },
   ];
 
@@ -118,7 +130,7 @@ export function ProjectHome() {
               </div>
             }
           >
-            <PromptLibrary />
+            {activeBranch === 'cinematic' ? <CinematicTechniques /> : <PromptLibrary />}
           </Suspense>
         )}
       </div>

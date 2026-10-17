@@ -3,7 +3,7 @@
 > 新会话 / 新接手的人：读这一份就知道**已经做完什么、在哪、怎么验证、下一步**。
 > 不必重新问"我们之前干了哪些活"。
 >
-> 最后更新：2026-10-12
+> 最后更新：2026-10-17
 
 ---
 
@@ -151,6 +151,18 @@
 - **已验证**：图片节点摄像机控制实发 prompt 确含摄像机描述（实测 Panavision DXL2 / Zeiss Supreme Prime / 200mm / f/2.8）。⚠️ **注意**：摄像机设置只在**点生成那一刻**生效，改完需**重新生成**；判断"传没传"**不要看历史里的 `sourcePrompt`**（非提交路径所写，会误导）。
 - 验证命令：`npm test`（全量 798/798）、`npx tsc --noEmit`
 
+### L. 「电影技法」内嵌视图（首页第三标签）
+
+内容取自 melies.co 的 Cinematic Techniques（424 条 / 13 分类），按**提示词库式卡片**实现（非 webview）。
+
+- 抓取脚本 `scripts/scrape-cinematic-techniques.mjs`（离线一次性，`node scripts/…`；`LIMIT=5` 可试跑）→ 产出 `src/features/cinematicTechniques/bundledCinematicTechniques.json`（349 KB，随包提交）。**运行时零抓取**，视频/缩略图走 `asset.melies.co` 直链（该 CDN 无 Referer 校验、`immutable` 缓存）。
+- 组件 `src/features/cinematicTechniques/CinematicTechniques.tsx` + `cinematicTechniquesData.ts`：**按原站 13 分类分节**（镜头移动/取景/机位/灯光/构图/镜头光学/色彩/时间运动/机内特效/剪辑/氛围/类型片/病毒风格），每卡 = 视频（进入视口才播，`IntersectionObserver`）或静图 + 技法名 + 提示词 + 复制按钮；顶部搜索 + 分类筛选。
+- 数据：424 条全有提示词；**366 条有视频、58 条（灯光/类型/氛围类）用静图** `still/<slug>/hero.jpg`。
+- 入口：`ProjectHome.tsx` 加第三标签「电影技法」（`Clapperboard`，在提示词库旁）；**移除 `TitleBar.tsx` 右上角旧按钮**及其孤儿 import（`Clapperboard`、`openUrl`），删 `TitleBar.test.tsx` 对应用例与 `titleBar.cinematicTechniques` 文案。
+- i18n：新增 `mainHome.cinematicTechniques` + 顶层 `cinematicTechniques` 块（zh/en）。
+- ⚠️ 版权：提示词文本与视频/图片均取自 melies.co；直链依赖其 CDN，改动路径即失效。
+- 验证：`npm test`（全量 810/810，含 `cinematicTechniquesData.test.ts` 7 条）、`npx tsc --noEmit`；真机 `npm run tauri dev` → 首页点「电影技法」看视频/静图与复制。
+
 ---
 
 ## 3. 关键文件落点
@@ -159,6 +171,7 @@
 |---|---|
 | 反代 Rust 实现 | `src-tauri/src/commands/`（网络代理、本地能力） |
 | 反代 CLI 工具 | `mvaigc-proxy/mvaigc-cli.py`、`mvaigc-proxy/README.md` |
+| 电影技法（内容抓取+视图） | `scripts/scrape-cinematic-techniques.mjs`、`src/features/cinematicTechniques/` |
 | 画布 / 节点 / 生成流程 | `src/features/canvas/`（`nodes/`、`ui/`、`application/`） |
 | 共享组件与设置页 | `src/components/`（`TitleBar.tsx`、`SettingsDialog.tsx`、`settings/`） |
 | i18n | `src/i18n/locales/zh.json`、`en.json` |
@@ -174,11 +187,11 @@
 cd mvaigc-canvas
 
 npx tsc --noEmit     # 类型检查
-npm test             # 全量测试（当前 798 通过 / 111 测试文件）
+npm test             # 全量测试（当前 810 通过 / 114 测试文件）
 npm run tauri dev    # 桌面应用，手动看界面
 ```
 
-最近一次全量测试：**798/798 通过**（在 `26c3c82` 提交前跑过）。
+最近一次全量测试：**810/810 通过**（`npx tsc --noEmit` 亦通过）。
 
 ---
 

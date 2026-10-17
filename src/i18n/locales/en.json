@@ -408,7 +408,6 @@
   },
   "titleBar": {
     "back": "Back",
-    "cinematicTechniques": "Cinematic Techniques",
     "switchToEnglish": "English",
     "switchToChinese": "中文",
     "minimize": "Minimize",
@@ -1756,6 +1755,7 @@
     "skipIntro": "Skip",
     "canvasProjects": "Canvas Projects",
     "promptLibrary": "Prompt Library",
+    "cinematicTechniques": "Cinematic Techniques",
     "views": "Workspace views",
     "canvasProjectsHint": "Manage local canvas projects",
     "promptLibraryHint": "Browse community prompts, save favorites, and apply them to canvases",
@@ -1767,6 +1767,16 @@
     "backgroundNone": "Background off",
     "pauseBackground": "Pause background animation",
     "resumeBackground": "Play background animation"
+  },
+  "cinematicTechniques": {
+    "title": "Cinematic Techniques",
+    "description": "Browse cinematic techniques by category — camera movement, lighting, color and more — each with a looping preview and a copy-ready prompt.",
+    "badge": "{{count}} techniques",
+    "searchPlaceholder": "Search technique names or prompts",
+    "allCategories": "All",
+    "copyPrompt": "Copy prompt",
+    "copied": "Copied",
+    "noResults": "No matching techniques"
   },
   "project": {
     "title": "Canvas Projects",

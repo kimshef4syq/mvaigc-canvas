@@ -78,15 +78,4 @@ describe('TitleBar runtime capabilities', () => {
     expect(html).toContain('titleBar.maximize');
     expect(html).toContain('titleBar.close');
   });
-
-  it('renders the cinematic techniques button before the language button', () => {
-    runtimeMocks.isTauri.mockReturnValue(false);
-
-    const html = renderToStaticMarkup(<TitleBar onSettingsClick={() => {}} />);
-
-    expect(html).toContain('titleBar.cinematicTechniques');
-    expect(html.indexOf('titleBar.cinematicTechniques')).toBeLessThan(
-      html.indexOf('titleBar.switchToEnglish'),
-    );
-  });
 });

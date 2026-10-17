@@ -408,7 +408,6 @@
   },
   "titleBar": {
     "back": "返回",
-    "cinematicTechniques": "电影技法",
     "switchToEnglish": "English",
     "switchToChinese": "中文",
     "minimize": "最小化",
@@ -1752,6 +1751,7 @@
     "skipIntro": "跳过",
     "canvasProjects": "画布项目",
     "promptLibrary": "提示词库",
+    "cinematicTechniques": "电影技法",
     "views": "工作区视图",
     "canvasProjectsHint": "管理本地画布工程",
     "promptLibraryHint": "浏览社区提示词、收藏灵感并应用到画布",
@@ -1763,6 +1763,16 @@
     "backgroundNone": "关闭背景",
     "pauseBackground": "暂停背景动画",
     "resumeBackground": "播放背景动画"
+  },
+  "cinematicTechniques": {
+    "title": "电影技法",
+    "description": "按镜头移动、灯光、色彩等分类浏览电影技法，每条都带循环预览与可直接复制的提示词。",
+    "badge": "{{count}} 条技法",
+    "searchPlaceholder": "搜索技法名称或提示词",
+    "allCategories": "全部",
+    "copyPrompt": "复制提示词",
+    "copied": "已复制",
+    "noResults": "没有匹配的技法"
   },
   "project": {
     "title": "画布项目",
