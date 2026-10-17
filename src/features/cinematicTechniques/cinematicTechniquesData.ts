@@ -6,7 +6,6 @@ export interface CinematicTechnique {
   name: string;
   poster: string;
   video: string | null;
-  still: string | null;
   prompt: string | null;
   definition: string | null;
 }

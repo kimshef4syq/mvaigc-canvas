@@ -31,13 +31,15 @@ describe('cinematic techniques data', () => {
     expect(CINEMATIC_CATEGORIES.reduce((sum, category) => sum + category.items.length, 0)).toBe(424);
   });
 
-  it('gives every technique a name, poster, prompt and at least one media asset', () => {
+  it('gives every technique a name, local poster and prompt; videos stay remote', () => {
     const techniques = CINEMATIC_CATEGORIES.flatMap((category) => category.items);
     for (const technique of techniques) {
       expect(technique.name.trim().length).toBeGreaterThan(0);
-      expect(technique.poster).toMatch(/^https:\/\//);
+      // 缩略图已下载到本地（public/cinematic-techniques/），运行时走本地路径。
+      expect(technique.poster).toMatch(/^\/cinematic-techniques\/.+\.(webp|jpe?g|png)$/);
       expect((technique.prompt ?? '').trim().length).toBeGreaterThan(0);
-      expect(Boolean(technique.video || technique.still)).toBe(true);
+      // 视频仍为远程直链（悬停时才单个加载）。
+      expect(technique.video === null || /^https:\/\//.test(technique.video)).toBe(true);
     }
   });
 });

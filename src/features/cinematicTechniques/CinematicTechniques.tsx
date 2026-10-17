@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Clapperboard, Copy, Search } from 'lucide-react';
 import { UiButton, UiChipButton, UiInput } from '@/components/ui';
@@ -6,47 +6,27 @@ import {
   CINEMATIC_CATEGORIES,
   CINEMATIC_TECHNIQUE_COUNT,
   filterCinematicCategories,
+  type CinematicCategory,
   type CinematicTechnique,
 } from './cinematicTechniquesData';
 
-// 进入视口才播放视频（424 条，不能全部自动播）。
-function useInView<T extends Element>() {
-  const ref = useRef<T | null>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element || typeof IntersectionObserver === 'undefined') {
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => setInView(entries[0]?.isIntersecting ?? false),
-      { rootMargin: '160px', threshold: 0.25 }
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  return { ref, inView };
-}
+const INITIAL_VISIBLE_TECHNIQUE_COUNT = 80;
+const VISIBLE_TECHNIQUE_BATCH_SIZE = 48;
 
 function TechniqueCard({ technique }: { technique: CinematicTechnique }) {
   const { t } = useTranslation();
-  const { ref, inView } = useInView<HTMLDivElement>();
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const canPreviewVideo = Boolean(technique.video);
+
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) {
+    if (!previewing) {
       return;
     }
-    if (inView) {
-      void video.play().catch(() => undefined);
-    } else {
-      video.pause();
-    }
-  }, [inView]);
+    void videoRef.current?.play().catch(() => undefined);
+  }, [previewing]);
 
   const handleCopy = useCallback(async () => {
     if (!technique.prompt) {
@@ -63,11 +43,16 @@ function TechniqueCard({ technique }: { technique: CinematicTechnique }) {
 
   return (
     <div
-      ref={ref}
       className="flex flex-col overflow-hidden rounded-xl border border-border-dark bg-surface-dark/92"
+      onMouseEnter={() => {
+        if (canPreviewVideo) {
+          setPreviewing(true);
+        }
+      }}
+      onMouseLeave={() => setPreviewing(false)}
     >
       <div className="relative aspect-video w-full overflow-hidden bg-black/40">
-        {technique.video ? (
+        {previewing && technique.video ? (
           <video
             ref={videoRef}
             src={technique.video}
@@ -75,12 +60,13 @@ function TechniqueCard({ technique }: { technique: CinematicTechnique }) {
             muted
             loop
             playsInline
+            autoPlay
             preload="none"
             className="h-full w-full object-cover"
           />
         ) : (
           <img
-            src={technique.still ?? technique.poster}
+            src={technique.poster}
             alt={technique.name}
             loading="lazy"
             decoding="async"
@@ -113,18 +99,67 @@ function TechniqueCard({ technique }: { technique: CinematicTechnique }) {
   );
 }
 
+interface VisibleGroup {
+  category: CinematicCategory;
+  items: CinematicTechnique[];
+}
+
 export function CinematicTechniques() {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_TECHNIQUE_COUNT);
 
-  const categories = useMemo(
+  const categoryTotals = useMemo(
+    () => new Map(CINEMATIC_CATEGORIES.map((category) => [category.id, category.items.length])),
+    []
+  );
+
+  const filteredCategories = useMemo(
     () => filterCinematicCategories(CINEMATIC_CATEGORIES, query, activeCategoryId),
     [query, activeCategoryId]
   );
 
+  // 按分类原顺序拍平，再按 visibleCount 截断、重新分组——保留分类小标题，同时分批渲染。
+  const flatEntries = useMemo(
+    () => filteredCategories.flatMap((category) => category.items.map((technique) => ({ category, technique }))),
+    [filteredCategories]
+  );
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_TECHNIQUE_COUNT);
+  }, [query, activeCategoryId]);
+
+  const groups = useMemo<VisibleGroup[]>(() => {
+    const byCategory = new Map<string, VisibleGroup>();
+    for (const { category, technique } of flatEntries.slice(0, visibleCount)) {
+      let group = byCategory.get(category.id);
+      if (!group) {
+        group = { category, items: [] };
+        byCategory.set(category.id, group);
+      }
+      group.items.push(technique);
+    }
+    return [...byCategory.values()];
+  }, [flatEntries, visibleCount]);
+
+  const hasMore = visibleCount < flatEntries.length;
+
+  const handleScroll = useCallback(
+    (event: UIEvent<HTMLDivElement>) => {
+      if (!hasMore) {
+        return;
+      }
+      const target = event.currentTarget;
+      if (target.scrollTop + target.clientHeight >= target.scrollHeight - 420) {
+        setVisibleCount((current) => Math.min(current + VISIBLE_TECHNIQUE_BATCH_SIZE, flatEntries.length));
+      }
+    },
+    [hasMore, flatEntries.length]
+  );
+
   return (
-    <div className="ui-scrollbar h-full overflow-y-auto">
+    <div className="ui-scrollbar h-full overflow-y-auto" onScroll={handleScroll}>
       <div className="mx-auto max-w-7xl px-4 pb-12 pt-6 sm:px-6 lg:px-8">
         <div className="mb-6 text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border-dark bg-surface-dark/90 px-3 py-1.5 text-xs font-medium text-text-muted">
@@ -171,20 +206,20 @@ export function CinematicTechniques() {
           ))}
         </div>
 
-        {categories.length === 0 ? (
+        {groups.length === 0 ? (
           <div className="rounded-lg border border-border-dark bg-surface-dark/92 py-16 text-center text-sm text-text-muted">
             {t('cinematicTechniques.noResults')}
           </div>
         ) : (
           <div className="flex flex-col gap-10">
-            {categories.map((category) => (
+            {groups.map(({ category, items }) => (
               <section key={category.id}>
                 <div className="mb-3 flex items-baseline gap-2">
                   <h2 className="text-lg font-semibold text-text-dark">{category.name}</h2>
-                  <span className="text-xs text-text-muted">{category.items.length}</span>
+                  <span className="text-xs text-text-muted">{categoryTotals.get(category.id) ?? items.length}</span>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {category.items.map((technique) => (
+                  {items.map((technique) => (
                     <TechniqueCard key={technique.id} technique={technique} />
                   ))}
                 </div>
