@@ -247,8 +247,10 @@ export function CanvasAgentFeedViewport({
             </div>
           ) : (
             <div className="flex min-h-56 flex-col items-center justify-center px-8 text-center">
-              <Bot className="mb-3 h-7 w-7 text-accent" aria-hidden="true" />
-              <div className="text-sm font-medium text-text-dark">{t('canvasAgent.emptyTitle')}</div>
+              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-tr from-amber-500/20 via-purple-500/20 to-blue-500/20 shadow-[0_0_24px_rgba(245,158,11,0.22)]">
+                <Bot className="h-7 w-7 text-amber-300" aria-hidden="true" />
+              </div>
+              <div className="text-sm font-semibold text-text-dark">{t('canvasAgent.emptyTitle')}</div>
               <div className="mt-2 text-xs leading-5 text-text-muted">{t('canvasAgent.emptyDescription')}</div>
             </div>
           )}

@@ -1497,7 +1497,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
 
       {selected && (
       <NodeToolbar nodeId={id} isVisible position={Position.Bottom} align="center" offset={8} data-canvas-no-marquee="true">
-      <div className="nodrag nowheel flex w-[563px] max-w-[92vw] shrink-0 flex-col rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2">
+      <div className="nodrag nowheel flex w-full max-w-[563px] min-w-[280px] shrink-0 flex-col rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2">
       <div className="mb-2 flex shrink-0 flex-wrap items-center gap-1">
         <span className="mr-1 text-[10px] text-text-muted">{t('videoModeTabs.label')}</span>
         {VIDEO_NODE_MODES.map((mode) => {

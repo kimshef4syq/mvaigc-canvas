@@ -811,7 +811,7 @@ export const NodeActionToolbar = memo(({ node, offset = NODE_TOOLBAR_OFFSET }: N
       offset={offset}
       className={NODE_TOOLBAR_CLASS}
     >
-      <UiPanel className="flex items-center gap-1 rounded-full p-1">
+      <UiPanel className="flex items-center gap-1 rounded-full p-1 border border-[var(--canvas-node-border)] bg-[rgba(20,14,10,0.92)] shadow-[0_16px_36px_rgba(0,0,0,0.55),0_0_24px_rgba(245,158,11,0.12)] backdrop-blur-xl">
         {/* Case B: empty AI node — render multi-function chips only. Clicking
             a chip selects the module (blue highlight); clicking again
             clears. One at a time. The chip's prompt template is composed in
@@ -824,7 +824,7 @@ export const NodeActionToolbar = memo(({ node, offset = NODE_TOOLBAR_OFFSET }: N
               key={item.id}
               className={`h-8 ${TOOLBAR_BUTTON_RADIUS_CLASS} px-2.5 text-xs ${
                 active
-                  ? 'border-accent bg-accent/45 text-white ring-2 ring-accent/60 shadow-[0_0_0_1px_rgba(59,130,246,0.35)]'
+                  ? 'border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium shadow-[0_0_14px_rgba(245,158,11,0.5)]'
                   : TOOLBAR_NEUTRAL_BUTTON_CLASS
               }`}
               onClick={(e) => { e.stopPropagation(); handleToggleChip(item.id); }}

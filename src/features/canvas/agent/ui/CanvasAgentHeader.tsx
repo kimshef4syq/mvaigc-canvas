@@ -92,7 +92,7 @@ export function CanvasAgentHeader({
   return (
     <header className="shrink-0 border-b border-border-dark/75 bg-[var(--ui-surface-panel)]">
       <div className="flex min-h-[62px] items-center gap-2 px-3.5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-accent/[0.11] text-accent">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border border-accent/25 bg-accent/[0.14] text-accent">
           <Bot className="h-[18px] w-[18px]" aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">

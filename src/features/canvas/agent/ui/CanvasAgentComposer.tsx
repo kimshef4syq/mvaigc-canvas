@@ -188,15 +188,15 @@ function ModelGroup({
                 type="button"
                 disabled={entry.usable === false}
                 className={`flex min-h-11 w-full items-center gap-3 rounded-[7px] px-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${selected
-                  ? 'bg-accent/[0.11] text-text-dark'
+                  ? 'bg-blue-600 text-white font-medium shadow-[0_0_12px_rgba(37,99,235,0.4)]'
                   : 'text-text-dark hover:bg-text-dark/[0.045]'}`}
                 onClick={() => onChange(entry.id)}
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs font-medium">{entry.modelLabel}</span>
-                  <span className="mt-0.5 block truncate text-[10px] text-text-muted">{entry.providerLabel}</span>
+                  <span className={`mt-0.5 block truncate text-[10px] ${selected ? 'text-blue-100' : 'text-text-muted'}`}>{entry.providerLabel}</span>
                 </span>
-                {selected ? <Check className="h-4 w-4 shrink-0 text-accent" /> : null}
+                {selected ? <Check className="h-4 w-4 shrink-0 text-white" /> : null}
               </button>
             );
           })}
@@ -470,7 +470,7 @@ export function CanvasAgentComposer({
               <button
                 type="button"
                 disabled={!draft.trim() || hasPendingApproval || hasPendingPlan || blockedByVision || hasMissingAttachments}
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-text-dark text-bg-dark transition-[opacity,transform] duration-150 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-25"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-tr from-purple-600 to-indigo-500 text-white shadow-[0_0_14px_rgba(168,85,247,0.45)] transition-[opacity,transform] duration-150 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-25 disabled:shadow-none"
                 aria-label={t('canvasAgent.send')}
                 onClick={onSend}
               >
