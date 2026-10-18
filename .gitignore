@@ -47,8 +47,6 @@ progress.md
 task_plan.md
 
 # Ad-hoc file backups created during iterative UI/provider work
-*.bak
-*.bak_*
-*-backups/
-ui-backups/
-settings-backups/
+# Local browser/debug output
+.playwright-cli/
+output/

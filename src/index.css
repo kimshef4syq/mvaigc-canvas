@@ -26,7 +26,7 @@
   --ui-scrollbar-thumb: rgba(100, 116, 139, 0.42);
   --ui-scrollbar-thumb-hover: rgba(100, 116, 139, 0.62);
   --canvas-bg: #f8fafc;
-  --canvas-grid-dot: rgba(15, 23, 42, 0.16);
+  --canvas-grid-dot: rgba(15, 23, 42, 0.28);
   --canvas-minimap-bg: rgba(255, 255, 255, 0.92);
   --canvas-minimap-border: rgba(15, 23, 42, 0.16);
   --canvas-minimap-node: rgba(100, 116, 139, 0.9);
@@ -67,6 +67,76 @@
 }
 
 .dark {
+  --bg: #0d0a08;
+  --bg-rgb: 13 10 8;
+  --surface: #18120d;
+  --surface-rgb: 24 18 13;
+  --border: #38261a;
+  --border-rgb: 56 38 26;
+  --text: #f5ede4;
+  --text-rgb: 245 237 228;
+  --text-muted: #a38c7b;
+  --text-muted-rgb: 163 140 123;
+  --accent: #f59e0b;
+  --accent-rgb: 245 158 11;
+  --ui-surface-panel: rgba(22, 16, 12, 0.94);
+  --ui-surface-field: rgba(13, 9, 7, 0.85);
+  --ui-border-soft: rgba(245, 158, 11, 0.18);
+  --ui-border-strong: rgba(245, 158, 11, 0.32);
+  --ui-shadow-panel: 0 18px 42px rgba(0, 0, 0, 0.6), 0 0 24px rgba(245, 158, 11, 0.08);
+  --ui-scrollbar-track: rgba(245, 158, 11, 0.03);
+  --ui-scrollbar-thumb: rgba(245, 158, 11, 0.22);
+  --ui-scrollbar-thumb-hover: rgba(245, 158, 11, 0.40);
+  --canvas-bg: #0a0705;
+  --canvas-grid-dot: rgba(245, 158, 11, 0.38);
+  --canvas-minimap-bg: rgba(20, 14, 10, 0.92);
+  --canvas-minimap-border: rgba(245, 158, 11, 0.25);
+  --canvas-minimap-node: rgba(217, 119, 6, 0.85);
+  --canvas-minimap-mask: rgba(0, 0, 0, 0.65);
+  --canvas-minimap-mask-stroke: rgba(245, 158, 11, 0.85);
+  --canvas-rail-bg: rgba(20, 14, 10, 0.90);
+  --canvas-rail-button-bg: rgba(28, 20, 14, 0.72);
+  --canvas-rail-button-border: rgba(245, 158, 11, 0.16);
+  --canvas-rail-button-text: rgba(245, 237, 228, 0.85);
+  --canvas-rail-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(245, 158, 11, 0.08);
+  --canvas-node-bg: rgba(20, 14, 10, 0.94);
+  --canvas-node-bg-strong: rgba(26, 18, 13, 0.98);
+  --canvas-node-subtle-bg: rgba(16, 11, 8, 0.75);
+  --canvas-node-field-bg: rgba(12, 8, 6, 0.75);
+  --canvas-node-field-border: rgba(245, 158, 11, 0.16);
+  --canvas-node-media-bg: #0e0907;
+  --canvas-node-media-overlay: rgba(0, 0, 0, 0.72);
+  --canvas-node-border: rgba(245, 158, 11, 0.28);
+  --canvas-node-border-hover: rgba(245, 158, 11, 0.58);
+  --canvas-node-divider: rgba(245, 158, 11, 0.12);
+  --canvas-node-shadow: 0 18px 40px rgba(0, 0, 0, 0.58), 0 0 24px rgba(245, 158, 11, 0.10);
+  --canvas-node-menu-bg: rgba(24, 17, 12, 0.96);
+  --canvas-node-menu-hover: rgba(38, 27, 19, 0.92);
+  --canvas-node-menu-active: rgba(245, 158, 11, 0.22);
+  --canvas-node-button-bg: rgba(245, 158, 11, 0.12);
+  --canvas-node-button-text: rgba(245, 237, 228, 0.88);
+  --group-node-bg: color-mix(in srgb, rgb(var(--accent-rgb) / 0.25) 30%, rgb(var(--surface-rgb)));
+  --tag-color-neutral: #a38c7b;
+  --tag-color-amber: #f59e0b;
+  --tag-color-cyan: #38bdf8;
+  --tag-color-violet: #818cf8;
+  --tag-color-rose: #fb7185;
+  --ui-radius-lg: 12px;
+  --ui-radius-xl: 16px;
+  --ui-radius-2xl: 20px;
+  --node-radius: 12px;
+  --node-inner-radius: var(--node-radius);
+}
+
+/* ==========================================================================
+   SKIN OVERRIDES (data-skin)
+   - warm-amber: 新皮肤 (黑曜琥珀 · 冷暖对撞) [Default in .dark]
+   - classic:    原始皮肤 (原版中性 · 经典黑灰)
+   - cool-frost: 极光冷蓝 (深海冰青 · 极客冷调)
+   - sunset-glow:落日熔金 (晚霞赤绯 · 浓郁暖金)
+   ========================================================================== */
+
+:root[data-skin='classic'].dark {
   --bg: #0f0f0f;
   --bg-rgb: 15 15 15;
   --surface: #1a1a1a;
@@ -77,8 +147,9 @@
   --text-rgb: 255 255 255;
   --text-muted: #888888;
   --text-muted-rgb: 136 136 136;
+  --accent: #3b82f6;
   --accent-rgb: 59 130 246;
-  --ui-surface-panel: rgb(26, 26, 26);
+  --ui-surface-panel: rgba(26, 26, 26, 0.94);
   --ui-surface-field: rgba(10, 10, 12, 0.92);
   --ui-border-soft: rgba(255, 255, 255, 0.14);
   --ui-border-strong: rgba(255, 255, 255, 0.24);
@@ -87,7 +158,7 @@
   --ui-scrollbar-thumb: rgba(148, 163, 184, 0.26);
   --ui-scrollbar-thumb-hover: rgba(148, 163, 184, 0.42);
   --canvas-bg: #0f0f0f;
-  --canvas-grid-dot: #2a2a2a;
+  --canvas-grid-dot: rgba(255, 255, 255, 0.28);
   --canvas-minimap-bg: rgba(26, 26, 26, 0.92);
   --canvas-minimap-border: rgba(255, 255, 255, 0.14);
   --canvas-minimap-node: rgba(120, 120, 120, 0.92);
@@ -101,30 +172,120 @@
   --canvas-node-bg: rgba(18, 18, 18, 0.94);
   --canvas-node-bg-strong: rgba(20, 20, 20, 0.98);
   --canvas-node-subtle-bg: rgba(12, 12, 13, 0.7);
-  --canvas-node-field-bg: rgba(8, 8, 10, 0.5);
-  --canvas-node-field-border: rgba(255, 255, 255, 0.1);
-  --canvas-node-media-bg: #0f0f10;
+  --canvas-node-field-bg: rgba(10, 10, 12, 0.7);
+  --canvas-node-field-border: rgba(255, 255, 255, 0.12);
+  --canvas-node-media-bg: #111111;
+  --canvas-node-border: rgba(255, 255, 255, 0.14);
+  --canvas-node-border-hover: rgba(59, 130, 246, 0.5);
+  --canvas-node-divider: rgba(255, 255, 255, 0.10);
+  --canvas-node-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
+  --canvas-node-menu-bg: rgba(24, 24, 24, 0.96);
+  --canvas-node-menu-hover: rgba(36, 36, 36, 0.92);
+  --canvas-node-menu-active: rgba(59, 130, 246, 0.22);
+  --canvas-node-button-bg: rgba(59, 130, 246, 0.12);
+  --canvas-node-button-text: rgba(255, 255, 255, 0.88);
+}
+
+:root[data-skin='cool-frost'].dark {
+  --bg: #060b13;
+  --bg-rgb: 6 11 19;
+  --surface: #0e1726;
+  --surface-rgb: 14 23 38;
+  --border: #1e293b;
+  --border-rgb: 30 41 59;
+  --text: #f0f9ff;
+  --text-rgb: 240 249 255;
+  --text-muted: #7dd3fc;
+  --text-muted-rgb: 125 211 252;
+  --accent: #06b6d4;
+  --accent-rgb: 6 182 212;
+  --ui-surface-panel: rgba(14, 23, 38, 0.94);
+  --ui-surface-field: rgba(6, 11, 19, 0.85);
+  --ui-border-soft: rgba(6, 182, 212, 0.20);
+  --ui-border-strong: rgba(56, 189, 248, 0.35);
+  --ui-shadow-panel: 0 18px 42px rgba(0, 0, 0, 0.65), 0 0 24px rgba(6, 182, 212, 0.10);
+  --ui-scrollbar-track: rgba(6, 182, 212, 0.03);
+  --ui-scrollbar-thumb: rgba(6, 182, 212, 0.22);
+  --ui-scrollbar-thumb-hover: rgba(6, 182, 212, 0.40);
+  --canvas-bg: #05080e;
+  --canvas-grid-dot: rgba(56, 189, 248, 0.38);
+  --canvas-minimap-bg: rgba(10, 18, 28, 0.92);
+  --canvas-minimap-border: rgba(6, 182, 212, 0.25);
+  --canvas-minimap-node: rgba(14, 165, 233, 0.85);
+  --canvas-minimap-mask: rgba(0, 0, 0, 0.65);
+  --canvas-minimap-mask-stroke: rgba(6, 182, 212, 0.85);
+  --canvas-rail-bg: rgba(10, 18, 28, 0.90);
+  --canvas-rail-button-bg: rgba(14, 26, 42, 0.72);
+  --canvas-rail-button-border: rgba(6, 182, 212, 0.18);
+  --canvas-rail-button-text: rgba(240, 249, 255, 0.85);
+  --canvas-rail-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(6, 182, 212, 0.08);
+  --canvas-node-bg: rgba(10, 18, 28, 0.94);
+  --canvas-node-bg-strong: rgba(14, 24, 38, 0.98);
+  --canvas-node-subtle-bg: rgba(8, 14, 22, 0.75);
+  --canvas-node-field-bg: rgba(6, 11, 19, 0.75);
+  --canvas-node-field-border: rgba(6, 182, 212, 0.18);
+  --canvas-node-media-bg: #080e18;
   --canvas-node-media-overlay: rgba(0, 0, 0, 0.72);
-  --canvas-node-border: rgba(255, 255, 255, 0.18);
-  --canvas-node-border-hover: rgba(255, 255, 255, 0.32);
-  --canvas-node-divider: rgba(255, 255, 255, 0.08);
-  --canvas-node-shadow: 0 16px 34px rgba(0, 0, 0, 0.32);
-  --canvas-node-menu-bg: rgba(26, 26, 26, 0.96);
-  --canvas-node-menu-hover: rgba(15, 15, 15, 0.84);
-  --canvas-node-menu-active: rgba(30, 64, 175, 0.32);
-  --canvas-node-button-bg: rgba(255, 255, 255, 0.08);
-  --canvas-node-button-text: rgba(255, 255, 255, 0.78);
-  --group-node-bg: color-mix(in srgb, rgb(var(--accent-rgb) / 0.3) 30%, black);
-  --tag-color-neutral: #94a3b8;
-  --tag-color-amber: #f59e0b;
-  --tag-color-cyan: #22d3ee;
-  --tag-color-violet: #a78bfa;
-  --tag-color-rose: #fb7185;
-  --ui-radius-lg: 12px;
-  --ui-radius-xl: 16px;
-  --ui-radius-2xl: 20px;
-  --node-radius: 12px;
-  --node-inner-radius: var(--node-radius);
+  --canvas-node-border: rgba(56, 189, 248, 0.28);
+  --canvas-node-border-hover: rgba(6, 182, 212, 0.65);
+  --canvas-node-divider: rgba(6, 182, 212, 0.12);
+  --canvas-node-shadow: 0 18px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(6, 182, 212, 0.12);
+  --canvas-node-menu-bg: rgba(12, 22, 34, 0.96);
+  --canvas-node-menu-hover: rgba(18, 34, 52, 0.92);
+  --canvas-node-menu-active: rgba(6, 182, 212, 0.22);
+  --canvas-node-button-bg: rgba(6, 182, 212, 0.12);
+  --canvas-node-button-text: rgba(240, 249, 255, 0.88);
+}
+
+:root[data-skin='sunset-glow'].dark {
+  --bg: #120708;
+  --bg-rgb: 18 7 8;
+  --surface: #1f0e11;
+  --surface-rgb: 31 14 17;
+  --border: #40181d;
+  --border-rgb: 64 24 29;
+  --text: #fff1f2;
+  --text-rgb: 255 241 242;
+  --text-muted: #fca5a5;
+  --text-muted-rgb: 252 165 165;
+  --accent: #f97316;
+  --accent-rgb: 249 115 22;
+  --ui-surface-panel: rgba(31, 14, 17, 0.94);
+  --ui-surface-field: rgba(18, 7, 8, 0.85);
+  --ui-border-soft: rgba(249, 115, 22, 0.20);
+  --ui-border-strong: rgba(244, 63, 94, 0.35);
+  --ui-shadow-panel: 0 18px 42px rgba(0, 0, 0, 0.65), 0 0 24px rgba(249, 115, 22, 0.10);
+  --ui-scrollbar-track: rgba(249, 115, 22, 0.03);
+  --ui-scrollbar-thumb: rgba(249, 115, 22, 0.22);
+  --ui-scrollbar-thumb-hover: rgba(249, 115, 22, 0.40);
+  --canvas-bg: #0e0506;
+  --canvas-grid-dot: rgba(249, 115, 22, 0.38);
+  --canvas-minimap-bg: rgba(24, 11, 13, 0.92);
+  --canvas-minimap-border: rgba(249, 115, 22, 0.25);
+  --canvas-minimap-node: rgba(244, 63, 94, 0.85);
+  --canvas-minimap-mask: rgba(0, 0, 0, 0.65);
+  --canvas-minimap-mask-stroke: rgba(249, 115, 22, 0.85);
+  --canvas-rail-bg: rgba(24, 11, 13, 0.90);
+  --canvas-rail-button-bg: rgba(36, 16, 20, 0.72);
+  --canvas-rail-button-border: rgba(249, 115, 22, 0.18);
+  --canvas-rail-button-text: rgba(255, 241, 242, 0.85);
+  --canvas-rail-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(249, 115, 22, 0.08);
+  --canvas-node-bg: rgba(24, 12, 14, 0.94);
+  --canvas-node-bg-strong: rgba(32, 16, 19, 0.98);
+  --canvas-node-subtle-bg: rgba(18, 8, 10, 0.75);
+  --canvas-node-field-bg: rgba(14, 6, 7, 0.75);
+  --canvas-node-field-border: rgba(249, 115, 22, 0.18);
+  --canvas-node-media-bg: #140708;
+  --canvas-node-media-overlay: rgba(0, 0, 0, 0.72);
+  --canvas-node-border: rgba(244, 63, 94, 0.30);
+  --canvas-node-border-hover: rgba(249, 115, 22, 0.65);
+  --canvas-node-divider: rgba(249, 115, 22, 0.12);
+  --canvas-node-shadow: 0 18px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(249, 115, 22, 0.12);
+  --canvas-node-menu-bg: rgba(30, 14, 17, 0.96);
+  --canvas-node-menu-hover: rgba(46, 22, 27, 0.92);
+  --canvas-node-menu-active: rgba(249, 115, 22, 0.22);
+  --canvas-node-button-bg: rgba(249, 115, 22, 0.12);
+  --canvas-node-button-text: rgba(255, 241, 242, 0.88);
 }
 
 :root[data-ui-radius='compact'] {
@@ -150,11 +311,11 @@
 }
 
 :root.dark[data-theme-tone='warm'] {
-  --bg-rgb: 20 15 12;
-  --surface-rgb: 32 24 20;
-  --border-rgb: 64 50 42;
-  --text-rgb: 246 237 228;
-  --text-muted-rgb: 173 149 130;
+  --bg-rgb: 13 10 8;
+  --surface-rgb: 24 18 13;
+  --border-rgb: 56 38 26;
+  --text-rgb: 245 237 228;
+  --text-muted-rgb: 163 140 123;
 }
 
 :root[data-theme-tone='cool'] {
@@ -304,12 +465,51 @@ html[data-platform='macos'] #root {
 }
 
 .react-flow__node {
-  border-radius: 8px;
+  border-radius: var(--node-radius);
 }
 
 .react-flow__handle {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--accent-rgb), 0.85);
+  background: var(--surface);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.55);
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.25);
+  border-color: #ffffff;
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.9), 0 0 4px #ffffff;
+}
+
+:root[data-skin='warm-amber'].dark .react-flow__handle,
+:root:not([data-skin]).dark .react-flow__handle {
+  border-color: rgba(245, 158, 11, 0.85);
+  background: #140e0a;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.55);
+}
+
+:root[data-skin='warm-amber'].dark .react-flow__handle:hover,
+:root:not([data-skin]).dark .react-flow__handle:hover {
+  border-color: #fbbf24;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.9), 0 0 4px #ffffff;
+}
+
+/* Cold left handles or prompt input handles for chromatic contrast */
+.dark .react-flow__node-imageEdit .react-flow__handle-left,
+.dark .react-flow__node-aiText .react-flow__handle,
+.dark .canvas-node-cool-rim .react-flow__handle {
+  border-color: rgba(99, 102, 241, 0.85);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.55);
+}
+
+.dark .react-flow__node-imageEdit .react-flow__handle-left:hover,
+.dark .react-flow__node-aiText .react-flow__handle:hover,
+.dark .canvas-node-cool-rim .react-flow__handle:hover {
+  border-color: #818cf8;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.9), 0 0 4px #ffffff;
 }
 
 /* The transparent side band is part of the handle, so both click-to-connect
@@ -369,7 +569,76 @@ html[data-platform='macos'] #root {
 }
 
 .canvas-flow {
-  background: var(--canvas-bg);
+  background-color: var(--canvas-bg);
+}
+
+/* 1. Warm Amber (新皮肤 - 默认或 data-skin="warm-amber") */
+:root[data-skin='warm-amber'].dark .canvas-flow,
+:root:not([data-skin]).dark .canvas-flow,
+.dark .canvas-flow {
+  background-color: #0c0906;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  background-image:
+    /* Top-left cool atmospheric glow (indigo / violet) */
+    radial-gradient(ellipse 65% 55% at 5% 5%, rgba(67, 56, 202, 0.24) 0%, rgba(99, 102, 241, 0.09) 45%, transparent 75%),
+    /* Bottom-left cool cyan / deep blue atmospheric glow */
+    radial-gradient(ellipse 60% 60% at 6% 92%, rgba(30, 58, 138, 0.26) 0%, rgba(56, 189, 248, 0.08) 40%, transparent 75%),
+    /* Top-right warm radiant amber/gold glow */
+    radial-gradient(ellipse 65% 55% at 94% 6%, rgba(245, 158, 11, 0.30) 0%, rgba(217, 119, 6, 0.14) 45%, transparent 80%),
+    /* Bottom-right / bottom-center sweeping warm copper/amber caustic arc */
+    radial-gradient(ellipse 70% 65% at 75% 90%, rgba(234, 88, 12, 0.26) 0%, rgba(180, 83, 9, 0.15) 45%, transparent 75%),
+    /* Diagonal golden caustic beam */
+    linear-gradient(135deg, transparent 38%, rgba(245, 158, 11, 0.05) 52%, rgba(251, 146, 60, 0.14) 68%, rgba(217, 119, 6, 0.06) 84%, transparent 100%);
+}
+
+/* 2. Classic Slate (原始皮肤) */
+:root[data-skin='classic'].dark .canvas-flow {
+  background-color: #0f0f0f;
+  background-image: none;
+}
+
+/* 3. Cool Frost (极光冷蓝) */
+:root[data-skin='cool-frost'].dark .canvas-flow {
+  background-color: #05080e;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  background-image:
+    radial-gradient(ellipse 70% 60% at 8% 8%, rgba(6, 182, 212, 0.28) 0%, rgba(14, 165, 233, 0.12) 45%, transparent 75%),
+    radial-gradient(ellipse 65% 65% at 5% 90%, rgba(37, 99, 235, 0.28) 0%, rgba(30, 58, 138, 0.12) 45%, transparent 75%),
+    radial-gradient(ellipse 65% 55% at 92% 8%, rgba(99, 102, 241, 0.22) 0%, rgba(59, 130, 246, 0.10) 45%, transparent 80%),
+    radial-gradient(ellipse 75% 65% at 80% 92%, rgba(20, 184, 166, 0.20) 0%, rgba(6, 182, 212, 0.10) 45%, transparent 75%),
+    linear-gradient(135deg, transparent 36%, rgba(6, 182, 212, 0.05) 50%, rgba(56, 189, 248, 0.15) 66%, rgba(14, 165, 233, 0.05) 82%, transparent 100%);
+}
+
+/* 4. Sunset Glow (落日熔金) */
+:root[data-skin='sunset-glow'].dark .canvas-flow {
+  background-color: #0e0506;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  background-image:
+    radial-gradient(ellipse 65% 55% at 6% 6%, rgba(225, 29, 72, 0.28) 0%, rgba(190, 18, 60, 0.12) 45%, transparent 75%),
+    radial-gradient(ellipse 60% 60% at 6% 92%, rgba(147, 51, 234, 0.24) 0%, rgba(126, 34, 206, 0.08) 40%, transparent 75%),
+    radial-gradient(ellipse 70% 60% at 94% 6%, rgba(249, 115, 22, 0.35) 0%, rgba(234, 88, 12, 0.16) 45%, transparent 80%),
+    radial-gradient(ellipse 75% 65% at 78% 90%, rgba(244, 63, 94, 0.30) 0%, rgba(225, 29, 72, 0.14) 45%, transparent 75%),
+    linear-gradient(135deg, transparent 36%, rgba(249, 115, 22, 0.06) 50%, rgba(251, 146, 60, 0.18) 66%, rgba(244, 63, 94, 0.06) 82%, transparent 100%);
+}
+
+.react-flow__edge-path {
+  stroke: rgba(var(--accent-rgb), 0.52);
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 3px rgba(var(--accent-rgb), 0.35));
+  transition: stroke 150ms ease, stroke-width 150ms ease;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: rgba(var(--accent-rgb), 0.95);
+  stroke-width: 2.6px;
+  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.75));
 }
 
 .ui-panel {
@@ -377,12 +646,31 @@ html[data-platform='macos'] #root {
   border-color: var(--ui-border-soft);
   border-radius: var(--ui-radius-xl);
   box-shadow: var(--ui-shadow-panel);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .ui-field {
   background: var(--ui-surface-field);
   border-color: var(--ui-border-soft);
   border-radius: var(--ui-radius-lg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Cold and Warm Node Cards Chromatic Contrast */
+.dark .react-flow__node-imageEdit:first-of-type,
+.dark .react-flow__node-aiText,
+.dark .canvas-node-cool-rim {
+  border-color: rgba(99, 102, 241, 0.65) !important;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.58), 0 0 26px rgba(99, 102, 241, 0.22) !important;
+}
+
+.dark .react-flow__node-imageEdit:first-of-type:hover,
+.dark .react-flow__node-aiText:hover,
+.dark .canvas-node-cool-rim:hover {
+  border-color: rgba(129, 140, 248, 0.85) !important;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.58), 0 0 32px rgba(99, 102, 241, 0.35) !important;
 }
 
 .panel-anim-enter {
@@ -564,8 +852,10 @@ html[data-platform='macos'] #root {
 .canvas-minimap {
   border: 1px solid var(--canvas-minimap-border);
   background: var(--canvas-minimap-bg) !important;
-  border-radius: 12px;
-  box-shadow: var(--canvas-rail-shadow);
+  border-radius: 14px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(245, 158, 11, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   overflow: hidden;
   pointer-events: auto !important;
 }
@@ -589,7 +879,7 @@ html[data-platform='macos'] #root {
 .canvas-minimap .react-flow__minimap-mask {
   cursor: grab;
   stroke: var(--canvas-minimap-mask-stroke);
-  stroke-width: 1.4px;
+  stroke-width: 1.6px;
   fill: var(--canvas-minimap-mask);
 }
 

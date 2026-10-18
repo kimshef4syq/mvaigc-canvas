@@ -39,7 +39,7 @@ type NodeHeaderProps = {
   onTitleChange?: (value: string) => void;
 };
 
-export const NODE_HEADER_TONE_CLASS = 'text-[rgba(15,23,42,0.68)] dark:text-white/55';
+export const NODE_HEADER_TONE_CLASS = 'text-[rgba(15,23,42,0.85)] dark:text-white';
 export const NODE_HEADER_TITLE_CLASS = 'text-[14px] font-normal';
 export const NODE_HEADER_META_CLASS = 'text-xs text-text-muted';
 export const NODE_HEADER_FLOATING_POSITION_CLASS = 'absolute -top-7 left-1 right-1 z-10';
@@ -177,10 +177,9 @@ export function NodeHeader({
             ref={setTitleMeasureElement}
             title={titleText}
             className={joinClasses(
-              'block min-w-0 overflow-hidden whitespace-nowrap cursor-grab select-none active:cursor-grabbing',
+              'inline-flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap cursor-grab select-none rounded-md border border-[rgba(255,255,255,0.16)] bg-black/85 px-2 py-0.5 text-left text-white shadow-[0_2px_8px_rgba(0,0,0,0.5)] backdrop-blur-md active:cursor-grabbing dark:border-white/15 dark:bg-black/90 dark:text-white',
               NODE_HEADER_TITLE_MAX_WIDTH_CLASS,
               NODE_HEADER_TITLE_CLASS,
-              tone,
               titleClassName
             )}
             style={titleFadeStyle}
@@ -214,7 +213,7 @@ export function NodeHeader({
             }
           }}
           className={joinClasses(
-            'nodrag nowheel h-6 min-w-[70px] w-full max-w-full rounded border border-[rgba(15,23,42,0.22)] bg-[rgba(255,255,255,0.86)] px-2 text-[13px] font-normal text-text-dark outline-none focus:border-accent/70 dark:border-[rgba(255,255,255,0.24)] dark:bg-black/30',
+            'nodrag nowheel h-6 min-w-[70px] w-full max-w-full rounded-md border border-white/20 bg-black/95 px-2 text-[13px] font-normal text-white shadow-[0_2px_8px_rgba(0,0,0,0.5)] outline-none focus:border-accent/80',
             titleClassName
           )}
         />
@@ -226,10 +225,9 @@ export function NodeHeader({
         type="button"
         ref={setTitleMeasureElement}
         className={joinClasses(
-          'group/title inline-flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap cursor-grab select-none rounded border border-[rgba(15,23,42,0.14)] bg-white/70 px-1.5 text-left shadow-sm active:cursor-grabbing dark:border-white/10 dark:bg-black/20 dark:shadow-none',
+          'group/title inline-flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap cursor-grab select-none rounded-md border border-[rgba(255,255,255,0.16)] bg-black/85 px-2 py-0.5 text-left text-white shadow-[0_2px_8px_rgba(0,0,0,0.5)] backdrop-blur-md active:cursor-grabbing hover:border-white/25 hover:bg-black/95 dark:border-white/15 dark:bg-black/90 dark:text-white dark:hover:border-white/25 dark:hover:bg-black/95',
           NODE_HEADER_TITLE_MAX_WIDTH_CLASS,
           NODE_HEADER_TITLE_CLASS,
-          tone,
           titleClassName
         )}
         style={titleFadeStyle}
@@ -240,8 +238,8 @@ export function NodeHeader({
           setIsEditingTitle(true);
         }}
       >
-        <span className="min-w-0 truncate">{titleText}</span>
-        <Pencil className="h-2.5 w-2.5 shrink-0 opacity-35 transition-opacity group-hover/title:opacity-70" />
+        <span className="min-w-0 truncate text-white dark:text-white">{titleText}</span>
+        <Pencil className="h-2.5 w-2.5 shrink-0 text-white/60 opacity-60 transition-all group-hover/title:text-white group-hover/title:opacity-100" />
       </button>
     );
   }, [

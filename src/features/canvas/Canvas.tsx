@@ -10,9 +10,7 @@ import {
 } from 'react';
 import {
   ReactFlow,
-  Background,
   MiniMap,
-  BackgroundVariant,
   SelectionMode,
   useReactFlow,
   type Connection,
@@ -99,6 +97,7 @@ import { NodeToolDialog } from './ui/NodeToolDialog';
 import { ImageViewerModal } from './ui/ImageViewerModal';
 import { AssetPanel, type CanvasAssetItem } from './ui/AssetPanel';
 import { CanvasOrganizeToolbar } from './ui/CanvasOrganizeToolbar';
+import { CanvasBackground } from './ui/CanvasBackground';
 import { MissingApiKeyHint } from '@/features/settings/MissingApiKeyHint';
 
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, zoom: 1 };
@@ -4168,14 +4167,7 @@ export function Canvas() {
         snapGrid={[20, 20]}
         className="canvas-flow"
       >
-        {showGrid && (
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={20}
-            size={1}
-            color="var(--canvas-grid-dot)"
-          />
-        )}
+        {showGrid && <CanvasBackground />}
         {showMiniMap && (
           <MiniMap
             className="canvas-minimap nopan nowheel"

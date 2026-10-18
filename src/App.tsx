@@ -49,7 +49,7 @@ function toRgbCssValue(hexColor: string): string {
 
 function App() {
   const { t } = useTranslation();
-  const { theme } = useThemeStore();
+  const { theme, skin } = useThemeStore();
   const uiRadiusPreset = useSettingsStore((state) => state.uiRadiusPreset);
   const themeTonePreset = useSettingsStore((state) => state.themeTonePreset);
   const accentColor = useSettingsStore((state) => state.accentColor);
@@ -74,6 +74,10 @@ function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.dataset.skin = skin || 'warm-amber';
+  }, [skin]);
 
   useEffect(() => {
     const root = document.documentElement;

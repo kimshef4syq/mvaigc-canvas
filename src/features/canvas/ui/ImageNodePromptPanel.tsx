@@ -272,7 +272,7 @@ export const ImageNodePromptPanel = memo(({ nodeId, data, onOpenCameraControl }:
     <>
       <NodeToolbar nodeId={nodeId} isVisible position={Position.Bottom} align="center" offset={8} data-canvas-no-marquee="true">
       <div
-        className="nodrag nowheel w-[563px] max-w-[92vw] shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2 text-xs"
+        className="nodrag nowheel w-full max-w-[563px] min-w-[280px] shrink-0 rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2 text-xs"
       >
       <div className="mb-[0.5em] flex flex-wrap gap-[0.5em]">
         {referenceItems.map((item, index) => (

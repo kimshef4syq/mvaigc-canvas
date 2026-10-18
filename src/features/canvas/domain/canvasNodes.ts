@@ -25,11 +25,11 @@ export type CanvasNodeType = (typeof CANVAS_NODE_TYPES)[keyof typeof CANVAS_NODE
 export const DEFAULT_ASPECT_RATIO = '1:1';
 export const AUTO_REQUEST_ASPECT_RATIO = 'auto';
 export const DEFAULT_NODE_WIDTH = 220;
-// Default matches the reference 生成图片 node size (img_021: 563x337), which
-// fits the embedded prompt panel's control row in one line. The minimum stays
-// lower so the node can still be dragged narrower.
-export const EXPORT_RESULT_NODE_DEFAULT_WIDTH = 563;
-export const EXPORT_RESULT_NODE_LAYOUT_HEIGHT = 337;
+// Default matches comfortable canvas card proportions (384x288),
+// harmonious with VideoNode (384) and BlueprintNode (384) so multiple nodes
+// fit comfortably on screen alongside clear canvas grid dots.
+export const EXPORT_RESULT_NODE_DEFAULT_WIDTH = 384;
+export const EXPORT_RESULT_NODE_LAYOUT_HEIGHT = 288;
 export const EXPORT_RESULT_NODE_MIN_WIDTH = 260;
 export const EXPORT_RESULT_NODE_MIN_HEIGHT = 168;
 

@@ -27,6 +27,7 @@ import { resolveMainImageEntry } from '@/features/canvas/application/generatedIm
 import {
   resolveMinEdgeFittedSize,
   resolveResizeMinConstraintsByAspect,
+  resolveSizeInsideTargetBox,
 } from '@/features/canvas/application/imageNodeSizing';
 import {
   resolveImageDisplayUrl,
@@ -117,10 +118,18 @@ export const ImageNode = memo(({ id, data, selected, type, width, height }: Imag
   });
   const resizeMinWidth = resizeConstraints.minWidth;
   const resizeMinHeight = resizeConstraints.minHeight;
-  // The embedded prompt panel needs room for its control row, so a fresh node
-  // opens at the panel-friendly default rather than the bare media size.
-  const resolvedWidth = resolveNodeDimension(width, Math.max(compactSize.width, EXPORT_RESULT_NODE_DEFAULT_WIDTH));
-  const resolvedHeight = resolveNodeDimension(height, Math.max(compactSize.height, EXPORT_RESULT_NODE_LAYOUT_HEIGHT));
+  const defaultFittedSize = useMemo(() => {
+    const fitted = resolveSizeInsideTargetBox(resolvedAspectRatio, {
+      width: EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+      height: EXPORT_RESULT_NODE_LAYOUT_HEIGHT,
+    });
+    return {
+      width: Math.max(compactSize.width, fitted.width),
+      height: Math.max(compactSize.height, fitted.height),
+    };
+  }, [compactSize.height, compactSize.width, resolvedAspectRatio]);
+  const resolvedWidth = resolveNodeDimension(width, defaultFittedSize.width);
+  const resolvedHeight = resolveNodeDimension(height, defaultFittedSize.height);
   const resolvedTitle = useMemo(
     () => resolveNodeDisplayName(type as CanvasNodeType, data),
     [data, type]
