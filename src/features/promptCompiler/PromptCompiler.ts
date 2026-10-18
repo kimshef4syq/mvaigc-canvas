@@ -1,0 +1,88 @@
+/** Structured prompt assembly for the two video models described in the imported profiles. */
+export interface TimedAction {
+  startSeconds: number;
+  endSeconds: number;
+  action: string;
+}
+
+export interface MinimaxH3PromptInput {
+  durationSeconds: number;
+  space: string;
+  camera: string;
+  cameraMotion: string;
+  lighting: string;
+  backgroundMotion: string;
+  actions: TimedAction[];
+  sound: string;
+}
+
+function required(value: string, field: string): string {
+  const result = value.trim();
+  if (!result) throw new Error(`${field} is required`);
+  return result;
+}
+
+function validateTimeline(actions: TimedAction[], durationSeconds: number): void {
+  if (!Number.isFinite(durationSeconds) || durationSeconds < 4 || durationSeconds > 15) {
+    throw new Error('Duration must be between 4 and 15 seconds');
+  }
+  if (!actions.length) throw new Error('At least one action is required');
+  let previousEnd = 0;
+  for (const action of actions) {
+    if (!Number.isFinite(action.startSeconds) || !Number.isFinite(action.endSeconds)
+      || action.startSeconds < previousEnd || action.endSeconds <= action.startSeconds
+      || action.endSeconds > durationSeconds) {
+      throw new Error('Actions must be ordered, non-overlapping, and within the duration');
+    }
+    required(action.action, 'Action');
+    previousEnd = action.endSeconds;
+  }
+}
+
+export function compileMinimaxH3Prompt(input: MinimaxH3PromptInput): string {
+  validateTimeline(input.actions, input.durationSeconds);
+  return [
+    `全局基准：${required(input.space, 'Space')}；${required(input.lighting, 'Lighting')}`,
+    '【镜头1】',
+    `景别与机位：${required(input.camera, 'Camera')}`,
+    `镜头运动：${required(input.cameraMotion, 'Camera motion')}`,
+    `主体行为：${input.actions.map(({ startSeconds, endSeconds, action }) =>
+      `${startSeconds}–${endSeconds}秒 ${action.trim()}`).join('；')}`,
+    `重要背景运动：${required(input.backgroundMotion, 'Background motion')}`,
+    `台词或声音：${required(input.sound, 'Sound')}`,
+  ].join('\n');
+}
+
+export interface SeedancePromptInput {
+  durationSeconds: number;
+  scene: string;
+  actions: TimedAction[];
+  characterImageSlot?: number;
+  dialogueAudioSlot?: number;
+  sound?: string;
+}
+
+/** Slots are emitted only for references that actually exist in the request. */
+export function compileSeedancePrompt(input: SeedancePromptInput): string {
+  validateTimeline(input.actions, input.durationSeconds);
+  const expectedActions = input.durationSeconds <= 6 ? 1 : input.durationSeconds <= 10 ? 2 : 3;
+  if (input.actions.length !== expectedActions) {
+    throw new Error(`${input.durationSeconds}s requires ${expectedActions} primary action(s)`);
+  }
+  const slots: string[] = [];
+  if (input.characterImageSlot !== undefined) {
+    if (!Number.isInteger(input.characterImageSlot) || input.characterImageSlot < 1) throw new Error('Invalid image slot');
+    slots.push(`角色参考 @图片${input.characterImageSlot}`);
+  }
+  if (input.dialogueAudioSlot !== undefined) {
+    if (!Number.isInteger(input.dialogueAudioSlot) || input.dialogueAudioSlot < 1) throw new Error('Invalid audio slot');
+    slots.push(`对白参考 @音频${input.dialogueAudioSlot}`);
+  }
+  return [
+    required(input.scene, 'Scene'),
+    slots.join('；'),
+    ...input.actions.map(({ startSeconds, endSeconds, action }) =>
+      `${startSeconds}–${endSeconds}秒：${action.trim()}`),
+    input.sound ? `声音：${input.sound.trim()}` : '',
+  ].filter(Boolean).join('\n');
+}

@@ -116,6 +116,7 @@ import { UiButton, UiModal } from '@/components/ui';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useCustomProvidersStore } from '@/stores/customProvidersStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { isMiniMaxDesignVideoModel, lintPrompt } from '@/features/promptCompiler/PromptLinter';
 
 type AiVideoNodeProps = NodeProps & {
   id: string;
@@ -1135,8 +1136,22 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       if (!assembled) {
         return;
       }
-      const preview = await buildVideoGenerationDebugPreview(assembled.gatewayPayload);
+      const preflight = isMiniMaxDesignVideoModel(assembled.gatewayPayload.model)
+        ? lintPrompt({
+          prompt: assembled.prompt,
+          modality: 'video',
+          referenceImageCount: assembled.latestIncomingImages.length,
+        })
+        : null;
+      const preview = await buildVideoGenerationDebugPreview({
+        ...assembled.gatewayPayload,
+        prompt: preflight?.prompt ?? assembled.prompt,
+      });
       setPayloadDebugText(serializeDebugJson({
+        ...(preflight ? { promptPreflight: {
+          preparedPrompt: preflight.prompt,
+          issues: preflight.issues,
+        } } : {}),
         gatewayRequest: preview.gatewayRequest,
         route: preview.route,
         providerRequest: preview.providerRequest ?? null,
@@ -1367,7 +1382,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         className={NODE_HEADER_FLOATING_POSITION_CLASS}
         icon={<Video className="h-4 w-4" />}
         titleText={resolvedTitle}
-        rightSlot={showNodePayloadPreview ? (
+        rightSlot={showNodePayloadPreview || isMiniMaxDesignVideoModel(resolvedModelConfig?.entryId ?? '') ? (
           <button
             type="button"
             data-canvas-no-marquee="true"
