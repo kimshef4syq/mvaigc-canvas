@@ -46,7 +46,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": ["resources/agent-profiles/**/*"],
+    "resources": {
+      "../resources/agent-profiles/": "resources/agent-profiles/"
+    },
     "windows": {
       "wix": {
         "language": "zh-CN"
