@@ -16,6 +16,10 @@ export interface PromptLintResult {
   issues: PromptIssue[];
 }
 
+export function isMiniMaxDesignVideoModel(model: string): boolean {
+  return /minimax[-_]h3|seedance/i.test(model);
+}
+
 /**
  * Preflight for the imported Failures profiles. Preserve explicit user constraints:
  * ambiguous negation, exact lettering and hand actions require review rather

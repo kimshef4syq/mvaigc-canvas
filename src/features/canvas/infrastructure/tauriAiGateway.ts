@@ -21,7 +21,7 @@ import {
   type CustomProviderRequestDebugPreview,
 } from './customProviderGateway';
 import type { GenerateVideoPayload } from '../application/ports';
-import { lintPrompt } from '@/features/promptCompiler/PromptLinter';
+import { isMiniMaxDesignVideoModel, lintPrompt } from '@/features/promptCompiler/PromptLinter';
 
 function isDreaminaModel(id: string): boolean { return id.startsWith('dreamina:'); }
 function isCustomModel(id: string): boolean { return id.startsWith('custom:'); }
@@ -247,7 +247,7 @@ export const tauriAiGateway: AiGateway = {
     if (!isCustomModel(payload.model) && !isAgnesModel(payload.model) && !isDreaminaModel(payload.model)) {
       throw new Error('视频生成当前仅支持自定义视频服务商配置或即梦 CLI');
     }
-    const preparedPrompt = /minimax[-_]h3|seedance/i.test(payload.model)
+    const preparedPrompt = isMiniMaxDesignVideoModel(payload.model)
       ? lintPrompt({ prompt: payload.prompt, modality: 'video' }).prompt
       : payload.prompt;
     const normalizedReferenceImages = await normalizeVideoReferenceImages(payload);
