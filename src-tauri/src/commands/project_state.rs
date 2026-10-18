@@ -147,6 +147,33 @@ fn asset_uri(data: &serde_json::Value, preferred: &[&str]) -> Option<String> {
     })
 }
 
+const ASSET_MEDIA_FIELDS: &[&str] = &[
+    "videoUrl",
+    "localVideoUrl",
+    "thumbnailUrl",
+    "imageUrl",
+    "localImageUrl",
+    "previewImageUrl",
+    "audioUrl",
+    "localAudioUrl",
+];
+
+fn asset_media_json(data: &serde_json::Value) -> String {
+    let mut fields = serde_json::Map::new();
+    for field in ASSET_MEDIA_FIELDS {
+        if let Some(value) = data.get(*field) {
+            fields.insert((*field).to_string(), value.clone());
+        }
+    }
+    serde_json::Value::Object(fields).to_string()
+}
+
+fn remove_asset_media_fields(data: &mut serde_json::Map<String, serde_json::Value>) {
+    for field in ASSET_MEDIA_FIELDS {
+        data.remove(*field);
+    }
+}
+
 fn collect_project_assets(nodes_json: &str) -> Vec<IndexedAsset> {
     let Ok(nodes) = serde_json::from_str::<serde_json::Value>(nodes_json) else {
         return Vec::new();
@@ -182,12 +209,7 @@ fn collect_project_assets(nodes_json: &str) -> Vec<IndexedAsset> {
                         node_id: node_id.to_string(),
                         media_type,
                         uri,
-                        metadata_json: serde_json::json!({
-                            "sourcePrompt": entry.get("sourcePrompt"),
-                            "createdAt": entry.get("createdAt"),
-                            "generatedFileName": entry.get("generatedFileName"),
-                        })
-                        .to_string(),
+                        metadata_json: asset_media_json(entry),
                     });
                 }
             }
@@ -204,7 +226,7 @@ fn collect_project_assets(nodes_json: &str) -> Vec<IndexedAsset> {
                         node_id: node_id.to_string(),
                         media_type,
                         uri,
-                        metadata_json: "{}".to_string(),
+                        metadata_json: asset_media_json(data),
                     });
                     break;
                 }
@@ -247,6 +269,7 @@ fn attach_asset_ids(nodes_json: &str, assets: &[IndexedAsset]) -> String {
                     let asset_id = format!("{node_id}:{field}:{entry_id}");
                     if ids.contains(asset_id.as_str()) {
                         if let Some(object) = entry.as_object_mut() {
+                            remove_asset_media_fields(object);
                             object.insert("assetId".to_string(), asset_id.into());
                         }
                     }
@@ -255,7 +278,78 @@ fn attach_asset_ids(nodes_json: &str, assets: &[IndexedAsset]) -> String {
         }
         let main_id = format!("{node_id}:main");
         if ids.contains(main_id.as_str()) {
+            remove_asset_media_fields(data);
             data.insert("assetId".to_string(), main_id.into());
+        } else {
+            for (field, index_field) in [("videos", "mainVideoIndex"), ("images", "mainImageIndex")]
+            {
+                let selected_asset_id = data
+                    .get(field)
+                    .and_then(|value| value.as_array())
+                    .and_then(|entries| {
+                        let index = data
+                            .get(index_field)
+                            .and_then(|value| value.as_u64())
+                            .map(|value| value as usize)
+                            .unwrap_or_else(|| entries.len().saturating_sub(1));
+                        entries.get(index)
+                    })
+                    .and_then(|entry| entry.get("assetId"))
+                    .and_then(|value| value.as_str())
+                    .map(str::to_owned);
+                if let Some(asset_id) = selected_asset_id {
+                    remove_asset_media_fields(data);
+                    data.insert("assetId".to_string(), asset_id.into());
+                    break;
+                }
+            }
+        }
+    }
+    serde_json::to_string(&nodes).unwrap_or_else(|_| nodes_json.to_string())
+}
+
+fn hydrate_asset_media_fields(
+    nodes_json: &str,
+    metadata_by_asset: &HashMap<String, serde_json::Value>,
+) -> String {
+    let Ok(mut nodes) = serde_json::from_str::<serde_json::Value>(nodes_json) else {
+        return nodes_json.to_string();
+    };
+    let Some(nodes_array) = nodes.as_array_mut() else {
+        return nodes_json.to_string();
+    };
+    for node in nodes_array {
+        let Some(data) = node.get_mut("data").and_then(|value| value.as_object_mut()) else {
+            continue;
+        };
+        if let Some(asset_id) = data.get("assetId").and_then(|value| value.as_str()) {
+            if let Some(metadata) = metadata_by_asset
+                .get(asset_id)
+                .and_then(|value| value.as_object())
+            {
+                data.extend(metadata.clone());
+            }
+        }
+        for field in ["videos", "images"] {
+            if let Some(entries) = data.get_mut(field).and_then(|value| value.as_array_mut()) {
+                for entry in entries {
+                    let Some(asset_id) = entry
+                        .get("assetId")
+                        .and_then(|value| value.as_str())
+                        .map(str::to_owned)
+                    else {
+                        continue;
+                    };
+                    if let (Some(object), Some(metadata)) = (
+                        entry.as_object_mut(),
+                        metadata_by_asset
+                            .get(&asset_id)
+                            .and_then(|value| value.as_object()),
+                    ) {
+                        object.extend(metadata.clone());
+                    }
+                }
+            }
         }
     }
     serde_json::to_string(&nodes).unwrap_or_else(|_| nodes_json.to_string())
@@ -965,7 +1059,27 @@ pub(crate) fn get_project_record_impl(
         });
 
         match result {
-            Ok(record) => Ok(Some(record)),
+            Ok(mut record) => {
+                let mut asset_stmt = conn
+                    .prepare("SELECT asset_id, metadata_json FROM assets WHERE project_id = ?1")
+                    .map_err(|e| format!("Failed to prepare asset query: {}", e))?;
+                let rows = asset_stmt
+                    .query_map(params![project_id], |row| {
+                        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                    })
+                    .map_err(|e| format!("Failed to query project assets: {}", e))?;
+                let mut metadata_by_asset = HashMap::new();
+                for row in rows {
+                    let (asset_id, metadata_json) =
+                        row.map_err(|e| format!("Failed to read project asset: {}", e))?;
+                    if let Ok(metadata) = serde_json::from_str(&metadata_json) {
+                        metadata_by_asset.insert(asset_id, metadata);
+                    }
+                }
+                record.nodes_json =
+                    hydrate_asset_media_fields(&record.nodes_json, &metadata_by_asset);
+                Ok(Some(record))
+            }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(error) => Err(format!("Failed to load project: {}", error)),
         }
@@ -1189,9 +1303,11 @@ pub fn delete_project_record(
 #[cfg(test)]
 mod tests {
     use super::{
-        attach_asset_ids, collect_project_assets, ensure_projects_table, finalize_committed_cleanup,
+        attach_asset_ids, collect_project_assets, ensure_projects_table,
+        finalize_committed_cleanup, hydrate_asset_media_fields,
     };
     use rusqlite::Connection;
+    use std::collections::HashMap;
 
     #[test]
     fn post_commit_cleanup_failure_does_not_turn_a_committed_write_into_an_error() {
@@ -1215,7 +1331,31 @@ mod tests {
             indexed[0]["data"]["videos"][0]["assetId"],
             "shot-1:videos:take-1"
         );
+        assert!(indexed[0]["data"]["videos"][0].get("videoUrl").is_none());
+        assert_eq!(indexed[0]["data"]["assetId"], "shot-1:videos:take-1");
+        assert!(indexed[0]["data"].get("videoUrl").is_none());
         assert_eq!(indexed[1]["data"]["assetId"], "shot-2:main");
+        let metadata: HashMap<String, serde_json::Value> = assets
+            .iter()
+            .map(|asset| {
+                (
+                    asset.asset_id.clone(),
+                    serde_json::from_str(&asset.metadata_json).unwrap(),
+                )
+            })
+            .collect();
+        let hydrated: serde_json::Value =
+            serde_json::from_str(&hydrate_asset_media_fields(&indexed.to_string(), &metadata))
+                .unwrap();
+        assert_eq!(
+            hydrated[0]["data"]["videos"][0]["videoUrl"],
+            "https://cdn.example/one.mp4"
+        );
+        assert_eq!(
+            hydrated[0]["data"]["videoUrl"],
+            "https://cdn.example/one.mp4"
+        );
+        assert_eq!(hydrated[1]["data"]["imageUrl"], "/tmp/frame.png");
     }
 
     #[test]
