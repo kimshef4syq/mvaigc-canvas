@@ -1139,7 +1139,11 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       }
       const isDesignModel = isMiniMaxDesignVideoModel(assembled.gatewayPayload.model);
       const preflight = isDesignModel
-        ? lintPrompt({ prompt: assembled.prompt, modality: 'video' })
+        ? lintPrompt({
+          prompt: assembled.prompt,
+          modality: 'video',
+          referenceImageCount: assembled.latestIncomingImages.length,
+        })
         : null;
       const preview = await buildVideoGenerationDebugPreview({
         ...assembled.gatewayPayload,

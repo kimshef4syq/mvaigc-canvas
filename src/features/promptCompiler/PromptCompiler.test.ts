@@ -54,4 +54,20 @@ describe('imported video prompt contracts', () => {
       'negation', 'on-image-text', 'plastic-skin', 'audio-sample',
     ]);
   });
+
+  it('flags semantic risks without changing the requested subject or style', () => {
+    const original = '复古中国风的韩漫角色，保持同一人，加入品牌 logo，高级感';
+    const issues = lintPrompt({
+      prompt: original,
+      modality: 'video',
+      referenceImageCount: 0,
+    });
+    expect(issues.prompt).toBe(original);
+    expect(issues.issues.map((issue) => issue.code)).toEqual(expect.arrayContaining([
+      'brand-injection', 'character-refs', 'cultural-stereotypes',
+      'era-disambiguation', 'mood-vocabulary', 'webtoon-proportions',
+    ]));
+    expect(lintPrompt({ prompt: original, modality: 'video', referenceImageCount: 1 })
+      .issues.map((issue) => issue.code)).not.toContain('brand-injection');
+  });
 });

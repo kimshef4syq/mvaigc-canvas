@@ -248,7 +248,11 @@ export const tauriAiGateway: AiGateway = {
       throw new Error('视频生成当前仅支持自定义视频服务商配置或即梦 CLI');
     }
     const preparedPrompt = isMiniMaxDesignVideoModel(payload.model)
-      ? lintPrompt({ prompt: payload.prompt, modality: 'video' }).prompt
+      ? lintPrompt({
+        prompt: payload.prompt,
+        modality: 'video',
+        referenceImageCount: payload.referenceImages?.length ?? 0,
+      }).prompt
       : payload.prompt;
     const normalizedReferenceImages = await normalizeVideoReferenceImages(payload);
     if (isDreaminaModel(payload.model)) {
