@@ -7,6 +7,7 @@ import { Moon, Sun, Languages, Clapperboard } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useThemeStore } from '@/stores/themeStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { SkinSelector } from './SkinSelector';
 import closeNormalIcon from '@/assets/macos-traffic-lights/1-close-1-normal.svg';
 import closeHoverIcon from '@/assets/macos-traffic-lights/2-close-2-hover.svg';
 import minimizeNormalIcon from '@/assets/macos-traffic-lights/2-minimize-1-normal.svg';
@@ -80,7 +81,7 @@ export function TitleBar({ onSettingsClick, showBackButton, onBackClick }: Title
   }, []);
 
   return (
-    <div className="relative z-50 flex h-10 items-center justify-between border-b border-border-dark bg-surface-dark select-none">
+    <div className="relative z-50 flex h-10 items-center justify-between border-b border-border-dark/60 bg-surface-dark/95 backdrop-blur-md select-none">
       {isDesktopRuntime && isMac ? (
         <div className="group flex items-center h-full pl-3 pr-2 gap-2" data-no-drag="true">
           <button
@@ -169,6 +170,8 @@ export function TitleBar({ onSettingsClick, showBackButton, onBackClick }: Title
           <Languages className="h-4 w-4" />
         </button>
 
+        <SkinSelector />
+
         <button
           type="button"
           onClick={handleThemeClick}
@@ -177,9 +180,9 @@ export function TitleBar({ onSettingsClick, showBackButton, onBackClick }: Title
           aria-label={theme === 'dark' ? t('theme.light') : t('theme.dark')}
         >
           {theme === 'dark' ? (
-            <Sun className="h-4 w-4" />
+            <Sun className="h-4 w-4 text-amber-400/85 transition-transform group-hover:rotate-45" />
           ) : (
-            <Moon className="h-4 w-4" />
+            <Moon className="h-4 w-4 text-indigo-400/85 transition-transform group-hover:-rotate-12" />
           )}
         </button>
 

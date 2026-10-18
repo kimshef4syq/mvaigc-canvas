@@ -354,7 +354,7 @@ const HEX_COLOR_PATTERN = /^#?[0-9a-fA-F]{6}$/;
 function normalizeHexColor(input: string): string {
   const trimmed = input.trim();
   if (!HEX_COLOR_PATTERN.test(trimmed)) {
-    return '#3B82F6';
+    return '#f59e0b';
   }
   return trimmed.startsWith('#') ? trimmed.toUpperCase() : `#${trimmed.toUpperCase()}`;
 }
@@ -1027,7 +1027,7 @@ export const useSettingsStore = create<SettingsState>()(
       canvasWasdPanSensitivity: 60,
       uiRadiusPreset: 'default',
       themeTonePreset: 'neutral',
-      accentColor: '#3B82F6',
+      accentColor: '#f59e0b',
       canvasEdgeRoutingMode: 'spline',
       autoCheckAppUpdateOnLaunch: false,
       enableUpdateDialog: true,
@@ -1423,6 +1423,9 @@ export const useSettingsStore = create<SettingsState>()(
         delete persistedWithoutPricing.usdToCnyRate;
         delete persistedWithoutPricing.preferDiscountedPrice;
         delete persistedWithoutPricing.grsaiCreditTierId;
+        if (persistedWithoutPricing.accentColor === '#3B82F6') {
+          persistedWithoutPricing.accentColor = '#f59e0b';
+        }
 
         const migratedApiKeys = normalizeApiKeys(state.apiKeys);
         const ignoreAtTagWhenCopyingAndGenerating =

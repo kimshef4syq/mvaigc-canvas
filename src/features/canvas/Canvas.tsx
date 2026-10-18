@@ -10,9 +10,7 @@ import {
 } from 'react';
 import {
   ReactFlow,
-  Background,
   MiniMap,
-  BackgroundVariant,
   SelectionMode,
   useReactFlow,
   type Connection,
@@ -98,6 +96,7 @@ import { SelectedNodeOverlay } from './ui/SelectedNodeOverlay';
 import { NodeToolDialog } from './ui/NodeToolDialog';
 import { ImageViewerModal } from './ui/ImageViewerModal';
 import { AssetPanel, type CanvasAssetItem } from './ui/AssetPanel';
+import { CanvasBackground } from './ui/CanvasBackground';
 import { MissingApiKeyHint } from '@/features/settings/MissingApiKeyHint';
 
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, zoom: 1 };
@@ -4120,12 +4119,7 @@ export function Canvas() {
         proOptions={{ hideAttribution: true }}
         className="canvas-flow"
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          color="var(--canvas-grid-dot)"
-        />
+        <CanvasBackground />
         <MiniMap
           className="canvas-minimap nopan nowheel"
           style={{ pointerEvents: 'all', zIndex: 10000 }}
