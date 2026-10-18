@@ -59,6 +59,8 @@ export type CanvasGenerationJobState =
 
 export interface NodeDisplayData {
   displayName?: string;
+  /** Stable reference into the project's SQLite assets table when media is indexed. */
+  assetId?: string;
   [key: string]: unknown;
 }
 
@@ -84,6 +86,7 @@ export type ExportImageNodeResultKind =
 
 export interface GeneratedImageEntry {
   id: string;
+  assetId?: string;
   imageUrl: string | null;
   previewImageUrl: string | null;
   aspectRatio: string;
@@ -94,6 +97,7 @@ export interface GeneratedImageEntry {
 
 export interface GeneratedVideoEntry {
   id: string;
+  assetId?: string;
   videoUrl: string | null;
   thumbnailUrl: string | null;
   aspectRatio: string;

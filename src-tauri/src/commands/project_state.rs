@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
@@ -67,6 +67,24 @@ fn ensure_projects_table(conn: &Connection) -> Result<(), String> {
           PRIMARY KEY(project_id, path)
         );
         CREATE INDEX IF NOT EXISTS idx_project_image_refs_path ON project_image_refs(path);
+        CREATE TABLE IF NOT EXISTS assets (
+          project_id TEXT NOT NULL,
+          asset_id TEXT NOT NULL,
+          node_id TEXT NOT NULL,
+          media_type TEXT NOT NULL,
+          uri TEXT NOT NULL,
+          metadata_json TEXT NOT NULL DEFAULT '{}',
+          PRIMARY KEY(project_id, asset_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_assets_node ON assets(project_id, node_id);
+        CREATE TABLE IF NOT EXISTS asset_dependencies (
+          project_id TEXT NOT NULL,
+          asset_id TEXT NOT NULL,
+          source_asset_id TEXT NOT NULL DEFAULT '',
+          source_node_id TEXT NOT NULL,
+          PRIMARY KEY(project_id, asset_id, source_node_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_asset_dependencies_source ON asset_dependencies(project_id, source_node_id);
         "#,
     )
     .map_err(|e| format!("Failed to initialize projects table: {}", e))?;
@@ -107,6 +125,140 @@ fn ensure_projects_table(conn: &Connection) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone)]
+struct IndexedAsset {
+    asset_id: String,
+    node_id: String,
+    media_type: &'static str,
+    uri: String,
+    metadata_json: String,
+}
+
+fn asset_uri(data: &serde_json::Value, preferred: &[&str]) -> Option<String> {
+    preferred.iter().find_map(|key| {
+        let value = data.get(*key)?.as_str()?.trim();
+        if value.is_empty() || value.len() > 4096 || value.starts_with("data:") {
+            None
+        } else {
+            Some(value.to_string())
+        }
+    })
+}
+
+fn collect_project_assets(nodes_json: &str) -> Vec<IndexedAsset> {
+    let Ok(nodes) = serde_json::from_str::<serde_json::Value>(nodes_json) else {
+        return Vec::new();
+    };
+    let Some(nodes) = nodes.as_array() else {
+        return Vec::new();
+    };
+    let mut assets = Vec::new();
+    for node in nodes {
+        let Some(node_id) = node.get("id").and_then(|value| value.as_str()) else {
+            continue;
+        };
+        let Some(data) = node.get("data") else {
+            continue;
+        };
+        for (field, media_type, uri_keys) in [
+            ("videos", "video", ["localVideoUrl", "videoUrl"]),
+            ("images", "image", ["localImageUrl", "imageUrl"]),
+        ] {
+            if let Some(entries) = data.get(field).and_then(|value| value.as_array()) {
+                for (index, entry) in entries.iter().enumerate() {
+                    let Some(uri) = asset_uri(entry, &uri_keys) else {
+                        continue;
+                    };
+                    let entry_id = entry
+                        .get("id")
+                        .and_then(|value| value.as_str())
+                        .filter(|value| !value.is_empty())
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| index.to_string());
+                    assets.push(IndexedAsset {
+                        asset_id: format!("{node_id}:{field}:{entry_id}"),
+                        node_id: node_id.to_string(),
+                        media_type,
+                        uri,
+                        metadata_json: serde_json::json!({
+                            "sourcePrompt": entry.get("sourcePrompt"),
+                            "createdAt": entry.get("createdAt"),
+                            "generatedFileName": entry.get("generatedFileName"),
+                        })
+                        .to_string(),
+                    });
+                }
+            }
+        }
+        if !assets.iter().any(|asset| asset.node_id == node_id) {
+            for (media_type, uri_keys) in [
+                ("video", ["localVideoUrl", "videoUrl"]),
+                ("image", ["localImageUrl", "imageUrl"]),
+                ("audio", ["localAudioUrl", "audioUrl"]),
+            ] {
+                if let Some(uri) = asset_uri(data, &uri_keys) {
+                    assets.push(IndexedAsset {
+                        asset_id: format!("{node_id}:main"),
+                        node_id: node_id.to_string(),
+                        media_type,
+                        uri,
+                        metadata_json: "{}".to_string(),
+                    });
+                    break;
+                }
+            }
+        }
+    }
+    let mut seen = HashSet::new();
+    assets.retain(|asset| seen.insert(asset.asset_id.clone()));
+    assets
+}
+
+fn attach_asset_ids(nodes_json: &str, assets: &[IndexedAsset]) -> String {
+    let Ok(mut nodes) = serde_json::from_str::<serde_json::Value>(nodes_json) else {
+        return nodes_json.to_string();
+    };
+    let Some(nodes_array) = nodes.as_array_mut() else {
+        return nodes_json.to_string();
+    };
+    let ids: HashSet<&str> = assets.iter().map(|asset| asset.asset_id.as_str()).collect();
+    for node in nodes_array {
+        let Some(node_id) = node
+            .get("id")
+            .and_then(|value| value.as_str())
+            .map(str::to_owned)
+        else {
+            continue;
+        };
+        let Some(data) = node.get_mut("data").and_then(|value| value.as_object_mut()) else {
+            continue;
+        };
+        for field in ["videos", "images"] {
+            if let Some(entries) = data.get_mut(field).and_then(|value| value.as_array_mut()) {
+                for (index, entry) in entries.iter_mut().enumerate() {
+                    let entry_id = entry
+                        .get("id")
+                        .and_then(|value| value.as_str())
+                        .filter(|value| !value.is_empty())
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| index.to_string());
+                    let asset_id = format!("{node_id}:{field}:{entry_id}");
+                    if ids.contains(asset_id.as_str()) {
+                        if let Some(object) = entry.as_object_mut() {
+                            object.insert("assetId".to_string(), asset_id.into());
+                        }
+                    }
+                }
+            }
+        }
+        let main_id = format!("{node_id}:main");
+        if ids.contains(main_id.as_str()) {
+            data.insert("assetId".to_string(), main_id.into());
+        }
+    }
+    serde_json::to_string(&nodes).unwrap_or_else(|_| nodes_json.to_string())
 }
 
 fn parse_image_pool_from_json(image_pool_json: &str) -> Vec<String> {
@@ -843,6 +995,28 @@ pub(crate) fn upsert_project_record_impl(
         &record.history_json,
         Some(&image_pool_json),
     );
+    let assets = collect_project_assets(&record.nodes_json);
+    let indexed_nodes_json = attach_asset_ids(&record.nodes_json, &assets);
+    let mut asset_by_node: HashMap<&str, Vec<&str>> = HashMap::new();
+    for asset in &assets {
+        asset_by_node
+            .entry(asset.node_id.as_str())
+            .or_default()
+            .push(asset.asset_id.as_str());
+    }
+    let edges: Vec<(String, String)> =
+        serde_json::from_str::<serde_json::Value>(&record.edges_json)
+            .ok()
+            .and_then(|value| value.as_array().cloned())
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|edge| {
+                Some((
+                    edge.get("source")?.as_str()?.to_string(),
+                    edge.get("target")?.as_str()?.to_string(),
+                ))
+            })
+            .collect();
     with_db(app, db, |conn| {
         let tx = conn
             .transaction()
@@ -880,7 +1054,7 @@ pub(crate) fn upsert_project_record_impl(
                 record.created_at,
                 record.updated_at,
                 record.node_count,
-                record.nodes_json,
+                indexed_nodes_json,
                 record.edges_json,
                 record.viewport_json,
                 record.history_json,
@@ -901,6 +1075,37 @@ pub(crate) fn upsert_project_record_impl(
                 params![record.id, path],
             )
             .map_err(|e| format!("Failed to upsert project image ref: {}", e))?;
+        }
+
+        tx.execute(
+            "DELETE FROM asset_dependencies WHERE project_id = ?1",
+            params![record.id],
+        )
+        .map_err(|e| format!("Failed to clear asset dependencies: {}", e))?;
+        tx.execute(
+            "DELETE FROM assets WHERE project_id = ?1",
+            params![record.id],
+        )
+        .map_err(|e| format!("Failed to clear project assets: {}", e))?;
+        for asset in &assets {
+            tx.execute(
+                "INSERT INTO assets (project_id, asset_id, node_id, media_type, uri, metadata_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![record.id, asset.asset_id, asset.node_id, asset.media_type, asset.uri, asset.metadata_json],
+            ).map_err(|e| format!("Failed to index project asset: {}", e))?;
+            for (source, target) in &edges {
+                if target != &asset.node_id {
+                    continue;
+                }
+                let source_asset_id = asset_by_node
+                    .get(source.as_str())
+                    .filter(|ids| ids.len() == 1)
+                    .map(|ids| ids[0])
+                    .unwrap_or("");
+                tx.execute(
+                    "INSERT OR IGNORE INTO asset_dependencies (project_id, asset_id, source_asset_id, source_node_id) VALUES (?1, ?2, ?3, ?4)",
+                    params![record.id, asset.asset_id, source_asset_id, source],
+                ).map_err(|e| format!("Failed to index asset dependency: {}", e))?;
+            }
         }
 
         tx.commit()
@@ -963,6 +1168,16 @@ pub fn delete_project_record(
             params![project_id],
         )
         .map_err(|e| format!("Failed to delete project image refs: {}", e))?;
+        tx.execute(
+            "DELETE FROM asset_dependencies WHERE project_id = ?1",
+            params![project_id],
+        )
+        .map_err(|e| format!("Failed to delete asset dependencies: {}", e))?;
+        tx.execute(
+            "DELETE FROM assets WHERE project_id = ?1",
+            params![project_id],
+        )
+        .map_err(|e| format!("Failed to delete assets: {}", e))?;
 
         tx.commit()
             .map_err(|e| format!("Failed to commit delete transaction: {}", e))?;
@@ -973,10 +1188,49 @@ pub fn delete_project_record(
 
 #[cfg(test)]
 mod tests {
-    use super::finalize_committed_cleanup;
+    use super::{
+        attach_asset_ids, collect_project_assets, ensure_projects_table, finalize_committed_cleanup,
+    };
+    use rusqlite::Connection;
 
     #[test]
     fn post_commit_cleanup_failure_does_not_turn_a_committed_write_into_an_error() {
         assert!(finalize_committed_cleanup("test", Err("injected prune failure".into())).is_ok());
+    }
+
+    #[test]
+    fn indexes_generated_media_without_copying_inline_data_urls() {
+        let nodes = serde_json::json!([
+            {"id":"shot-1","data":{"videos":[{"id":"take-1","videoUrl":"https://cdn.example/one.mp4"}],"videoUrl":"https://cdn.example/one.mp4"}},
+            {"id":"shot-2","data":{"imageUrl":"/tmp/frame.png"}},
+            {"id":"shot-3","data":{"imageUrl":"data:image/png;base64,abc"}}
+        ]);
+        let assets = collect_project_assets(&nodes.to_string());
+        assert_eq!(assets.len(), 2);
+        assert_eq!(assets[0].asset_id, "shot-1:videos:take-1");
+        assert_eq!(assets[1].uri, "/tmp/frame.png");
+        let indexed: serde_json::Value =
+            serde_json::from_str(&attach_asset_ids(&nodes.to_string(), &assets)).unwrap();
+        assert_eq!(
+            indexed[0]["data"]["videos"][0]["assetId"],
+            "shot-1:videos:take-1"
+        );
+        assert_eq!(indexed[1]["data"]["assetId"], "shot-2:main");
+    }
+
+    #[test]
+    fn creates_asset_and_dependency_tables() {
+        let conn = Connection::open_in_memory().unwrap();
+        ensure_projects_table(&conn).unwrap();
+        for table in ["assets", "asset_dependencies"] {
+            let count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                    [table],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 1);
+        }
     }
 }
