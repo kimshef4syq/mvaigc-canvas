@@ -22,6 +22,7 @@ import {
   validateAgentTurnMediaInputs,
 } from './agentMediaResolver';
 import { buildSkillContext, resolveAgentToolPolicy, type SkillRoutingContext } from './agentSkills';
+import { routeUserTask } from './taskRouter';
 import { getAgentGenerationNetworkRevision, getAgentProviderRevision } from './agentConfigPatch';
 import { canvasAgentBudgetLedger } from './agentBudget';
 import { canvasCommandRegistry } from '@/features/canvas/application/canvasCommandService';
@@ -436,11 +437,13 @@ async function createActiveRun(input: {
     .map((message) => message.text)
     .join('\n');
   const [installed, mcp] = await Promise.all([refreshInstalledAgentSkills(), prepareAgentMcpConnections()]);
+  const taskRoute = routeUserTask({ text: input.message });
   const skillRoutingContext: SkillRoutingContext = {
     text: input.message,
     installedSkills: installed.skills,
     recentUserText,
     attachmentKinds: input.media?.length ? ['image'] : [],
+    taskRoute,
   };
   const agent = runtime.createCanvasAgent({
     restoreExtensions: input.restoreExtensions,

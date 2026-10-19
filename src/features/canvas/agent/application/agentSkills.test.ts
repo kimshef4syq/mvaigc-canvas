@@ -22,6 +22,8 @@ describe('agent skill router', () => {
       .toEqual(['director-studio', 'storyboard-planning', 'video-prompt-director']);
     expect(routeAgentSkills({ text: '4K 3:4 生图失败，帮我诊断 Issue 11', errorCode: 'pixel-limit' })[0]?.skill.id)
       .toBe('generation-diagnostics');
+    expect(routeAgentSkills({ text: '生成一张雨夜街景' }).map((item) => item.skill.id))
+      .toContain('image-prompt-director');
   });
 
   it('keeps unmatched requests minimal and never loads every skill detail', () => {

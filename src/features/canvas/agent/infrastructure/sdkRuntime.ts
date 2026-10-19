@@ -443,6 +443,35 @@ export function normalizeCanvasCommandToolArguments(argumentsJson: string): stri
       return JSON.stringify({ ...command, input });
     }
   }
+  if (command.type === 'generation.submit' && command.input && typeof command.input === 'object' && !Array.isArray(command.input)) {
+    const input = { ...(command.input as Record<string, unknown>) };
+    const hasPrompt = typeof input.prompt === 'string' && input.prompt.trim().length > 0;
+    const rawNodeIds = Array.isArray(input.nodeIds) ? input.nodeIds : [];
+    const validNodeIds = rawNodeIds.filter((id) => typeof id === 'string' && id.trim().length > 0 && !/^(?:<[^>]+>|placeholder|null|undefined|node_id)$/i.test(id.trim()));
+    if (hasPrompt && validNodeIds.length === 0) {
+      const nodeType = typeof input.nodeType === 'string'
+        ? (CANVAS_NODE_TYPE_ALIASES[input.nodeType.replace(/[\s_-]/g, '').toLowerCase()] ?? input.nodeType)
+        : 'imageNode';
+      const position = input.position && typeof input.position === 'object' && !Array.isArray(input.position)
+        ? input.position
+        : { x: 0, y: 0 };
+      const configuration: Record<string, unknown> = {
+        prompt: input.prompt,
+      };
+      if (input.modelId) configuration.modelId = input.modelId;
+      if (input.aspectRatio ?? input.ratio) configuration.aspectRatio = input.aspectRatio ?? input.ratio;
+      const res = input.resolution ?? input.size;
+      if (res) configuration.resolution = normalizeCreateResolution(res);
+      return JSON.stringify({
+        type: 'node.create',
+        input: {
+          nodeType,
+          position,
+          configuration,
+        },
+      });
+    }
+  }
   if (command.type !== 'node.create' || !command.input || typeof command.input !== 'object' || Array.isArray(command.input)) {
     return argumentsJson;
   }

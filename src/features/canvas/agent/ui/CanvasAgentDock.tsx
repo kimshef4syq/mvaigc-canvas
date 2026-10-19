@@ -508,6 +508,12 @@ export function CanvasAgentDock({ projectId }: Props) {
         startedAt: Date.now(),
         createdAt: Date.now(),
       });
+      if (status === 'succeeded') {
+        const targetIds = generationTargets.resultNodeIds.length
+          ? generationTargets.resultNodeIds
+          : nodeIdsFromAgentOutput(event.output);
+        if (targetIds.length > 0) void canvasNavigationFacade.focusNodeIds(targetIds, { select: true });
+      }
       return;
     }
 
@@ -527,6 +533,12 @@ export function CanvasAgentDock({ projectId }: Props) {
       ...execution,
       durationMs: startedAt ? Date.now() - startedAt : undefined,
     });
+    if (status === 'succeeded') {
+      const targetIds = generationTargets.resultNodeIds.length
+        ? generationTargets.resultNodeIds
+        : nodeIds;
+      if (targetIds.length > 0) void canvasNavigationFacade.focusNodeIds(targetIds, { select: true });
+    }
   };
 
   const runtimeReady = Boolean(selectedEntry);

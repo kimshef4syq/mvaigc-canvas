@@ -124,6 +124,36 @@ describe('Storyboard Agent top-level tool normalization', () => {
     expect(JSON.parse(call.arguments).input).not.toHaveProperty('nodeId');
   });
 
+  it('canonicalizes generation.submit with prompt and missing nodeIds into node.create', () => {
+    const [call] = normalizeStoryboardAgentToolCalls([{
+      callId: 'submit-direct-prompt',
+      name: 'canvas_command',
+      arguments: JSON.stringify({
+        type: 'generation.submit',
+        input: {
+          prompt: '生成一张雨夜街景',
+          modelId: 'agnes:image:image-2.1-flash',
+          aspectRatio: '16:9',
+          resolution: '2K',
+        },
+      }),
+    }]);
+
+    expect(JSON.parse(call.arguments)).toEqual({
+      type: 'node.create',
+      input: {
+        nodeType: 'imageNode',
+        position: { x: 0, y: 0 },
+        configuration: {
+          prompt: '生成一张雨夜街景',
+          modelId: 'agnes:image:image-2.1-flash',
+          aspectRatio: '16:9',
+          resolution: '2K',
+        },
+      },
+    });
+  });
+
   it('adds only the safe default position when node.create omits its layout hint', () => {
     const [call] = normalizeStoryboardAgentToolCalls([{
       callId: 'create-without-position',
