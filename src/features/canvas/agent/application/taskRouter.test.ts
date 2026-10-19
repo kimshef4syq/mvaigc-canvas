@@ -53,6 +53,18 @@ describe('Task Router Application Service (T03)', () => {
     expect(tvcCampaign.kind).toBe('workflow');
     expect(tvcCampaign.workflow).toBe('ad-tvc');
     expect(tvcCampaign.requestedDeliverables).toEqual(['commercial-video']);
+
+    // Sneaker commercial -> workflow ad-tvc
+    const sneakerAd = routeUserTask({ text: '一支球鞋的广告' });
+    expect(sneakerAd.kind).toBe('workflow');
+    expect(sneakerAd.workflow).toBe('ad-tvc');
+    expect(sneakerAd.requestedDeliverables).toEqual(['commercial-video']);
+
+    // Electric SUV 30s TVC (Scenario 4) -> workflow ad-tvc
+    const suvTvc = routeUserTask({ text: '为全新智能电动SUV制作一段30秒广告TVC' });
+    expect(suvTvc.kind).toBe('workflow');
+    expect(suvTvc.workflow).toBe('ad-tvc');
+    expect(suvTvc.requestedDeliverables).toEqual(['commercial-video']);
   });
 
   it('A07: routes specified drama episode to workflow and clarifies missing episode scope', () => {

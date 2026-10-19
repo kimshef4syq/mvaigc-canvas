@@ -116,4 +116,29 @@ describe('agent skill router', () => {
       'skill contains forbidden capability or secret access',
     ]));
   });
+
+  it('boosts relevant skills and injects multi-stage instructions for ad-tvc workflow', () => {
+    const text = '为全新智能电动SUV制作一段30秒广告TVC';
+    const context = buildSkillContext({
+      text,
+      taskRoute: {
+        version: 1,
+        kind: 'workflow',
+        workflow: 'ad-tvc',
+        requestedDeliverables: ['commercial-video'],
+        scope: { targetNodeIds: [] },
+        requiredCapabilities: ['generation:video', 'generation:image', 'media:postprocess'],
+        evidence: [{ source: 'user', referenceId: 'prompt', excerpt: text }],
+      },
+    });
+    const skillIds = context.selections.map((s) => s.skill.id);
+    expect(skillIds).toContain('minimax-design-profiles');
+    expect(skillIds).toContain('storyboard-planning');
+    expect(context.instructions).toContain('商业广告 TVC 全流程制作');
+    expect(context.instructions).toContain('需求简报');
+    expect(context.instructions).toContain('核心锚点');
+    expect(context.instructions).toContain('分镜脚本');
+    expect(context.instructions).toContain('视频生成');
+    expect(context.instructions).toContain('production_plan');
+  });
 });

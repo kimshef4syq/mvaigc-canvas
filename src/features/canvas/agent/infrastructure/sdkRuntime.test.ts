@@ -1328,5 +1328,57 @@ describe('OpenAI Agents SDK runtime adapter', () => {
     expect(toolNames).toContain('source_inspect');
     expect(toolNames).toContain('production_plan');
   });
+
+  it('executes production_plan create with ad-tvc workflow factory', async () => {
+    let executedToolCall: any;
+    const transport: AgentModelTransport = {
+      async getResponse(request: AgentModelTurnRequest): Promise<AgentModelTurnResponse> {
+        const hasToolResult = request.input.some((item) => item.type === 'function_call_result');
+        if (!hasToolResult) {
+          return {
+            responseId: 'plan-call-resp',
+            text: '',
+            toolCalls: [{
+              callId: 'call-create-tvc-plan',
+              name: 'production_plan',
+              arguments: JSON.stringify({
+                action: 'create',
+                createInput: {
+                  workflow: 'ad-tvc',
+                  prompt: '为全新智能电动SUV制作一段30秒广告TVC',
+                  category: 'auto',
+                },
+              }),
+            }],
+            usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+          };
+        }
+        const toolResult = request.input.find((item) => item.type === 'function_call_result');
+        executedToolCall = typeof toolResult?.output === 'string' ? JSON.parse(toolResult.output) : toolResult?.output;
+        return {
+          responseId: 'plan-final-resp',
+          text: 'Plan created successfully',
+          toolCalls: [],
+          usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+        };
+      },
+      async *getStreamedResponse() { throw new Error('unused'); },
+    };
+    const runtime = createStoryboardAgentRuntime({ resolveModel: () => reference, transport });
+    const context: CanvasAgentContext = { projectId: 'project-tvc-test', runId: 'tvc-plan-run' };
+    const agent = createCanvasAgent({
+      runtime,
+      context,
+      supportsVision: true,
+      supportsToolSearch: false,
+      skillContext: { text: '为全新智能电动SUV制作一段30秒广告TVC' },
+    });
+    await runtime.runner.run(agent, '为全新智能电动SUV制作一段30秒广告TVC', { context });
+    expect(executedToolCall.id).toMatch(/^plan-tvc-/);
+    expect(executedToolCall.workflow.id).toBe('ad-tvc');
+    expect(executedToolCall.workflow.variant).toBe('auto:product-ad');
+    expect(executedToolCall.stageOutline.length).toBeGreaterThanOrEqual(4);
+  });
 });
+
 

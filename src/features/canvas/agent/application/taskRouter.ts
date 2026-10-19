@@ -111,12 +111,12 @@ export function routeUserTask(input: TaskRouterInput): TaskRouteV1 {
   // 7. TVC single poster vs TVC full campaign
   const isPosterOrSingleImage = /(?:一张海报|一张图|海报|主视觉|kv|生图|雨夜街景|图片)/i.test(text);
   const isMultiEpisodeOrDrama = /(?:短剧|微电影|剧本)/i.test(text);
-  const isTVC = /(?:tvc|品牌片|产品广告|商业广告)/i.test(text);
+  const isTVC = /(?:tvc|品牌片|产品广告|商业广告|广告片|(?:制作|生成|来|做)?(?:一支|一条|一段|个)?.{0,8}广告)/i.test(text);
   const isMV = /(?:mv|音乐卡点|歌词视频|这首歌)/i.test(text);
   const isKOC = /(?:koc|种草|口播|带货)/i.test(text);
 
-  // TVC Campaign (must check before single poster if it explicitly requests 30s / campaign)
-  if (isTVC && /(?:30\s*秒|成片|完整|视频|广告片|品牌大片)/i.test(text)) {
+  // TVC Campaign (must check before single poster if it explicitly requests 30s / campaign or commercial video)
+  if (isTVC && (/(?:30\s*秒|成片|完整|视频|广告片|品牌大片)/i.test(text) || !isPosterOrSingleImage)) {
     return taskRouteSchema.parse({
       version: 1,
       kind: 'workflow',

@@ -27,6 +27,12 @@ import { readSkillResource } from '@/commands/extensions';
 import { searchProfiles, readProfile } from './profileRepository';
 import { sourceRepository } from './sourceRepository';
 import { productionPlanService } from '../application/productionPlanService';
+import { productionPlanRepository } from './productionPlanRepository';
+import { createAdTvcPlan } from '../application/adTvcWorkflow';
+import { createDramaSeriesPlan } from '../application/dramaSeriesWorkflow';
+import { createKocPlan } from '../application/kocVideoWorkflow';
+import { createMusicVideoPlan } from '../application/musicVideoWorkflow';
+import { createGeneralVideoPlan } from '../application/generalVideoWorkflow';
 import { mediaPostprocessOperationSchema } from '../domain/mediaPostprocess';
 import { mediaPostprocessService } from '../application/mediaPostprocessService';
 import type { McpAgentTool } from '@/commands/mcpClient';
@@ -1751,11 +1757,56 @@ export function createCanvasAgent(options: {
 
       try {
         switch (parsed.action) {
-          case 'create':
+          case 'create': {
+            const input = parsed.createInput ?? {};
+            const workflowId = typeof input.workflow === 'string' ? input.workflow : input.workflow?.id;
+            if (workflowId === 'ad-tvc') {
+              const plan = createAdTvcPlan({
+                projectId: context.projectId,
+                prompt: input.prompt ?? input.title ?? '',
+                category: input.category,
+                direction: input.direction,
+                targetNodeIds: input.targetNodeIds,
+                options: input.options,
+              });
+              return productionPlanRepository.savePlan(plan);
+            }
+            if (workflowId === 'drama-series') {
+              const plan = createDramaSeriesPlan({
+                projectId: context.projectId,
+                prompt: input.prompt ?? input.title ?? '',
+                scope: input.scope,
+              });
+              return productionPlanRepository.savePlan(plan);
+            }
+            if (workflowId === 'koc-video') {
+              const plan = createKocPlan({
+                projectId: context.projectId,
+                prompt: input.prompt ?? input.title ?? '',
+                options: input.options,
+              });
+              return productionPlanRepository.savePlan(plan);
+            }
+            if (workflowId === 'mv') {
+              const plan = createMusicVideoPlan({
+                projectId: context.projectId,
+                prompt: input.prompt ?? input.title ?? '',
+              });
+              return productionPlanRepository.savePlan(plan);
+            }
+            if (workflowId === 'general-video') {
+              const plan = createGeneralVideoPlan({
+                projectId: context.projectId,
+                title: input.title ?? input.prompt ?? '',
+                driver: input.driver,
+              });
+              return productionPlanRepository.savePlan(plan);
+            }
             return productionPlanService.createPlan({
               projectId: context.projectId,
-              ...parsed.createInput,
+              ...input,
             });
+          }
           case 'get':
             if (!parsed.planId) throw new Error('get 操作必须提供 planId');
             return productionPlanService.getPlan(context.projectId, parsed.planId) ?? { notFound: true };

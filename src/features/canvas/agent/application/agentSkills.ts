@@ -223,7 +223,7 @@ function taskRouteBoost(skill: SkillDefinitionV1, context: SkillRoutingContext):
   if (route.requiredCapabilities?.includes('generation:video') || route.requestedDeliverables?.includes('commercial-video')) {
     if (skill.id === 'video-prompt-director') return 5;
   }
-  if (route.workflow === 'ad-tvc' && (skill.id === 'minimax-design-profiles' || skill.id === 'image-prompt-director')) return 5;
+  if (route.workflow === 'ad-tvc' && (skill.id === 'minimax-design-profiles' || skill.id === 'storyboard-planning')) return 5;
   if (route.workflow === 'drama-series' && skill.id === 'storyboard-planning') return 5;
   return 0;
 }
@@ -291,7 +291,22 @@ export function buildSkillContext(context: SkillRoutingContext): {
       ? `【任务分流系统判定】本次任务为单步快速直达（direct: ${context.taskRoute.requestedDeliverables.join(', ') || 'image'}）。严禁盲目创建多阶段制作大纲或流程文档。对于从零生图，先调用 node.create 创建 imageNode，configuration 中写入 prompt 与模型参数；返回真实 nodeId 后再调用 generation.submit。`
       : context.taskRoute.kind === 'clarify'
         ? '【任务分流系统判定】本次任务检测到信息缺失（clarify）。请先向用户提出明确的澄清问题，不要擅自排队生成。'
-        : `【任务分流系统判定】本次任务为完整流水线制作（workflow: ${context.taskRoute.workflow}）。`
+        : context.taskRoute.workflow === 'ad-tvc'
+          ? `【任务分流系统判定】本次任务为商业广告 TVC 全流程制作（workflow: ad-tvc）。\n` +
+            `1. 【严禁行为】严禁直接在画布创建单个孤立的视频节点或直接调用 generation.submit 发起生成！商业广告必须严格遵守工业级多阶段制作大纲。\n` +
+            `2. 【品类与方向识别】自动检测行业品类（auto 汽车/SUV、fashion 时尚球鞋/服饰、beauty 美妆护肤、food 美食餐饮、tech 3C数码、appliance 家电）以及方向（product-ad 产品广告 / brand-ad 品牌大片）。\n` +
+            `3. 【建立制作计划】必须首先调用 production_plan 工具（action: "create", createInput: { workflow: "ad-tvc", prompt: "${context.text.replace(/"/g, '\\"')}" }），建立包含 4 个核心阶段的 TVC 制作大纲：\n` +
+            `   - 阶段 0：需求简报（intake-brief，明确创意目标、核心受众与交付规格）\n` +
+            `   - 阶段 1：核心锚点（anchors，车型硬照/产品外观与光影硬照锚点）\n` +
+            `   - 阶段 2：分镜脚本（storyboard，按 30 秒节奏分解镜头）\n` +
+            `   - 阶段 3：视频生成（visual-gen，分镜审核确认后再逐镜物化与提交）\n` +
+            `4. 【专业手法匹配】分镜脚本中必须自动结合 MiniMax 202 资料库中的 20 种视觉手法（T01-T20）注入专业手法提示词（例如汽车品类自动注入 T01 极速微距、T19 速度感驾驶；球鞋/服饰品类注入 T10 材质微距、T15 动态爆发等）。\n` +
+            `5. 【首轮输出规范】首轮必须向用户清晰呈现：品类识别结果（如 auto:product-ad）、TVC 提案简报内容、以及包含专业手法的分镜大纲规划，引导用户确认后再推进节点物化。`
+          : context.taskRoute.workflow === 'drama-series'
+            ? `【任务分流系统判定】本次任务为多集短剧全流程（workflow: drama-series）。严禁跳过剧本与分镜直接批量生成视频！必须首先调用 production_plan(action: "create", createInput: { workflow: "drama-series" }) 建立短剧制作大纲，严格限定在用户指定的单集范围（如第1集），先锁定人物站位与资产记忆文档，每个分镜镜头时长必须严格遵守 < 15.0s 硬限制。`
+            : context.taskRoute.workflow === 'koc-video'
+              ? `【任务分流系统判定】本次任务为 KOC 种草短视频流程（workflow: koc-video）。必须首先调用 production_plan(action: "create", createInput: { workflow: "koc-video" }) 建立计划大纲，输出 5 个 Hook 候选与 3 个博主 Persona，声音配置锁定为原生视频口播（native-dialogue-in-video），严格遵守音轨隔离规则（用户要求不加 BGM/字幕时，严禁在后期加入音乐或字幕）。`
+              : `【任务分流系统判定】本次任务为完整流水线制作（workflow: ${context.taskRoute.workflow}）。必须优先调用 production_plan 工具建立制作计划，按阶段稳步推进，严禁未经分镜确认直接提交视频生成。`
     : '';
   const instructions = [
     selections.length
