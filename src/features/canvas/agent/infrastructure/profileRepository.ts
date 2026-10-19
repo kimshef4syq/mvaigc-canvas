@@ -1,5 +1,7 @@
 import {
   parseProfileCatalog,
+  resolveLegacyReference,
+  type LegacyReferenceResolution,
   type ProfileCatalogEntryV1,
   type ProfileCatalogV1,
 } from '../domain/profileCatalog';
@@ -181,4 +183,8 @@ export function getProfileCatalog(): ProfileCatalogV1 {
 
 export function getProfileEntry(id: string): ProfileCatalogEntryV1 | undefined {
   return profileMap.get(id);
+}
+
+export function resolveLegacyProfileReference(rawPath: string): LegacyReferenceResolution {
+  return resolveLegacyReference(catalog, rawPath);
 }

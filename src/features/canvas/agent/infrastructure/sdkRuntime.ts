@@ -23,8 +23,8 @@ import { z } from 'zod';
 
 import { AgentModelGatewayError, createAgentModelTransport } from './agentModelGateway';
 import { getInstalledAgentSkills } from '../application/installedSkills';
-import { readSkillResource } from '@/commands/extensions';
 import { searchProfiles, readProfile } from './profileRepository';
+import { sourceRepository } from './sourceRepository';
 import type { McpAgentTool } from '@/commands/mcpClient';
 import { createMcpAgentTools } from './mcpAgentTools';
 import { createDavinciImageTool } from './davinciImageTools';
@@ -1590,6 +1590,58 @@ export function createCanvasAgent(options: {
       }
     },
   });
+  const sourceReadTool = tool({
+    name: 'source_read',
+    description: '分页受控读取已导入的项目剧本、分镜文档、表格或正文内容。默认每页 12,000 字符，支持指定 segmentId 或按 cursor 翻页至 EOF。',
+    parameters: {
+      type: 'object',
+      properties: {
+        sourceId: { type: 'string', description: '来源 ID（如 src-...）' },
+        cursor: { type: 'integer', minimum: 0, description: '字符起始偏移量（默认 0）' },
+        limitCharacters: { type: 'integer', minimum: 1, maximum: 12_000, description: '读取字符数限制（默认 12,000，上限 12,000）' },
+        segmentId: { type: 'string', description: '可选的具体章节/分镜/段落 ID（如 seg-1）' },
+      },
+      required: ['sourceId'],
+      additionalProperties: false,
+    } as unknown as JsonObjectSchemaNonStrict<Record<string, Record<string, unknown>>>,
+    strict: false,
+    execute: async (raw) => {
+      const parsed = z.object({
+        sourceId: z.string(),
+        cursor: z.number().int().min(0).optional(),
+        limitCharacters: z.number().int().min(1).max(12_000).optional(),
+        segmentId: z.string().optional(),
+      }).parse(raw);
+      try {
+        return await sourceRepository.readSource(parsed);
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    },
+  });
+  const sourceInspectTool = tool({
+    name: 'source_inspect',
+    description: '查看已导入项目来源（剧本、分镜表、参考素材）的结构元数据、段落/章节划分及 OCR 识别需求标记。',
+    parameters: {
+      type: 'object',
+      properties: {
+        sourceId: { type: 'string', description: '来源 ID（如 src-...）' },
+      },
+      required: ['sourceId'],
+      additionalProperties: false,
+    } as unknown as JsonObjectSchemaNonStrict<Record<string, Record<string, unknown>>>,
+    strict: false,
+    execute: async (raw) => {
+      const parsed = z.object({
+        sourceId: z.string(),
+      }).parse(raw);
+      try {
+        return sourceRepository.inspectSource(parsed.sourceId);
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    },
+  });
   const selectedTools = [
     canvasTool,
     canvasSchemaTool,
@@ -1597,7 +1649,9 @@ export function createCanvasAgent(options: {
     ...(toolPolicy.toolKinds.includes('diagnostics') || options.restoreExtensions ? [diagnosticsTool] : []),
     ...(toolPolicy.toolKinds.includes('config') || options.restoreExtensions ? [configPatchTool] : []),
     ...(assetReadTool && (toolPolicy.toolKinds.includes('asset-read') || options.restoreExtensions) ? [assetReadTool] : []),
-    ...(skillContext.toolNamespaces.includes('knowledge') || options.restoreExtensions ? [profileSearchTool, profileReadTool] : []),
+    ...(skillContext.toolNamespaces.includes('knowledge') || options.restoreExtensions
+      ? [profileSearchTool, profileReadTool, sourceReadTool, sourceInspectTool]
+      : []),
     ...(skillReadTool ? [skillReadTool] : []),
     ...(davinciImageTool ? [davinciImageTool] : []),
     ...(mcpDiscoveryTool ? options.restoreExtensions || mcpTools.length <= 8 ? [mcpDiscoveryTool, ...mcpTools] : [mcpDiscoveryTool] : []),

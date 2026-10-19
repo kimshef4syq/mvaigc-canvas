@@ -4,6 +4,7 @@ import {
   getProfileCatalog,
   getProfileEntry,
   readProfile,
+  resolveLegacyProfileReference,
   searchProfiles,
 } from './profileRepository';
 
@@ -126,4 +127,25 @@ describe('Profile Repository Infrastructure', () => {
       ).rejects.toThrow('Profile not found in catalog');
     });
   });
+
+  describe('resolveLegacyProfileReference', () => {
+    it('resolves <workflowsDir>/drama-series/... legacy path to catalog ID', () => {
+      const res = resolveLegacyProfileReference('<workflowsDir>/drama-series/01-Stage-Plan.md');
+      expect(res.resolved).toBe(true);
+      expect(res.catalogId).toBe('03-DramaSeries-短剧微电影完整流程/reference/production-plan');
+    });
+
+    it('resolves vendors/... legacy path to vendor profile in 02-Vendors', () => {
+      const res = resolveLegacyProfileReference('vendors/01-MiniMax-Hailuo-T2V-Directives.md');
+      expect(res.resolved).toBe(true);
+      expect(res.catalogId).toBe('02-Vendors-模型生成提示词与参数/minimax');
+    });
+
+    it('reports failure with reason for non-existent legacy references', () => {
+      const res = resolveLegacyProfileReference('unknown/non-existent-template.md');
+      expect(res.resolved).toBe(false);
+      expect(res.reason).toContain('未能在语义目录中找到');
+    });
+  });
 });
+

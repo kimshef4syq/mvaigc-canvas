@@ -1294,6 +1294,8 @@ describe('OpenAI Agents SDK runtime adapter', () => {
     const toolNames = requests[0].tools.map((candidate) => candidate.name);
     expect(toolNames).toContain('profile_search');
     expect(toolNames).toContain('profile_read');
+    expect(toolNames).toContain('source_read');
+    expect(toolNames).toContain('source_inspect');
   });
 });
 

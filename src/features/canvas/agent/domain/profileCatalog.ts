@@ -124,3 +124,125 @@ export function filterProfilesByModality(catalog: ProfileCatalogV1, modality: st
 export function filterProfilesByPolicy(catalog: ProfileCatalogV1, policy: RuntimePolicy): ProfileCatalogV1 {
   return catalog.filter((entry) => entry.runtimePolicy === policy);
 }
+
+export const LEGACY_PATH_PREFIXES: Record<string, string> = {
+  'drama-series/': '03-DramaSeries-短剧微电影完整流程/',
+  'ad-tvc/': '04-AdTVC-商业广告与品牌大片流程/',
+  'mv/': '05-MV-音乐卡点与歌词视频流程/',
+  'general-video/': '06-GeneralVideo-通用视频制作流程/',
+  'koc-video/': '06-KOC-带货与口播种草流程/',
+  '_shared/': '07-SharedPipelines-共享资产与后期管线/',
+  'vendors/': '02-Vendors-模型生成提示词与参数/',
+  'failures/': '08-Failures-防翻车与负向避坑知识库/',
+  'contracts/': '09-Contracts-画布纪律与语义契约/',
+  'agents/': '01-Agents-智能体人设与编排/',
+};
+
+export const LEGACY_TEMPLATE_VARIABLES: Record<string, string> = {
+  '<workflowsDir>': 'resources/agent-profiles/',
+  '<knowledgeDir>': 'resources/agent-profiles/',
+  '.opencode-v2/': 'resources/agent-profiles/',
+};
+
+export interface LegacyReferenceResolution {
+  resolved: boolean;
+  legacyPath: string;
+  catalogId?: string;
+  sourcePath?: string;
+  reason?: string;
+}
+
+export function resolveLegacyReference(
+  catalog: ProfileCatalogV1,
+  rawPath: string
+): LegacyReferenceResolution {
+  let normalized = rawPath.trim();
+  for (const [tpl, replacement] of Object.entries(LEGACY_TEMPLATE_VARIABLES)) {
+    if (normalized.startsWith(tpl)) {
+      normalized = normalized.replace(tpl, replacement);
+    }
+  }
+
+  // Normalize slashes
+  normalized = normalized.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\.?\//, '');
+
+  // Strip leading resources/agent-profiles/ for uniform prefix matching
+  if (normalized.startsWith('resources/agent-profiles/')) {
+    normalized = normalized.slice('resources/agent-profiles/'.length);
+  }
+
+  for (const [prefix, mappedPrefix] of Object.entries(LEGACY_PATH_PREFIXES)) {
+    if (normalized.startsWith(prefix)) {
+      normalized = normalized.replace(prefix, mappedPrefix);
+      break;
+    }
+  }
+
+  const withoutExt = normalized.replace(/\.md$/, '');
+  const withExt = withoutExt + '.md';
+  const fullSourcePath = `resources/agent-profiles/${withExt}`;
+
+  // 1. Direct ID or sourcePath match
+  const directMatch = catalog.find((entry) => {
+    return entry.id === withoutExt || entry.sourcePath === fullSourcePath;
+  });
+  if (directMatch) {
+    return {
+      resolved: true,
+      legacyPath: rawPath,
+      catalogId: directMatch.id,
+      sourcePath: directMatch.sourcePath,
+    };
+  }
+
+  // 2. Sub-path / reference directory match (e.g., drama-series/production-plan -> 03-DramaSeries.../reference/production-plan)
+  const pathParts = withoutExt.split('/');
+  const categoryPart = pathParts[0];
+  const filePart = pathParts[pathParts.length - 1];
+
+  const subPathMatch = catalog.find((entry) => {
+    if (categoryPart && !entry.category.includes(categoryPart) && !entry.sourcePath.includes(categoryPart)) {
+      return false;
+    }
+    return entry.id.endsWith(`/${filePart}`) || entry.id === filePart;
+  });
+  if (subPathMatch) {
+    return {
+      resolved: true,
+      legacyPath: rawPath,
+      catalogId: subPathMatch.id,
+      sourcePath: subPathMatch.sourcePath,
+    };
+  }
+
+  // 3. Keyword / alias / filename fallback
+  const baseKey = filePart.toLowerCase();
+  const keywordMatch = catalog.find((entry) => {
+    const entryIdLower = entry.id.toLowerCase();
+    if (categoryPart && !entry.category.toLowerCase().includes(categoryPart.toLowerCase())) {
+      return false;
+    }
+    if (baseKey.includes('stage-plan') || baseKey.includes('production-plan')) {
+      return entryIdLower.includes('production-plan');
+    }
+    if (baseKey.includes('hailuo') || baseKey.includes('minimax')) {
+      return entryIdLower.includes('minimax');
+    }
+    return entryIdLower.includes(baseKey);
+  });
+  if (keywordMatch) {
+    return {
+      resolved: true,
+      legacyPath: rawPath,
+      catalogId: keywordMatch.id,
+      sourcePath: keywordMatch.sourcePath,
+    };
+  }
+
+  return {
+    resolved: false,
+    legacyPath: rawPath,
+    reason: `未能在语义目录中找到与 ${rawPath} 匹配的档案条目`,
+  };
+}
+
