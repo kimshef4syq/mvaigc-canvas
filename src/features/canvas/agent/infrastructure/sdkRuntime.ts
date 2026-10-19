@@ -26,6 +26,8 @@ import { getInstalledAgentSkills } from '../application/installedSkills';
 import { searchProfiles, readProfile } from './profileRepository';
 import { sourceRepository } from './sourceRepository';
 import { productionPlanService } from '../application/productionPlanService';
+import { mediaPostprocessOperationSchema } from '../domain/mediaPostprocess';
+import { mediaPostprocessService } from '../application/mediaPostprocessService';
 import type { McpAgentTool } from '@/commands/mcpClient';
 import { createMcpAgentTools } from './mcpAgentTools';
 import { createDavinciImageTool } from './davinciImageTools';
@@ -1772,6 +1774,33 @@ export function createCanvasAgent(options: {
       }
     },
   });
+  const mediaPostprocessTool = tool({
+    name: 'media_postprocess',
+    description: '执行结构化受控媒体后期操作（probe、trim、concat、scale、transcode、mix、fade、extract-audio、burn-subtitles、overlay-approved-text）。纯受控参数执行，支持幂等回执与回滚。',
+    parameters: {
+      type: 'object',
+      properties: {
+        operation: {
+          type: 'object',
+          description: '受控后期操作对象（需符合 MediaPostprocessOperation 规范）',
+        },
+      },
+      required: ['operation'],
+      additionalProperties: false,
+    } as unknown as JsonObjectSchemaNonStrict<Record<string, Record<string, unknown>>>,
+    strict: false,
+    execute: async (raw) => {
+      const parsed = z.object({
+        operation: z.any(),
+      }).parse(raw);
+      try {
+        const validatedOp = mediaPostprocessOperationSchema.parse(parsed.operation);
+        return await mediaPostprocessService.executeOperation(validatedOp);
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    },
+  });
   const selectedTools = [
     canvasTool,
     canvasSchemaTool,
@@ -1780,7 +1809,7 @@ export function createCanvasAgent(options: {
     ...(toolPolicy.toolKinds.includes('config') || options.restoreExtensions ? [configPatchTool] : []),
     ...(assetReadTool && (toolPolicy.toolKinds.includes('asset-read') || options.restoreExtensions) ? [assetReadTool] : []),
     ...(skillContext.toolNamespaces.includes('knowledge') || options.restoreExtensions
-      ? [profileSearchTool, profileReadTool, sourceReadTool, sourceInspectTool, productionPlanTool]
+      ? [profileSearchTool, profileReadTool, sourceReadTool, sourceInspectTool, productionPlanTool, mediaPostprocessTool]
       : []),
     ...(skillReadTool ? [skillReadTool] : []),
     ...(davinciImageTool ? [davinciImageTool] : []),
