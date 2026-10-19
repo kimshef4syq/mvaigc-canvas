@@ -23,6 +23,7 @@ import { z } from 'zod';
 
 import { AgentModelGatewayError, createAgentModelTransport } from './agentModelGateway';
 import { getInstalledAgentSkills } from '../application/installedSkills';
+import { readSkillResource } from '@/commands/extensions';
 import { searchProfiles, readProfile } from './profileRepository';
 import { sourceRepository } from './sourceRepository';
 import { productionPlanService } from '../application/productionPlanService';

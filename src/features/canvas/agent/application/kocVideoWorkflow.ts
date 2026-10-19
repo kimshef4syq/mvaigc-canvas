@@ -44,9 +44,9 @@ export function createKocPlan(input: CreateKocPlanInput): ProductionPlanV1 {
 
   // Audio & Subtitle Policies (A22)
   // Subtitles: strict explicit opt-in (default off)
-  const explicitlyNoSubtitles = /(?:不要\s*字幕|不加\s*字幕|无\s*字幕|关(?:闭)?\s*字幕)/i.test(input.prompt);
+  const explicitlyNoSubtitles = /(?:不要\s*(?:加)?\s*字幕|不加\s*字幕|无\s*字幕|关(?:闭)?\s*字幕)/i.test(input.prompt);
   const wantSubtitles = input.options?.wantSubtitles ?? (!explicitlyNoSubtitles && /(?:(?:需要|开启|带|加上|加)\s*字幕)/i.test(input.prompt));
-  const explicitlyNoBgm = /(?:不要\s*bgm|不加\s*bgm|无\s*bgm|不要\s*音乐|不加\s*音乐|无配乐|不用\s*音乐)/i.test(input.prompt);
+  const explicitlyNoBgm = /(?:不要\s*(?:加)?\s*bgm|不加\s*bgm|无\s*bgm|不要\s*(?:加)?\s*音乐|不加\s*音乐|无配乐|不用\s*音乐)/i.test(input.prompt);
   const wantBgm = input.options?.wantBgm !== undefined ? input.options.wantBgm : !explicitlyNoBgm;
 
   // Assets need: if on-camera and no existing creator image provided, needAssets = true

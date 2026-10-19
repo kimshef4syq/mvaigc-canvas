@@ -64,6 +64,39 @@ MCP 工具使用独立名称，附带服务 ID、原工具名及实际参数 sch
 
 该入口沿用外部工具审批和执行回执；返回 `stage`、`outcome`、`error`、媒体池 `imported` 数量、时间线 `appended` 数量及时间线名称。本地文件预检失败明确记为失败且不调用 MCP；脚本返回结构化阶段错误，无法解析回包或追加调用中断时才保留未知结果，具体 Python 错误不再统一覆盖为泛化提示。部分成功或结果未知时不得自动重放整批导入。`asset.locate` 仅用于画布导航，不负责查询文件路径；兼容丢弃其多余的布尔 `reveal` 字段，其他非法参数仍由命令契约拒绝。
 
+## MiniMax Design 资料体系与专业制作计划架构
+
+为了支撑长视频、连续短剧、商业广告 TVC、音乐卡点 MV 与 KOC 口播短视频等专业生产场景，系统将 202 份 MiniMax Design 规约与视听知识库沉淀为受控工程资产，而非分散的运行时插件：
+
+### 1. 资料库元数据与受控读取
+- **元数据索引**：`src/generated/profile-catalog.json` 索引了全部 202 份资料，每份资料均包含标准 SHA-256 哈希值、类别（角色、流程、供应商、契约、参考等）与触发关键词。
+- **检索与受控阅读**：Agent 通过内置 `profile_search` 工具根据关键词、品类或阶段进行分页查询；通过 `profile_read` 按需加载白名单正文（单页限制 12,000 字符，并校验 SHA-256 哈希）。
+
+### 2. 任务分流机制 (`taskRouter`)
+- **Direct 快速直达**：对于用户明确的单张生图（如“生成一张雨夜街景”）、纯文本剧本节奏分析、或单阶段六镜头拆解，路由判定为 `kind: 'direct'`，只执行单步操作，严禁盲目生成多阶段制作计划或自动提交付费渲染。
+- **Clarify 歧义澄清**：检测到模糊的多集请求（如“短剧全集剧本已上传，请制作成片”）且未指定集数时，路由为 `kind: 'clarify'`，主动向用户发起集中式范围澄清。
+- **Workflow 完整流水线**：涵盖短剧微电影（`drama-series`，带 <=15s 镜头硬拆解与站位记忆）、商业广告（`ad-tvc`，带 6 大行业品类与 T01-T20 视觉手法）、音乐卡点（`mv`，以主音频时长为绝对权威）、KOC 种草（`koc-video`，原生口播与音轨隔离）及通用视频（`general-video`）。
+
+### 3. 制作计划与状态机 (`ProductionPlanV1`)
+- **乐观并发锁**：计划使用单调递增的 `revision` 版本号。任何阶段编写 (`authorStage`)、大纲调整 (`replan`) 或工作项重试 (`retryItems`) 均执行严格的乐观锁检查，拒绝过期版本修改。
+- **部分成功与失败重试**：多镜头生成中某一工作项失败时，成功产物妥善保留在 `supersededOutputs` 中，`retryItems` 仅重置失败工作项为 `pending`，杜绝整阶段重复计费。
+- **执行租约机制 (`productionCoordinator`)**：跨标签页或多客户端操作同一计划时，通过 `acquireLease(projectId, planId, stageId, ownerRunId)` 锁定运行权，未获租约者被阻断并提示最新状态。
+
+### 4. 受控媒体后期服务 (`mediaPostprocessService`)
+- 替代不受信任的外部命令行脚本，提供白名单化的受控结构化后期操作：
+  - `probe`：探测视频/音频封装格式、实测精确时长、分辨率、编码及音轨通道。
+  - `trim` / `concat`：精确切片与多片段拼接，支持分辨率标准化重采样。
+  - `mix`：主副音轨混音、背景音乐智能闪避（Ducking）与淡入淡出。
+  - `burn-subtitles`：防注入的精确 WebVTT/SRT 字幕烧录，严格保留原始音轨与非 ASCII 标点。
+- 每次操作均生成带防重放指纹、实测时长以及可逆 `rollbackToken` 的幂等回执。
+
+### 5. 循环熔断与画布纪律 (`agentLoopGuard` & `agentContracts`)
+- **LoopGuard 熔断器**：实时标准化工具调用参数（折叠空白、规范标点、时长规整）。同一参数连续调用 3 次或连续失败 2 次，立即触发 `LOOP_GUARD_BLOCKED`，强制阻断死循环。
+- **画布纪律检查**：严格禁止在画布命令中传递 `allowDuplicate: true`、占位符 ID（如 `<placeholder>`）或发起冗余全量读取。
+
+### 6. 外部客户端 MCP 工具桥接
+- 通过 `buildExternalCanvasMcpManifest` 与 `dispatchExternalAgentToolCall`，向 Codex、Claude Code 或自定义外部智能体完整暴露 `production_plan`、`profile_search`、`source_read` 与 `media_postprocess` 等能力，确保多智能体协同环境下权限与状态完全一致。
+
 ## 存储与限制
 
 - 使用 Tauri 应用数据目录中的 `extensions/skills/<id>/` 和 `extensions/mcp.json`，不依赖工作区或当前项目路径。
