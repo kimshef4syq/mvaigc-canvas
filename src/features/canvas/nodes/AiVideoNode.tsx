@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
 import { AlertTriangle, Bug, Camera, Check, ChevronDown, ChevronRight, Copy, History, Loader2, Maximize2, Sparkles, Type, Video, X } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -1405,7 +1405,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
               setPromptComposerOpen(true);
             }}
           ><Sparkles className="h-3.5 w-3.5" /></button>}
-          {localCaptionSource && <button
+          {localCaptionSource && isTauri() && <button
             type="button"
             data-canvas-no-marquee="true"
             className="nodrag nowheel inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--canvas-node-border)] bg-[var(--canvas-node-menu-bg)] text-text-muted shadow-sm transition-colors hover:border-accent/50 hover:bg-[var(--canvas-node-menu-hover)] hover:text-accent"
