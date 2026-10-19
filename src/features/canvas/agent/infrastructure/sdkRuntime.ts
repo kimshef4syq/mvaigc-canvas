@@ -25,6 +25,7 @@ import { AgentModelGatewayError, createAgentModelTransport } from './agentModelG
 import { getInstalledAgentSkills } from '../application/installedSkills';
 import { searchProfiles, readProfile } from './profileRepository';
 import { sourceRepository } from './sourceRepository';
+import { productionPlanService } from '../application/productionPlanService';
 import type { McpAgentTool } from '@/commands/mcpClient';
 import { createMcpAgentTools } from './mcpAgentTools';
 import { createDavinciImageTool } from './davinciImageTools';
@@ -1642,6 +1643,135 @@ export function createCanvasAgent(options: {
       }
     },
   });
+  const productionPlanTool = tool({
+    name: 'production_plan',
+    description: '读取、创建或更新视频/短剧/广告制作计划（ProductionPlanV1）。支持阶段编写、工作项重试、人工审核记录与状态推进。',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['create', 'get', 'list', 'author_stage', 'replan', 'record_review', 'retry_items', 'set_status'],
+          description: '操作类型',
+        },
+        planId: { type: 'string', description: '制作计划 ID（如 plan-...）' },
+        expectedRevision: { type: 'integer', minimum: 1, description: '期望计划 revision（用于乐观并发锁）' },
+        createInput: {
+          type: 'object',
+          description: '创建计划参数（action = create 时使用）',
+        },
+        authorStageInput: {
+          type: 'object',
+          description: '编写阶段参数（action = author_stage 时使用）',
+        },
+        replanInput: {
+          type: 'object',
+          description: '调整大纲参数（action = replan 时使用）',
+        },
+        recordReviewInput: {
+          type: 'object',
+          description: '审核记录参数（action = record_review 时使用）',
+        },
+        retryItemsInput: {
+          type: 'object',
+          description: '工作项重试参数（action = retry_items 时使用）',
+        },
+        setStatusInput: {
+          type: 'object',
+          description: '状态调整参数（action = set_status 时使用）',
+        },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    } as unknown as JsonObjectSchemaNonStrict<Record<string, Record<string, unknown>>>,
+    strict: false,
+    execute: async (raw) => {
+      const parsed = z.object({
+        action: z.enum(['create', 'get', 'list', 'author_stage', 'replan', 'record_review', 'retry_items', 'set_status']),
+        planId: z.string().optional(),
+        expectedRevision: z.number().int().positive().optional(),
+        createInput: z.any().optional(),
+        authorStageInput: z.any().optional(),
+        replanInput: z.any().optional(),
+        recordReviewInput: z.any().optional(),
+        retryItemsInput: z.any().optional(),
+        setStatusInput: z.any().optional(),
+      }).parse(raw);
+
+      try {
+        switch (parsed.action) {
+          case 'create':
+            return productionPlanService.createPlan({
+              projectId: context.projectId,
+              ...parsed.createInput,
+            });
+          case 'get':
+            if (!parsed.planId) throw new Error('get 操作必须提供 planId');
+            return productionPlanService.getPlan(context.projectId, parsed.planId) ?? { notFound: true };
+          case 'list':
+            return productionPlanService.listPlans(context.projectId);
+          case 'author_stage':
+            if (!parsed.planId || parsed.expectedRevision === undefined || !parsed.authorStageInput) {
+              throw new Error('author_stage 操作必须提供 planId, expectedRevision 和 authorStageInput');
+            }
+            return productionPlanService.authorStage({
+              projectId: context.projectId,
+              planId: parsed.planId,
+              expectedRevision: parsed.expectedRevision,
+              stage: parsed.authorStageInput.stage,
+              changeReason: parsed.authorStageInput.changeReason,
+            });
+          case 'replan':
+            if (!parsed.planId || parsed.expectedRevision === undefined || !parsed.replanInput) {
+              throw new Error('replan 操作必须提供 planId, expectedRevision 和 replanInput');
+            }
+            return productionPlanService.replan({
+              projectId: context.projectId,
+              planId: parsed.planId,
+              expectedRevision: parsed.expectedRevision,
+              updatedOutline: parsed.replanInput.updatedOutline,
+              changeReason: parsed.replanInput.changeReason,
+            });
+          case 'record_review':
+            if (!parsed.planId || parsed.expectedRevision === undefined || !parsed.recordReviewInput) {
+              throw new Error('record_review 操作必须提供 planId, expectedRevision 和 recordReviewInput');
+            }
+            return productionPlanService.recordReview({
+              projectId: context.projectId,
+              planId: parsed.planId,
+              expectedRevision: parsed.expectedRevision,
+              stageId: parsed.recordReviewInput.stageId,
+              reviewId: parsed.recordReviewInput.reviewId,
+              status: parsed.recordReviewInput.status,
+              reason: parsed.recordReviewInput.reason,
+            });
+          case 'retry_items':
+            if (!parsed.planId || parsed.expectedRevision === undefined || !parsed.retryItemsInput) {
+              throw new Error('retry_items 操作必须提供 planId, expectedRevision 和 retryItemsInput');
+            }
+            return productionPlanService.retryItems({
+              projectId: context.projectId,
+              planId: parsed.planId,
+              expectedRevision: parsed.expectedRevision,
+              stageId: parsed.retryItemsInput.stageId,
+              itemIds: parsed.retryItemsInput.itemIds,
+            });
+          case 'set_status':
+            if (!parsed.planId || parsed.expectedRevision === undefined || !parsed.setStatusInput) {
+              throw new Error('set_status 操作必须提供 planId, expectedRevision 和 setStatusInput');
+            }
+            return productionPlanService.setPlanStatus({
+              projectId: context.projectId,
+              planId: parsed.planId,
+              expectedRevision: parsed.expectedRevision,
+              status: parsed.setStatusInput.status,
+            });
+        }
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    },
+  });
   const selectedTools = [
     canvasTool,
     canvasSchemaTool,
@@ -1650,7 +1780,7 @@ export function createCanvasAgent(options: {
     ...(toolPolicy.toolKinds.includes('config') || options.restoreExtensions ? [configPatchTool] : []),
     ...(assetReadTool && (toolPolicy.toolKinds.includes('asset-read') || options.restoreExtensions) ? [assetReadTool] : []),
     ...(skillContext.toolNamespaces.includes('knowledge') || options.restoreExtensions
-      ? [profileSearchTool, profileReadTool, sourceReadTool, sourceInspectTool]
+      ? [profileSearchTool, profileReadTool, sourceReadTool, sourceInspectTool, productionPlanTool]
       : []),
     ...(skillReadTool ? [skillReadTool] : []),
     ...(davinciImageTool ? [davinciImageTool] : []),

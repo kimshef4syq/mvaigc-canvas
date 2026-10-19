@@ -1296,6 +1296,7 @@ describe('OpenAI Agents SDK runtime adapter', () => {
     expect(toolNames).toContain('profile_read');
     expect(toolNames).toContain('source_read');
     expect(toolNames).toContain('source_inspect');
+    expect(toolNames).toContain('production_plan');
   });
 });
 
