@@ -46,6 +46,25 @@ export function recordExplicitGrouping(runId: string, projectId: string): void {
   runOutputs(runId, projectId).explicitGrouping = true;
 }
 
+/**
+ * P201: Outputs returned by ComfyUI workflows are laid out atomically by the gateway
+ * and must be exempted from auto-grouping.
+ */
+export function recordComfyUiOutputs(runId: string, projectId: string): void {
+  runOutputs(runId, projectId).explicitGrouping = true;
+}
+
+export function isEligibleForAutoGroup(runId: string, projectId: string): boolean {
+  const run = outputsByRun.get(runId);
+  if (!run || run.projectId !== projectId || run.explicitGrouping) return false;
+  const nodeIds = Array.from(run.nodeIds);
+  const present = new Set(useCanvasStore.getState().nodes
+    .filter((node) => !node.parentId && RESULT_TYPES.has(node.type))
+    .map((node) => node.id));
+  const eligible = nodeIds.filter((id) => present.has(id));
+  return eligible.length >= 2;
+}
+
 export function clearRecentOutputGrouping(runId: string): void {
   outputsByRun.delete(runId);
 }

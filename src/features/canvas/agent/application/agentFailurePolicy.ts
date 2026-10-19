@@ -1,4 +1,10 @@
-export type CanvasAgentFailureKind = 'local-storage' | 'provider-quota' | 'provider-rate-limit' | 'generic';
+export type CanvasAgentFailureKind =
+  | 'local-storage'
+  | 'provider-quota'
+  | 'provider-rate-limit'
+  | 'loop-guard'
+  | 'contract-violation'
+  | 'generic';
 
 export interface CanvasAgentFailurePolicy {
   kind: CanvasAgentFailureKind;
@@ -13,9 +19,9 @@ function errorMessage(error: unknown): string {
 
 /**
  * Decides whether another turn on the currently selected Agent model can
- * reasonably diagnose a failed run. Provider quota failures cannot: retrying
- * the same text model only creates another identical failure and may start
- * concurrent turns when the action is clicked repeatedly.
+ * reasonably diagnose a failed run. Provider quota failures, rate limits,
+ * loop guard blocks, and explicit contract violations cannot: retrying
+ * the same text model only creates another identical failure or infinite loop.
  */
 export function classifyCanvasAgentFailure(error: unknown): CanvasAgentFailurePolicy {
   const rawMessage = errorMessage(error);
@@ -48,6 +54,24 @@ export function classifyCanvasAgentFailure(error: unknown): CanvasAgentFailurePo
   if (providerRateLimit) {
     return {
       kind: 'provider-rate-limit',
+      rawMessage,
+      canSelfDiagnose: false,
+    };
+  }
+
+  const loopGuard = /(?:loopguard|loop_guard|anti-loop|consecutive_failure_blocked)/i.test(normalized);
+  if (loopGuard) {
+    return {
+      kind: 'loop-guard',
+      rawMessage,
+      canSelfDiagnose: false,
+    };
+  }
+
+  const contractViolation = /(?:contract violation|discipline violation|allowduplicate|placeholder_id_forbidden)/i.test(normalized);
+  if (contractViolation) {
+    return {
+      kind: 'contract-violation',
       rawMessage,
       canSelfDiagnose: false,
     };

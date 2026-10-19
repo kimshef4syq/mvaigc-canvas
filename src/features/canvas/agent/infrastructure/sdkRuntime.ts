@@ -49,6 +49,8 @@ import {
 } from '@/features/canvas/domain/canvasCommands';
 import { canvasCommandRegistry } from '@/features/canvas/application/canvasCommandService';
 import { recordExplicitGrouping, recordGeneratedOutputs } from '../application/recentOutputGrouping';
+import { agentLoopGuard } from '../application/agentLoopGuard';
+import { validateCanvasDiscipline } from '../domain/agentContracts';
 import {
   buildSkillContext,
   resolveAgentToolPolicy,
@@ -1043,6 +1045,19 @@ export function createCanvasAgent(options: {
       const input = canvasCommandInputParser.parse(rawInput);
       const command = { type: input.type, version: CANVAS_COMMAND_VERSION, input: input.input } as CanvasCommand;
       const callId = requiredToolCallId(details);
+
+      const loopTrip = agentLoopGuard.recordCall(context.runId, 'canvas_command', input);
+      if (loopTrip.blocked) {
+        toolEvent(context, { toolName: 'canvas_command', callId, status: 'failed', error: loopTrip.reason });
+        return { ok: false, error: loopTrip.reason, loopGuardBlocked: true, advice: loopTrip.advice };
+      }
+      const disciplineViolation = validateCanvasDiscipline(command);
+      if (disciplineViolation) {
+        toolEvent(context, { toolName: 'canvas_command', callId, status: 'failed', error: disciplineViolation.message });
+        agentLoopGuard.recordResult(context.runId, 'canvas_command', input, false, disciplineViolation.message);
+        return { ok: false, error: disciplineViolation.message, code: disciplineViolation.code };
+      }
+
       const approvalId = createApprovalId(context.runId, 'canvas_command', callId);
       const requestFingerprint = await createAgentToolRequestFingerprint('canvas_command', input, details);
       const pollGrant = approvedGenerationPollGrant(context, command);
@@ -1688,6 +1703,10 @@ export function createCanvasAgent(options: {
     } as unknown as JsonObjectSchemaNonStrict<Record<string, Record<string, unknown>>>,
     strict: false,
     execute: async (raw) => {
+      const loopTrip = agentLoopGuard.recordCall(context.runId, 'production_plan', raw);
+      if (loopTrip.blocked) {
+        return { ok: false, error: loopTrip.reason, loopGuardBlocked: true, advice: loopTrip.advice };
+      }
       const parsed = z.object({
         action: z.enum(['create', 'get', 'list', 'author_stage', 'replan', 'record_review', 'retry_items', 'set_status']),
         planId: z.string().optional(),
@@ -1790,6 +1809,10 @@ export function createCanvasAgent(options: {
     } as unknown as JsonObjectSchemaNonStrict<Record<string, Record<string, unknown>>>,
     strict: false,
     execute: async (raw) => {
+      const loopTrip = agentLoopGuard.recordCall(context.runId, 'media_postprocess', raw);
+      if (loopTrip.blocked) {
+        return { ok: false, error: loopTrip.reason, loopGuardBlocked: true, advice: loopTrip.advice };
+      }
       const parsed = z.object({
         operation: z.any(),
       }).parse(raw);

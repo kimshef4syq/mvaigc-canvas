@@ -38,6 +38,29 @@ describe('classifyCanvasAgentFailure', () => {
     });
   });
 
+  it.each([
+    'LoopGuard blocked: tool canvas_command invoked with identical semantic arguments',
+    'CONSECUTIVE_FAILURE_BLOCKED: tool generation_submit failed repeatedly',
+    'anti-loop trip guard triggered',
+  ])('suppresses same-model diagnosis on loop guard blocks: %s', (message) => {
+    expect(classifyCanvasAgentFailure(new Error(message))).toMatchObject({
+      kind: 'loop-guard',
+      rawMessage: message,
+      canSelfDiagnose: false,
+    });
+  });
+
+  it.each([
+    'Canvas baseline contract violation: generation outputs must never use allowDuplicate: true.',
+    'Canvas discipline violation: invalid placeholder or empty ID',
+  ])('suppresses same-model diagnosis on contract violations: %s', (message) => {
+    expect(classifyCanvasAgentFailure(new Error(message))).toMatchObject({
+      kind: 'contract-violation',
+      rawMessage: message,
+      canSelfDiagnose: false,
+    });
+  });
+
   it('keeps ordinary tool and network failures eligible for bounded diagnosis', () => {
     expect(classifyCanvasAgentFailure(new Error('job not found'))).toEqual({
       kind: 'generic',
