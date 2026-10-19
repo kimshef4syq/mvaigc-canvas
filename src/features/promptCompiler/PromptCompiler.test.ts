@@ -96,4 +96,88 @@ describe('imported video prompt contracts', () => {
     expect(lintPrompt({ prompt: original, modality: 'video', referenceImageCount: 1 })
       .issues.map((issue) => issue.code)).not.toContain('brand-injection');
   });
+
+  describe('multi-vendor compilers & 3-layer records', () => {
+    it('compiles Kling video prompts with duration and camera motion validation', async () => {
+      const { compileKlingPrompt } = await import('./PromptCompiler');
+      const prompt = compileKlingPrompt({
+        durationSeconds: 5,
+        scene: '赛博朋克夜市街道，霓虹灯闪烁',
+        cameraMotion: '水平平移运镜跟随人物步伐',
+        action: '戴兜帽的女子快步行走，偶有水花溅起',
+        aspectRatio: '16:9',
+      });
+      expect(prompt).toContain('场景环境：赛博朋克夜市街道');
+      expect(prompt).toContain('镜头运动：水平平移运镜');
+      expect(prompt).toContain('画面比例：16:9');
+
+      expect(() =>
+        compileKlingPrompt({
+          durationSeconds: 7, // Invalid duration
+          scene: '街道',
+          cameraMotion: '推进',
+          action: '行走',
+        })
+      ).toThrow(/5 or 10 seconds/);
+    });
+
+    it('compiles Midjourney prompts with style and reference flags', async () => {
+      const { compileMidjourneyPrompt } = await import('./PromptCompiler');
+      const prompt = compileMidjourneyPrompt({
+        subject: '未来主义宇航员肖像，晶体反光面罩',
+        style: '电影级胶片质感',
+        aspectRatio: '16:9',
+        stylize: 250,
+        characterRefUrl: 'https://example.com/character.jpg',
+      });
+      expect(prompt).toContain('未来主义宇航员肖像');
+      expect(prompt).toContain('--cref https://example.com/character.jpg');
+      expect(prompt).toContain('--ar 16:9');
+      expect(prompt).toContain('--s 250');
+    });
+
+    it('compiles Official Music prompts with tempo and lyrics structure', async () => {
+      const { compileOfficialMusicPrompt } = await import('./PromptCompiler');
+      const { stylePrompt, lyricsPrompt } = compileOfficialMusicPrompt({
+        genre: 'Synthwave',
+        mood: 'Nostalgic, Energetic',
+        tempoBpm: 120,
+        lyrics: '[Verse 1]\nNeon lights in the rain...',
+      });
+      expect(stylePrompt).toContain('Synthwave, Nostalgic, Energetic, 120 BPM');
+      expect(lyricsPrompt).toContain('[Verse 1]');
+    });
+
+    it('builds a verified 3-layer prompt record with compiler hash and linter issues', async () => {
+      const { buildPromptLayerRecord } = await import('./PromptCompiler');
+      const record = await buildPromptLayerRecord({
+        sourcePrompt: '请帮我生成一段特写人像视频，不要磨皮，加入品牌 logo',
+        preparedPrompt: '全局基准：室内；暖光特写\n【镜头1】\n景别与机位：人脸特写\n主体行为：0-4秒 眨眼并微微一笑',
+        modelId: 'minimax-h3',
+        referenceSlots: [
+          {
+            slotIndex: 1,
+            slotToken: '@图片1',
+            assetId: 'asset-character-face',
+            usage: 'identity',
+          },
+        ],
+        soundPolicy: {
+          kind: 'sfx',
+          hasDialogue: false,
+          hasBgm: false,
+          language: 'zh-CN',
+        },
+      });
+
+      expect(record.schemaVersion).toBe(1);
+      expect(record.sourcePrompt).toContain('不要磨皮');
+      expect(record.preparedPrompt).toContain('全局基准');
+      expect(record.submittedPrompt).toBe(record.preparedPrompt);
+      expect(record.compilerHash).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(record.referenceSlots).toHaveLength(1);
+      expect(record.soundPolicy?.kind).toBe('sfx');
+    });
+  });
 });
+
