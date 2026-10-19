@@ -12,6 +12,7 @@ pub mod portability;
 pub mod project_state;
 pub mod system;
 pub mod update;
+pub mod video_caption;
 
 pub use ai::*;
 pub use diagnostic_log::*;

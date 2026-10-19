@@ -8,9 +8,19 @@ export interface TimedAction {
 export interface MinimaxH3PromptInput {
   durationSeconds: number;
   space: string;
+  lighting: string;
+  shots?: MinimaxH3Shot[];
+  /** Legacy single-shot fields remain supported for saved drafts. */
+  camera?: string;
+  cameraMotion?: string;
+  backgroundMotion?: string;
+  actions?: TimedAction[];
+  sound?: string;
+}
+
+export interface MinimaxH3Shot {
   camera: string;
   cameraMotion: string;
-  lighting: string;
   backgroundMotion: string;
   actions: TimedAction[];
   sound: string;
@@ -40,16 +50,27 @@ function validateTimeline(actions: TimedAction[], durationSeconds: number): void
 }
 
 export function compileMinimaxH3Prompt(input: MinimaxH3PromptInput): string {
-  validateTimeline(input.actions, input.durationSeconds);
+  const shots = input.shots ?? [{
+    camera: input.camera ?? '',
+    cameraMotion: input.cameraMotion ?? '',
+    backgroundMotion: input.backgroundMotion ?? '',
+    actions: input.actions ?? [],
+    sound: input.sound ?? '',
+  }];
+  if (shots.length === 0) throw new Error('At least one shot is required');
+  validateTimeline(shots.flatMap((shot) => shot.actions), input.durationSeconds);
+  if (shots.some((shot) => shot.actions.length === 0)) throw new Error('Each shot needs an action beat');
   return [
     `全局基准：${required(input.space, 'Space')}；${required(input.lighting, 'Lighting')}`,
-    '【镜头1】',
-    `景别与机位：${required(input.camera, 'Camera')}`,
-    `镜头运动：${required(input.cameraMotion, 'Camera motion')}`,
-    `主体行为：${input.actions.map(({ startSeconds, endSeconds, action }) =>
-      `${startSeconds}–${endSeconds}秒 ${action.trim()}`).join('；')}`,
-    `重要背景运动：${required(input.backgroundMotion, 'Background motion')}`,
-    `台词或声音：${required(input.sound, 'Sound')}`,
+    ...shots.flatMap((shot, index) => [
+      `【镜头${index + 1}】`,
+      `景别与机位：${required(shot.camera, `Shot ${index + 1} camera`)}`,
+      `镜头运动：${required(shot.cameraMotion, `Shot ${index + 1} camera motion`)}`,
+      `主体行为：${shot.actions.map(({ startSeconds, endSeconds, action }) =>
+        `${startSeconds}–${endSeconds}秒 ${action.trim()}`).join('；')}`,
+      `重要背景运动：${required(shot.backgroundMotion, `Shot ${index + 1} background motion`)}`,
+      `台词或声音：${required(shot.sound, `Shot ${index + 1} sound`)}`,
+    ]),
   ].join('\n');
 }
 
@@ -60,6 +81,7 @@ export interface SeedancePromptInput {
   characterImageSlot?: number;
   dialogueAudioSlot?: number;
   sound?: string;
+  timingMode?: 'natural' | 'precise';
 }
 
 /** Slots are emitted only for references that actually exist in the request. */
@@ -82,8 +104,10 @@ export function compileSeedancePrompt(input: SeedancePromptInput): string {
   return [
     required(input.scene, 'Scene'),
     slots.join('；'),
-    input.actions.map(({ action }, index) =>
-      `${index === 0 ? '先' : index === input.actions.length - 1 ? '最后' : '随后'}${action.trim()}`
+    input.actions.map(({ action, startSeconds, endSeconds }, index) =>
+      input.timingMode === 'precise'
+        ? `${startSeconds}–${endSeconds}秒：${action.trim()}`
+        : `${index === 0 ? '先' : index === input.actions.length - 1 ? '最后' : '随后'}${action.trim()}`
     ).join('，'),
     input.sound ? `声音：${input.sound.trim()}` : '',
   ].filter(Boolean).join('\n');

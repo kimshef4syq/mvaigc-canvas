@@ -53,10 +53,32 @@ describe('imported video prompt contracts', () => {
       referenceAudioDurationSeconds: 4,
     });
     expect(result.prompt).toContain('不要磨皮，片尾字幕“你好”');
-    expect(result.prompt).toContain('自然皮肤纹理');
+    expect(result.prompt).not.toContain('自然皮肤纹理');
+    expect(result.suggestedPrompt).toContain('自然皮肤纹理');
+    expect(result.issues.filter((issue) => issue.code !== 'audio-sample').every((issue) => issue.sourceProfileId)).toBe(true);
     expect(result.issues.map((issue) => issue.code)).toEqual([
       'negation', 'on-image-text', 'plastic-skin', 'audio-sample',
     ]);
+  });
+
+  it('assembles distinct H3 shots with ordered actions', () => {
+    const prompt = compileMinimaxH3Prompt({
+      durationSeconds: 8,
+      space: '室内', lighting: '晨光',
+      shots: [
+        { camera: '近景', cameraMotion: '推进', backgroundMotion: '窗帘摆动', sound: '脚步', actions: [{ startSeconds: 0, endSeconds: 4, action: '转身' }] },
+        { camera: '特写', cameraMotion: '固定', backgroundMotion: '光影移动', sound: '呼吸', actions: [{ startSeconds: 4, endSeconds: 8, action: '抬眼' }] },
+      ],
+    });
+    expect(prompt).toContain('【镜头1】');
+    expect(prompt).toContain('【镜头2】');
+    expect(prompt).toContain('4–8秒 抬眼');
+  });
+
+  it('uses precise Seedance timing only when selected', () => {
+    const actions = [0, 2, 4, 6].map((startSeconds) => ({ startSeconds, endSeconds: startSeconds + 2, action: '行走' }));
+    expect(compileSeedancePrompt({ durationSeconds: 8, scene: '街道', actions, timingMode: 'precise' })).toContain('2–4秒：行走');
+    expect(compileSeedancePrompt({ durationSeconds: 8, scene: '街道', actions })).not.toContain('2–4秒：行走');
   });
 
   it('flags semantic risks without changing the requested subject or style', () => {

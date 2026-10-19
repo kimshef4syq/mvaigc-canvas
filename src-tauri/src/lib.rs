@@ -191,6 +191,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             frontend_ready,
+            commands::video_caption::burn_video_caption,
             commands::mcp_client::list_mcp_servers,
             commands::mcp_client::save_mcp_server,
             commands::mcp_client::remove_mcp_server,

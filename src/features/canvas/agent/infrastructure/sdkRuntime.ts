@@ -44,7 +44,7 @@ import {
   type CanvasCommandExecutionResult,
 } from '@/features/canvas/domain/canvasCommands';
 import { canvasCommandRegistry } from '@/features/canvas/application/canvasCommandService';
-import { recordExplicitGrouping, recordMiniMaxGeneratedOutputs } from '../application/recentOutputGrouping';
+import { recordExplicitGrouping, recordGeneratedOutputs } from '../application/recentOutputGrouping';
 import {
   buildSkillContext,
   resolveAgentToolPolicy,
@@ -1168,7 +1168,7 @@ export function createCanvasAgent(options: {
               callId,
             });
             if (followThrough.outcome === 'succeeded') {
-              recordMiniMaxGeneratedOutputs(context.runId, context.projectId, inputNodeIds, followThrough.resultNodeIds);
+              recordGeneratedOutputs(context.runId, context.projectId, inputNodeIds, followThrough.resultNodeIds);
             }
           }
         }

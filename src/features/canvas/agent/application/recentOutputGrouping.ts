@@ -1,7 +1,6 @@
 import { canvasCommandRegistry } from '@/features/canvas/application/canvasCommandService';
 import { CANVAS_COMMAND_VERSION } from '@/features/canvas/domain/canvasCommands';
-import { CANVAS_NODE_TYPES, isAiVideoNode } from '@/features/canvas/domain/canvasNodes';
-import { isMiniMaxDesignVideoModel } from '@/features/promptCompiler/PromptLinter';
+import { CANVAS_NODE_TYPES, type CanvasNodeType } from '@/features/canvas/domain/canvasNodes';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useProjectStore } from '@/stores/projectStore';
 
@@ -21,7 +20,10 @@ function runOutputs(runId: string, projectId: string): RunOutputs {
   return created;
 }
 
-export function recordMiniMaxGeneratedOutputs(
+const SOURCE_TYPES = new Set<CanvasNodeType>([CANVAS_NODE_TYPES.aiVideo, CANVAS_NODE_TYPES.imageEdit, CANVAS_NODE_TYPES.aiAudio]);
+const RESULT_TYPES = new Set<CanvasNodeType>([CANVAS_NODE_TYPES.video, CANVAS_NODE_TYPES.aiVideo, CANVAS_NODE_TYPES.exportImage, CANVAS_NODE_TYPES.audio]);
+
+export function recordGeneratedOutputs(
   runId: string,
   projectId: string,
   inputNodeIds: string[],
@@ -29,15 +31,12 @@ export function recordMiniMaxGeneratedOutputs(
 ): void {
   if (resultNodeIds.length === 0) return;
   const nodes = useCanvasStore.getState().nodes;
-  const sourceIsMiniMax = nodes.some((node) => inputNodeIds.includes(node.id)
-    && isAiVideoNode(node)
-    && isMiniMaxDesignVideoModel(node.data.modelConfig?.entryId ?? ''));
-  if (!sourceIsMiniMax) return;
+  if (!nodes.some((node) => inputNodeIds.includes(node.id) && SOURCE_TYPES.has(node.type))) return;
   const results = new Set(resultNodeIds);
   const run = runOutputs(runId, projectId);
   for (const node of nodes) {
     if (!results.has(node.id) || node.parentId) continue;
-    if (node.type === CANVAS_NODE_TYPES.video || node.type === CANVAS_NODE_TYPES.aiVideo) {
+    if (RESULT_TYPES.has(node.type)) {
       run.nodeIds.add(node.id);
     }
   }
@@ -52,19 +51,19 @@ export function clearRecentOutputGrouping(runId: string): void {
 }
 
 /** Apply grid layout and grouping in one canvas transaction, once per Agent run. */
-export async function groupRecentMiniMaxOutputs(runId: string, projectId: string): Promise<boolean> {
+export async function groupRecentGeneratedOutputs(runId: string, projectId: string): Promise<boolean> {
   const run = outputsByRun.get(runId);
   outputsByRun.delete(runId);
   if (!run || run.projectId !== projectId || run.explicitGrouping
     || useProjectStore.getState().currentProjectId !== projectId) return false;
   const nodeIds = Array.from(run.nodeIds);
   const present = new Set(useCanvasStore.getState().nodes
-    .filter((node) => !node.parentId && (node.type === CANVAS_NODE_TYPES.video || node.type === CANVAS_NODE_TYPES.aiVideo))
+    .filter((node) => !node.parentId && RESULT_TYPES.has(node.type))
     .map((node) => node.id));
   const eligible = nodeIds.filter((id) => present.has(id));
   if (eligible.length < 2) return false;
   const result = canvasCommandRegistry.executeTransaction({
-    id: `minimax-auto-group:${runId}`,
+    id: `generation-auto-group:${runId}`,
     origin: 'agent',
     expectedRevision: canvasCommandRegistry.getRevision(),
     commands: [

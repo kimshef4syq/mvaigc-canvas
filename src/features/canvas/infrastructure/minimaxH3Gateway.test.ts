@@ -35,6 +35,26 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.resetAllMocks(); delete (globalThis as typeof globalThis & { isTauri?: boolean }).isTauri; useCustomProvidersStore.getState().replaceAll([]); });
 
 describe('MiniMax H3 gateway lifecycle', () => {
+  it('holds the eleventh submission until one of ten active jobs finishes', async () => {
+    useCustomProvidersStore.getState().replaceAll([{ ...provider(), id: 'mvaigc-video' }]);
+    const releasePosts: Array<() => void> = [];
+    let posts = 0;
+    mocks.http.mockImplementation((call: { method: string }) => {
+      if (call.method === 'GET') return Promise.resolve(response(completed));
+      posts += 1;
+      return new Promise((resolve) => releasePosts.push(() => resolve(response({ task_id: 'h3-job' }))));
+    });
+    const jobs = await Promise.all(Array.from({ length: 11 }, (_, index) => submitCustomVideoJob({
+      ...request, model: 'custom:mvaigc-video:MiniMax-H3', prompt: `shot ${index}`,
+    })));
+    await vi.waitFor(() => expect(posts).toBe(10));
+    expect(getCustomProviderJob(jobs[10]).status).toBe('queued');
+    releasePosts.shift()?.();
+    await vi.waitFor(() => expect(posts).toBe(11));
+    releasePosts.splice(0).forEach((release) => release());
+    await Promise.all(jobs.map(settled));
+    expect(jobs.every((id) => getCustomProviderJob(id).status === 'succeeded')).toBe(true);
+  });
   it('POSTs exactly once, persists task id, GETs the V2 result and strips credentials on CDN download', async () => {
     mocks.http.mockResolvedValueOnce(response({ task_id: 'h3-job' })).mockResolvedValueOnce(response(completed));
     const job = await settled(await submitCustomVideoJob(request));

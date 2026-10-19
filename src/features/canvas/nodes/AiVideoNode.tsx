@@ -9,7 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
-import { AlertTriangle, Bug, Camera, Check, ChevronDown, ChevronRight, Copy, History, Loader2, Maximize2, Sparkles, Video, X } from 'lucide-react';
+import { AlertTriangle, Bug, Camera, Check, ChevronDown, ChevronRight, Copy, History, Loader2, Maximize2, Sparkles, Type, Video, X } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -44,7 +45,7 @@ import {
   type ReferenceMediaKind,
 } from '@/features/canvas/application/videoReferenceCandidates';
 import type { VideoGenerationMode } from '@/features/canvas/application/videoNodeGeneration';
-import { normalizeVideoHistory, resolveMainVideoEntry } from '@/features/canvas/application/generatedVideoHistory';
+import { buildCompletedVideoPatch, normalizeVideoHistory, resolveMainVideoEntry } from '@/features/canvas/application/generatedVideoHistory';
 import { buildCapturedFrameNodeData, captureVideoThumbnail, resolveFrameCaptureTime } from '@/features/canvas/application/videoUpload';
 import { VideoNodeToolbar, type FrameCaptureMode } from '@/features/canvas/ui/VideoNodeToolbar';
 import { resolveErrorContent, showErrorDialog } from '@/features/canvas/application/errorDialog';
@@ -343,6 +344,12 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
   const [functionPickerActiveIndex, setFunctionPickerActiveIndex] = useState(0);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [promptComposerOpen, setPromptComposerOpen] = useState(false);
+  const [captionOpen, setCaptionOpen] = useState(false);
+  const [captionText, setCaptionText] = useState('');
+  const [captionStart, setCaptionStart] = useState('0');
+  const [captionEnd, setCaptionEnd] = useState('4');
+  const [captionBusy, setCaptionBusy] = useState(false);
+  const [captionError, setCaptionError] = useState<string | null>(null);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [generationMode, setGenerationMode] = useState<VideoGenerationMode>('overwrite');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -360,6 +367,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
   const displayVideoUrl = mainVideoEntry?.videoUrl ?? data.videoUrl ?? null;
   const displayPosterUrl = mainVideoEntry?.thumbnailUrl ?? data.thumbnailUrl ?? null;
   const displayVideoSource = displayVideoUrl ? resolveImageDisplayUrl(displayVideoUrl) : null;
+  const localCaptionSource = mainVideoEntry?.localVideoUrl ?? data.localVideoUrl ?? (displayVideoUrl?.startsWith('/') ? displayVideoUrl : null);
   const [showCameraControl, setShowCameraControl] = useState(false);
   const [payloadDebugText, setPayloadDebugText] = useState<string | null>(null);
   const [payloadDebugCopied, setPayloadDebugCopied] = useState(false);
@@ -1153,6 +1161,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         ...(preflight ? { promptPreflight: {
           preparedPrompt: preflight.prompt,
           issues: preflight.issues,
+          ...(preflight.suggestedPrompt ? { suggestedPrompt: preflight.suggestedPrompt } : {}),
         } } : {}),
         gatewayRequest: preview.gatewayRequest,
         route: preview.route,
@@ -1396,6 +1405,14 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
               setPromptComposerOpen(true);
             }}
           ><Sparkles className="h-3.5 w-3.5" /></button>}
+          {localCaptionSource && <button
+            type="button"
+            data-canvas-no-marquee="true"
+            className="nodrag nowheel inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--canvas-node-border)] bg-[var(--canvas-node-menu-bg)] text-text-muted shadow-sm transition-colors hover:border-accent/50 hover:bg-[var(--canvas-node-menu-hover)] hover:text-accent"
+            title={t('node.aiVideo.captionButton')}
+            aria-label={t('node.aiVideo.captionButton')}
+            onClick={(event) => { event.stopPropagation(); setCaptionError(null); setCaptionOpen(true); }}
+          ><Type className="h-3.5 w-3.5" /></button>}
           <button
             type="button"
             data-canvas-no-marquee="true"
@@ -2325,6 +2342,49 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
           flushPromptDraft(compiledPrompt);
         }}
       />
+
+      <UiModal
+        isOpen={captionOpen}
+        title={t('node.aiVideo.captionTitle')}
+        onClose={() => { if (!captionBusy) setCaptionOpen(false); }}
+        widthClassName="w-[min(480px,calc(100vw-32px))]"
+        containerClassName="!z-[13050]"
+        footer={<>
+          <UiButton variant="muted" size="sm" disabled={captionBusy} onClick={() => setCaptionOpen(false)}>{t('common.cancel')}</UiButton>
+          <UiButton variant="primary" size="sm" disabled={captionBusy || !captionText.trim()} onClick={() => {
+            if (!localCaptionSource) return;
+            setCaptionBusy(true);
+            setCaptionError(null);
+            void invoke<string>('burn_video_caption', {
+              inputPath: localCaptionSource,
+              text: captionText,
+              startSeconds: Number(captionStart),
+              endSeconds: Number(captionEnd),
+            }).then((outputPath) => {
+              updateNodeData(id, buildCompletedVideoPatch({
+                currentVideos: videoHistory,
+                videoUrl: outputPath,
+                localVideoUrl: outputPath,
+                thumbnailUrl: displayPosterUrl,
+                aspectRatio: mainVideoEntry?.aspectRatio ?? resolvedModelConfig?.aspectRatio ?? '16:9',
+                sourcePrompt: promptDraft,
+              }));
+              setCaptionOpen(false);
+            }).catch((error: unknown) => setCaptionError(String(error)))
+              .finally(() => setCaptionBusy(false));
+          }}>{captionBusy ? t('node.aiVideo.captionWorking') : t('node.aiVideo.captionApply')}</UiButton>
+        </>}
+      >
+        <div className="space-y-3 text-sm text-text-dark">
+          <p className="text-xs text-text-muted">{t('node.aiVideo.captionHint')}</p>
+          <textarea className="w-full rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-2" rows={3} value={captionText} onChange={(event) => setCaptionText(event.target.value)} maxLength={300} />
+          <div className="flex gap-3">
+            <label className="flex-1 text-xs">{t('node.aiVideo.captionStart')}<input className="mt-1 w-full rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-2" type="number" min="0" step="0.1" value={captionStart} onChange={(event) => setCaptionStart(event.target.value)} /></label>
+            <label className="flex-1 text-xs">{t('node.aiVideo.captionEnd')}<input className="mt-1 w-full rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-2" type="number" min="0.1" step="0.1" value={captionEnd} onChange={(event) => setCaptionEnd(event.target.value)} /></label>
+          </div>
+          {captionError && <p role="alert" className="text-xs text-red-500">{captionError}</p>}
+        </div>
+      </UiModal>
 
       <UiModal
         isOpen={promptExpanded}

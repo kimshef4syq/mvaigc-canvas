@@ -1625,6 +1625,17 @@ export function Canvas() {
     () => nodes.filter((node) => selectedNodeIds.includes(node.id)),
     [nodes, selectedNodeIds]
   );
+  const selectedGeneratedResultNodeIds = useMemo(
+    () => selectedNodes.filter((node) => !node.parentId && (
+      node.type === CANVAS_NODE_TYPES.video
+      || node.type === CANVAS_NODE_TYPES.exportImage
+      || node.type === CANVAS_NODE_TYPES.audio
+      || (node.type === CANVAS_NODE_TYPES.aiVideo && Boolean(node.data.videoUrl))
+      || (node.type === CANVAS_NODE_TYPES.imageEdit && Boolean(node.data.imageUrl))
+      || (node.type === CANVAS_NODE_TYPES.aiAudio && Boolean(node.data.audioUrl))
+    )).map((node) => node.id),
+    [selectedNodes]
+  );
   const selectedGroupNodeIds = useMemo(
     () => selectedNodes
       .filter((node) => node.type === CANVAS_NODE_TYPES.group)
@@ -2493,6 +2504,20 @@ export function Canvas() {
       if (result.ok) scheduleCanvasPersist(0);
     });
   }, [scheduleCanvasPersist, selectedNodeIds]);
+
+  const handleBatchLayoutAndGroup = useCallback(() => {
+    if (selectedGeneratedResultNodeIds.length < 2) return;
+    const result = canvasCommandRegistry.executeTransaction({
+      id: `ui-layout-generated-${Date.now()}`,
+      origin: 'ui',
+      expectedRevision: canvasCommandRegistry.getRevision(),
+      commands: [
+        { type: 'node.layout', version: CANVAS_COMMAND_VERSION, input: { nodeIds: selectedGeneratedResultNodeIds, direction: 'grid' } },
+        { type: 'group.create', version: CANVAS_COMMAND_VERSION, input: { nodeIds: selectedGeneratedResultNodeIds, displayName: t('canvas.batchToolbar.generatedGroupName') } },
+      ],
+    });
+    if (result.ok) scheduleCanvasPersist(0);
+  }, [scheduleCanvasPersist, selectedGeneratedResultNodeIds, t]);
 
   const handleBatchTagGroup = useCallback(() => {
     if (selectedTagGroupMemberNodeIds.length < 2) return;
@@ -4197,6 +4222,17 @@ export function Canvas() {
             <Group className="h-3.5 w-3.5" />
             {t('canvas.batchToolbar.group')}
           </button>
+          {selectedGeneratedResultNodeIds.length >= 2 && (
+            <button
+              type="button"
+              className="inline-flex h-7 items-center gap-1 rounded-full px-2 transition-colors hover:bg-[var(--canvas-node-menu-hover)]"
+              onClick={handleBatchLayoutAndGroup}
+              title={t('canvas.batchToolbar.layoutAndGroup')}
+            >
+              <Boxes className="h-3.5 w-3.5" />
+              {t('canvas.batchToolbar.layoutAndGroup')}
+            </button>
+          )}
           <button
             type="button"
             className="inline-flex h-7 items-center gap-1 rounded-full px-2 transition-colors hover:bg-[var(--canvas-node-menu-hover)] disabled:cursor-not-allowed disabled:opacity-40"

@@ -1021,7 +1021,7 @@ pub(crate) fn get_project_record_impl(
     db: &State<ProjectDb>,
     project_id: &str,
 ) -> Result<Option<ProjectRecord>, String> {
-    with_db(app, db, |conn| {
+    let (result, needs_migration) = with_db(app, db, |conn| {
         let mut stmt = conn
             .prepare(
                 r#"
@@ -1060,6 +1060,7 @@ pub(crate) fn get_project_record_impl(
 
         match result {
             Ok(mut record) => {
+                let needs_migration = !collect_project_assets(&record.nodes_json).is_empty();
                 let mut asset_stmt = conn
                     .prepare("SELECT asset_id, metadata_json FROM assets WHERE project_id = ?1")
                     .map_err(|e| format!("Failed to prepare asset query: {}", e))?;
@@ -1078,12 +1079,21 @@ pub(crate) fn get_project_record_impl(
                 }
                 record.nodes_json =
                     hydrate_asset_media_fields(&record.nodes_json, &metadata_by_asset);
-                Ok(Some(record))
+                Ok((Some(record), needs_migration))
             }
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok((None, false)),
             Err(error) => Err(format!("Failed to load project: {}", error)),
         }
-    })
+    })?;
+    if needs_migration {
+        if let Some(record) = result {
+            // Rewrite a legacy row through the same transactional asset indexer used
+            // for new saves. The returned project is hydrated for existing callers.
+            upsert_project_record_impl(app, db, record)?;
+            return get_project_record_impl(app, db, project_id);
+        }
+    }
+    Ok(result)
 }
 
 #[tauri::command]
