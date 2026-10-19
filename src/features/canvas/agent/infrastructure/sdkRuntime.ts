@@ -44,6 +44,7 @@ import {
   type CanvasCommandExecutionResult,
 } from '@/features/canvas/domain/canvasCommands';
 import { canvasCommandRegistry } from '@/features/canvas/application/canvasCommandService';
+import { recordExplicitGrouping, recordMiniMaxGeneratedOutputs } from '../application/recentOutputGrouping';
 import {
   buildSkillContext,
   resolveAgentToolPolicy,
@@ -1166,7 +1167,13 @@ export function createCanvasAgent(options: {
               execute,
               callId,
             });
+            if (followThrough.outcome === 'succeeded') {
+              recordMiniMaxGeneratedOutputs(context.runId, context.projectId, inputNodeIds, followThrough.resultNodeIds);
+            }
           }
+        }
+        if (command.type === 'group.create' && result.ok) {
+          recordExplicitGrouping(context.runId, context.projectId);
         }
         const receiptStatus = followThrough?.outcome === 'succeeded'
           ? 'succeeded' as const

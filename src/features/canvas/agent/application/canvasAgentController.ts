@@ -42,6 +42,7 @@ import {
 } from './agentApproval';
 import { consumeAgentRunStream } from './agentRunStreamReader';
 import { decideAgentAutoApproval, type CanvasAgentExecutionMode } from './agentAutoApprovalPolicy';
+import { clearRecentOutputGrouping, groupRecentMiniMaxOutputs } from './recentOutputGrouping';
 
 const repository = new AgentSessionRepository();
 const activeRuns = new Map<string, ActiveRun>();
@@ -641,6 +642,7 @@ function persistFailedRun(
   error: unknown,
   signal?: AbortSignal,
 ): void {
+  clearRecentOutputGrouping(active.runId);
   const state = errorRunState(error) ?? ('state' in active ? active.state : undefined);
   if (!state) return;
   const cancelled = isAbortError(error, signal);
@@ -782,6 +784,9 @@ export async function runCanvasAgentTurn(input: {
     }
   }
   const approvals = prepared.map((approval) => approval.view);
+  if (approvals.length === 0) {
+    await groupRecentMiniMaxOutputs(runId, input.projectId).catch(() => false);
+  }
   const skillContext = buildSkillContext(partial.skillRoutingContext);
   const toolPolicy = resolveAgentToolPolicy({
     skillContext,
@@ -915,6 +920,9 @@ async function performCanvasAgentApprovalResolution(input: {
   }
   persistRunCheckpoint(active, active.state, prepared);
   const approvals = prepared.map((approval) => approval.view);
+  if (approvals.length === 0) {
+    await groupRecentMiniMaxOutputs(active.runId, active.projectId).catch(() => false);
+  }
   return {
     runId: active.runId,
     sessionId: active.sessionId,
