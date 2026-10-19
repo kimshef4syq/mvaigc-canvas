@@ -1,3 +1,5 @@
+import { generationDefaultsForNode } from '@/features/canvas/application/canvasGenerationDefaults';
+import type { CanvasGenerationDefaults } from './canvasDefaultsStore';
 import { create } from 'zustand';
 import {
   Connection,
@@ -221,6 +223,7 @@ export interface CanvasState {
     frameAspectRatio?: string
   ) => string | null;
 
+  applyGenerationDefaults: (defaults: CanvasGenerationDefaults) => void;
   updateNodeData: (nodeId: string, data: Partial<CanvasNodeData>) => void;
   replaceNodeType: (
     nodeId: string,
@@ -1646,6 +1649,26 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     });
 
     return node.id;
+  },
+
+  applyGenerationDefaults: (defaults) => {
+    set((state) => {
+      const nodes = state.nodes.map((node) => {
+        const patch = generationDefaultsForNode(node.type as CanvasNodeType, defaults);
+        if (Object.keys(patch).length === 0 || node.data.isGenerating) return node;
+        return { ...node, data: { ...node.data, ...patch } as CanvasNodeData };
+      });
+      if (nodes.every((node, index) => node === state.nodes[index])) return {};
+      return {
+        nodes,
+        revision: nextCanvasRevision(state.revision),
+        history: {
+          past: pushSnapshot(state.history.past, createSnapshot(state.nodes, state.edges)),
+          future: [],
+        },
+        dragHistorySnapshot: null,
+      };
+    });
   },
 
   updateNodeData: (nodeId, data) => {

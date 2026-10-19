@@ -1,3 +1,4 @@
+import { useCanvasDefaultsStore } from '@/stores/canvasDefaultsStore';
 import {
   DEFAULT_IMAGE_MODEL_ID,
   getModelProvider,
@@ -268,7 +269,7 @@ export function resolveActiveModelForPanel(
     dreaminaStatus: settings.dreaminaStatus,
     agnesApiKey: settings.agnesApiKey,
   });
-  const requested = override ?? settings.lastModelConfigByPanel?.[panelKey] ?? null;
+  const requested = override ?? settings.lastModelConfigByPanel?.[panelKey] ?? useCanvasDefaultsStore.getState().image ?? null;
   const requestedResolved = requested
     ? resolvePanelModelConfig(requested, customProviders, catalog, false)
     : null;

@@ -1,3 +1,5 @@
+import { useCanvasDefaultsStore } from '@/stores/canvasDefaultsStore';
+import { generationDefaultsForNode } from './canvasGenerationDefaults';
 import type { XYPosition } from '@xyflow/react';
 
 import type { CanvasNode, CanvasNodeData, CanvasNodeType } from '../domain/canvasNodes';
@@ -17,6 +19,7 @@ export class CanvasNodeFactory implements NodeFactory {
     const definition = this.nodeCatalog.getDefinition(type);
     const nodeData = {
       ...definition.createDefaultData(),
+      ...generationDefaultsForNode(type, useCanvasDefaultsStore.getState()),
       ...data,
     } as CanvasNodeData;
 

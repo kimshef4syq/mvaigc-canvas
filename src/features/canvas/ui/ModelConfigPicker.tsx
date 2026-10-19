@@ -1,3 +1,4 @@
+import { useCanvasDefaultsStore } from '@/stores/canvasDefaultsStore';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type WheelEvent } from 'react';
 import { ChevronDown, Check, Settings2 } from 'lucide-react';
 
@@ -68,10 +69,13 @@ export const ModelConfigPicker = memo(({
   );
   const setPanelModelConfig = useSettingsStore((s) => s.setPanelModelConfig);
 
+  const canvasImageDefault = useCanvasDefaultsStore((state) => state.image);
+  const usableCanvasDefault = canvasImageDefault && catalog.some((entry) => entry.id === canvasImageDefault.entryId && entry.usable)
+    ? canvasImageDefault : undefined;
   const firstUsable = catalog.find((e) => e.usable);
   const persistedEntry = persisted ? catalog.find((e) => e.id === persisted.entryId) : undefined;
   const persistedUsableConfig = persisted && persistedEntry?.usable ? persisted : undefined;
-  const current: ModelConfigValue = value ?? (onChange ? undefined : persistedUsableConfig) ?? (firstUsable
+  const current: ModelConfigValue = value ?? (onChange ? undefined : persistedUsableConfig) ?? usableCanvasDefault ?? (firstUsable
     ? {
       entryId: firstUsable.id,
       ratio: resolvePreferredRatio(firstUsable.supportedRatios, preferredRatio, undefined, {
@@ -120,13 +124,13 @@ export const ModelConfigPicker = memo(({
 
   useEffect(() => {
     if (onChange || persistedUsableConfig || !firstUsable) return;
-    setPanelModelConfig(panelKey, {
+    setPanelModelConfig(panelKey, usableCanvasDefault ?? {
       entryId: firstUsable.id,
       ratio: resolvePreferredRatio(firstUsable.supportedRatios, preferredRatio, undefined, {
         preferAutoFallback: Boolean(preferredRatio),
       }),
     });
-  }, [firstUsable, onChange, panelKey, persistedUsableConfig, preferredRatio, setPanelModelConfig]);
+  }, [firstUsable, onChange, panelKey, persistedUsableConfig, preferredRatio, setPanelModelConfig, usableCanvasDefault]);
 
   useEffect(() => {
     const nextPreferredRatio = preferredRatio ?? null;

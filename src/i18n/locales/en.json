@@ -1,4 +1,18 @@
 {
+  "canvasDefaults": {
+  "title": "Canvas settings",
+  "description": "Apply to all image and video generation nodes on this canvas, except running nodes. New nodes inherit these defaults and can be adjusted individually. Defaults are saved on this device and shared across canvases.",
+  "image": "Image defaults",
+  "video": "Video defaults",
+  "model": "Default model",
+  "ratio": "Aspect ratio",
+  "resolution": "Resolution",
+  "duration": "Default duration",
+  "seconds": "{{count}} s",
+  "noModels": "Configure a model in My configurations first",
+  "cancel": "Cancel",
+  "save": "Save and apply"
+},
   "minimaxH3": {
     "requestStructureHelp": "This preset builds requests using the official MiniMax V2 format. Field mappings and body templates are unnecessary. Select MiniMax-H3 and configure supported durations, resolutions and ratios; choose the image input mode in the video node parameters.",
     "hint": "Official MiniMax H3 · text, frames and multimodal references",

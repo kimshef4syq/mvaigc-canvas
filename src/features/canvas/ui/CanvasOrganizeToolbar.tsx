@@ -1,3 +1,4 @@
+import { CanvasSettingsButton } from './CanvasSettingsButton';
 import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { useReactFlow, useViewport } from '@xyflow/react';
 import { useTranslation } from 'react-i18next';
@@ -213,6 +214,8 @@ export const CanvasOrganizeToolbar = memo(({
 
       {/* 分隔线 */}
       <div className="h-4 w-px bg-white/15 mx-0.5" />
+
+      <CanvasSettingsButton />
 
       {/* 整理主按钮 */}
       <div className="relative">

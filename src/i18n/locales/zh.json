@@ -1,4 +1,18 @@
 {
+  "canvasDefaults": {
+  "title": "画布设置",
+  "description": "保存后应用到当前画布所有图片、视频生成节点（正在生成的节点除外），之后新建节点也使用这些默认参数。可在节点中单独调整。默认值保存在本机，供各画布使用。",
+  "image": "图片默认参数",
+  "video": "视频默认参数",
+  "model": "默认模型",
+  "ratio": "高宽比",
+  "resolution": "分辨率",
+  "duration": "默认时长",
+  "seconds": "{{count}} 秒",
+  "noModels": "请先在「我的配置」中配置模型",
+  "cancel": "取消",
+  "save": "保存并应用"
+},
   "minimaxH3": {
     "requestStructureHelp": "此预设按 MiniMax 官方 V2 格式自动构建请求，无需配置字段映射或请求体模板。请选择 MiniMax-H3，设置支持的时长、分辨率和比例；图片输入模式在视频节点参数中选择。",
     "hint": "MiniMax H3 官方 · 文生视频、首尾帧、多模态参考",
