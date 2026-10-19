@@ -11,7 +11,7 @@ vi.mock('@/commands/image', async (original) => ({ ...await original<typeof impo
 import { useCustomProvidersStore } from '@/stores/customProvidersStore';
 import { DEFAULT_GENERATION_NETWORK_SETTINGS, useSettingsStore } from '@/stores/settingsStore';
 import { MINIMAX_H3_PRESET } from '../application/minimaxH3';
-import { getCustomProviderJob, recoverCustomProviderJob, submitCustomVideoJob } from './customProviderGateway';
+import { getCustomProviderJob, getCustomProviderJobAsync, recoverCustomProviderJob, submitCustomVideoJob } from './customProviderGateway';
 
 const provider = () => ({ ...MINIMAX_H3_PRESET.template, id: 'h3-test', apiKey: 'minimax-secret' });
 const request: GenerateRequest = { model: 'custom:h3-test:MiniMax-H3', prompt: 'follow cyclist', size: '768P', aspect_ratio: '16:9' };
@@ -35,6 +35,31 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.resetAllMocks(); delete (globalThis as typeof globalThis & { isTauri?: boolean }).isTauri; useCustomProvidersStore.getState().replaceAll([]); });
 
 describe('MiniMax H3 gateway lifecycle', () => {
+  it('restores an unsent queued request after restart without duplicate submission', async () => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal('window', { setTimeout: globalThis.setTimeout, localStorage: {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => { storage.set(key, value); },
+      removeItem: (key: string) => { storage.delete(key); },
+    } });
+    useCustomProvidersStore.getState().replaceAll([{ ...provider(), id: 'mvaigc-video' }]);
+    const queuedRequest = { ...request, model: 'custom:mvaigc-video:MiniMax-H3' };
+    mocks.http.mockResolvedValueOnce(response({ task_id: 'h3-job' })).mockResolvedValueOnce(response(completed));
+    await settled(await submitCustomVideoJob(queuedRequest));
+    const fingerprint = mocks.create.mock.calls[0][0].configFingerprint;
+    mocks.http.mockClear();
+    storage.set('minimax-h3-queued-request:restored-queued', JSON.stringify(queuedRequest));
+    mocks.get.mockResolvedValue({
+      job_id: 'restored-queued', status: 'queued', media_type: 'video',
+      provider_id: 'mvaigc-video', model_id: 'MiniMax-H3', config_fingerprint: fingerprint,
+      network_route: 'system', resumable: false,
+    });
+    mocks.http.mockResolvedValueOnce(response({ task_id: 'h3-job' })).mockResolvedValueOnce(response(completed));
+    await getCustomProviderJobAsync('restored-queued');
+    expect(await settled('restored-queued')).toMatchObject({ status: 'succeeded' });
+    expect(mocks.http.mock.calls.map(([call]) => call.method)).toEqual(['POST', 'GET']);
+    expect(storage.has('minimax-h3-queued-request:restored-queued')).toBe(false);
+  });
   it('holds the eleventh submission until one of ten active jobs finishes', async () => {
     useCustomProvidersStore.getState().replaceAll([{ ...provider(), id: 'mvaigc-video' }]);
     const releasePosts: Array<() => void> = [];
