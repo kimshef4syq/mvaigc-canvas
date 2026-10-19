@@ -729,7 +729,10 @@ async function pollSingleJob(ctx: PollContext): Promise<void> {
           return false;
         });
         if (!restarted && !retryResultUrl) {
-          const message = '缺少任务信息，无法重新获取';
+          const latestStatus = isVideoNode
+            ? await canvasVideoGateway.getGenerateVideoJob(jobId).catch(() => null)
+            : null;
+          const message = latestStatus?.error || '缺少任务信息，无法重新获取';
           void showErrorDialog(message, translateError('common.error'));
           markGenerationFailed(
             nodeId,

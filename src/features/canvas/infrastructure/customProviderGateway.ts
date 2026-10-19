@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import { composeMinimaxH3Request, MinimaxH3ValidationError } from '@/features/canvas/application/minimaxH3';
+import { minimaxH3ExecutorQueue } from '@/features/canvas/application/ExecutorQueue';
 import {
   customHttpRequest,
   customHttpStreamRequest,
@@ -139,6 +140,7 @@ class RemoteGenerationFailedError extends Error {
 }
 
 const cache = new Map<string, CachedJob>();
+const h3RetryCounts = new Map<string, number>();
 const persistenceQueues = new Map<string, Promise<void>>();
 const recoveryJobs = new Map<string, Promise<GenerationJobStatus>>();
 const recoveryLoads = new Map<string, Promise<GenerationJobStatus>>();
@@ -4751,7 +4753,32 @@ export async function submitCustomVideoJob(request: GenerateRequest): Promise<st
     result: null,
     error: null,
   });
-  void runCustomVideoJob(jobId, cfg, model, request, network);
+  if (cfg.id === 'mvaigc-video' && /minimax[-_]h3/i.test(model)) {
+    try {
+      await persistCustomJobCreate(jobId, cfg, model, 'video', network);
+    } catch (error) {
+      updateCachedJob(jobId, {
+        status: 'failed',
+        phase: 'persistence',
+        error: `无法创建本机任务记录，生成请求未发送：${formatUnknownError(error)}`,
+        error_category: 'storage',
+      });
+      return jobId;
+    }
+    minimaxH3ExecutorQueue.enqueue(
+      () => runCustomVideoJob(jobId, cfg, model, request, network, true),
+      (error) => {
+        updateCachedJob(jobId, {
+          status: 'failed',
+          phase: 'submit',
+          error: formatUnknownError(error),
+          error_category: classifyGenerationError(error),
+        });
+      },
+    );
+  } else {
+    void runCustomVideoJob(jobId, cfg, model, request, network);
+  }
   return jobId;
 }
 
@@ -4761,9 +4788,10 @@ async function runCustomVideoJob(
   model: string,
   request: GenerateRequest,
   network: Readonly<GenerationNetworkSettings>,
+  alreadyPersisted = false,
 ): Promise<void> {
   try {
-    await persistCustomJobCreate(jobId, cfg, model, 'video', network);
+    if (!alreadyPersisted) await persistCustomJobCreate(jobId, cfg, model, 'video', network);
   } catch (error) {
     updateCachedJob(jobId, {
       ...cachedJobContext(cfg, model, 'video', network),
@@ -5861,6 +5889,14 @@ export async function getCustomProviderJobAsync(jobId: string): Promise<Generati
   if (cached?.provider_id && cached.network_route) return getCustomProviderJob(jobId);
   try {
     const persisted = await getGenerationJobRecord(jobId);
+    if (!cached && persisted.status === 'queued'
+      && persisted.provider_id === 'mvaigc-video'
+      && /minimax[-_]h3/i.test(persisted.model_id ?? '')) {
+      const error = '应用重启时任务仍在本机队列中，生成请求未发送；请重新提交。';
+      updateCachedJob(jobId, { ...persisted, status: 'failed', error, error_category: 'queue-interrupted' });
+      persistCustomJobUpdate(jobId, { status: 'failed', error, errorCategory: 'queue-interrupted' });
+      return getCustomProviderJob(jobId);
+    }
     cache.set(jobId, cached ? { ...persisted, ...cached } : { ...persisted });
     if (!cached && (
       persisted.status === 'queued'
@@ -5884,6 +5920,27 @@ export async function getCustomProviderJobAsync(jobId: string): Promise<Generati
 
 export function retryCustomProviderJob(jobId: string): boolean {
   const cached = cache.get(jobId);
+  const isH3 = cached?.provider_id === 'mvaigc-video'
+    && /minimax[-_]h3/i.test(cached.model_id ?? '');
+  const canRetry = Boolean(
+    (cached?.status === 'recoverable_wait' || cached?.status === 'unknown')
+      && (cached.external_task_id || cached.result_url),
+  ) || Boolean(cached?.status === 'failed' && cached.videoPollRetry);
+  if (isH3 && canRetry) {
+    const storageKey = `minimax-h3-retries:${jobId}`;
+    let attempts = h3RetryCounts.get(jobId) ?? 0;
+    try {
+      attempts = Math.max(attempts, Number(window.localStorage.getItem(storageKey)) || 0);
+    } catch { /* Storage can be unavailable in private contexts. */ }
+    if (attempts >= 3) {
+      const error = '此 MiniMax H3 工单已连续重试 3 次，已熔断；请新建工单。';
+      updateCachedJob(jobId, { status: 'failed', error, error_category: 'retry-circuit-breaker', resumable: false });
+      persistCustomJobUpdate(jobId, { status: 'failed', error, errorCategory: 'retry-circuit-breaker', resumable: false });
+      return false;
+    }
+    h3RetryCounts.set(jobId, attempts + 1);
+    try { window.localStorage.setItem(storageKey, String(attempts + 1)); } catch { /* In-memory count still applies. */ }
+  }
   if (
     (cached?.status === 'recoverable_wait' || cached?.status === 'unknown')
     && (cached.external_task_id || cached.result_url)
