@@ -25,8 +25,10 @@ describe('imported video prompt contracts', () => {
       durationSeconds: 8,
       scene: '房间',
       actions: [
-        { startSeconds: 0, endSeconds: 5, action: '开门' },
-        { startSeconds: 4, endSeconds: 8, action: '进屋' },
+        { startSeconds: 0, endSeconds: 3, action: '走向门口' },
+        { startSeconds: 2, endSeconds: 4, action: '开门' },
+        { startSeconds: 4, endSeconds: 6, action: '进屋' },
+        { startSeconds: 6, endSeconds: 8, action: '关门' },
       ],
     })).toThrow(/non-overlapping/);
     const prompt = compileSeedancePrompt({
@@ -34,8 +36,10 @@ describe('imported video prompt contracts', () => {
       scene: '房间',
       characterImageSlot: 1,
       actions: [
-        { startSeconds: 0, endSeconds: 4, action: '开门' },
-        { startSeconds: 4, endSeconds: 8, action: '进屋' },
+        { startSeconds: 0, endSeconds: 2, action: '走向门口' },
+        { startSeconds: 2, endSeconds: 4, action: '开门' },
+        { startSeconds: 4, endSeconds: 6, action: '进屋' },
+        { startSeconds: 6, endSeconds: 8, action: '关门' },
       ],
     });
     expect(prompt).toContain('@图片1');

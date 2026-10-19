@@ -117,6 +117,7 @@ import { useCanvasStore } from '@/stores/canvasStore';
 import { useCustomProvidersStore } from '@/stores/customProvidersStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { isMiniMaxDesignVideoModel, lintPrompt } from '@/features/promptCompiler/PromptLinter';
+import { PromptComposerDialog } from '@/features/promptCompiler/PromptComposerDialog';
 
 type AiVideoNodeProps = NodeProps & {
   id: string;
@@ -341,6 +342,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
   const [functionPickerAnchor, setFunctionPickerAnchor] = useState(PICKER_FALLBACK_ANCHOR);
   const [functionPickerActiveIndex, setFunctionPickerActiveIndex] = useState(0);
   const [promptExpanded, setPromptExpanded] = useState(false);
+  const [promptComposerOpen, setPromptComposerOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [generationMode, setGenerationMode] = useState<VideoGenerationMode>('overwrite');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -1382,7 +1384,18 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         className={NODE_HEADER_FLOATING_POSITION_CLASS}
         icon={<Video className="h-4 w-4" />}
         titleText={resolvedTitle}
-        rightSlot={showNodePayloadPreview || isMiniMaxDesignVideoModel(resolvedModelConfig?.entryId ?? '') ? (
+        rightSlot={showNodePayloadPreview || isMiniMaxDesignVideoModel(resolvedModelConfig?.entryId ?? '') ? <div className="flex items-center gap-1">
+          {isMiniMaxDesignVideoModel(resolvedModelConfig?.entryId ?? '') && <button
+            type="button"
+            data-canvas-no-marquee="true"
+            className="nodrag nowheel inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--canvas-node-border)] bg-[var(--canvas-node-menu-bg)] text-text-muted shadow-sm transition-colors hover:border-accent/50 hover:bg-[var(--canvas-node-menu-hover)] hover:text-accent"
+            title={t('node.aiVideo.compilerButton')}
+            aria-label={t('node.aiVideo.compilerButton')}
+            onClick={(event) => {
+              event.stopPropagation();
+              setPromptComposerOpen(true);
+            }}
+          ><Sparkles className="h-3.5 w-3.5" /></button>}
           <button
             type="button"
             data-canvas-no-marquee="true"
@@ -1400,7 +1413,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
           >
             <Bug className="h-3.5 w-3.5" />
           </button>
-        ) : undefined}
+        </div> : undefined}
         editable
         onTitleChange={(nextTitle) => updateNodeData(id, { displayName: nextTitle })}
       />
@@ -2298,6 +2311,20 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
           </pre>
         </div>
       </UiModal>
+
+      <PromptComposerDialog
+        isOpen={promptComposerOpen}
+        modelKind={/seedance/i.test(resolvedModelConfig?.entryId ?? '') ? 'seedance' : 'h3'}
+        durationSeconds={Number(resolvedModelConfig?.duration) || 4}
+        originalPrompt={promptDraft}
+        referenceImageCount={schemaIncomingImageItems.length}
+        referenceAudioCount={incomingReferenceItems.filter((item) => item.kind === 'audio').length}
+        onClose={() => setPromptComposerOpen(false)}
+        onApply={(compiledPrompt) => {
+          setPromptDraft(compiledPrompt);
+          flushPromptDraft(compiledPrompt);
+        }}
+      />
 
       <UiModal
         isOpen={promptExpanded}

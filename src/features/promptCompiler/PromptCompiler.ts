@@ -65,9 +65,10 @@ export interface SeedancePromptInput {
 /** Slots are emitted only for references that actually exist in the request. */
 export function compileSeedancePrompt(input: SeedancePromptInput): string {
   validateTimeline(input.actions, input.durationSeconds);
-  const expectedActions = input.durationSeconds <= 6 ? 1 : input.durationSeconds <= 10 ? 2 : 3;
-  if (input.actions.length !== expectedActions) {
-    throw new Error(`${input.durationSeconds}s requires ${expectedActions} primary action(s)`);
+  const [minimum, maximum] = input.durationSeconds <= 6 ? [3, 4]
+    : input.durationSeconds <= 10 ? [4, 6] : [5, 7];
+  if (input.actions.length < minimum || input.actions.length > maximum) {
+    throw new Error(`${input.durationSeconds}s requires ${minimum}-${maximum} action beats`);
   }
   const slots: string[] = [];
   if (input.characterImageSlot !== undefined) {
@@ -81,8 +82,9 @@ export function compileSeedancePrompt(input: SeedancePromptInput): string {
   return [
     required(input.scene, 'Scene'),
     slots.join('；'),
-    ...input.actions.map(({ startSeconds, endSeconds, action }) =>
-      `${startSeconds}–${endSeconds}秒：${action.trim()}`),
+    input.actions.map(({ action }, index) =>
+      `${index === 0 ? '先' : index === input.actions.length - 1 ? '最后' : '随后'}${action.trim()}`
+    ).join('，'),
     input.sound ? `声音：${input.sound.trim()}` : '',
   ].filter(Boolean).join('\n');
 }
