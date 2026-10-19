@@ -1266,4 +1266,34 @@ describe('OpenAI Agents SDK runtime adapter', () => {
       expect(serialized).not.toContain('"filter"');
     }
   });
+
+  it('exposes profile_search and profile_read when knowledge skill is routed', async () => {
+    const requests: AgentModelTurnRequest[] = [];
+    const transport: AgentModelTransport = {
+      async getResponse(requestValue) {
+        requests.push(requestValue);
+        return {
+          responseId: `response-${requests.length}`,
+          text: 'Found profiles.',
+          toolCalls: [],
+          usage: { inputTokens: 5, outputTokens: 2, totalTokens: 7 },
+        };
+      },
+      async *getStreamedResponse() { throw new Error('unused'); },
+    };
+    const runtime = createStoryboardAgentRuntime({ resolveModel: () => reference, transport });
+    const context: CanvasAgentContext = { projectId: 'project-1', runId: 'skills-knowledge-run' };
+    const agent = createCanvasAgent({
+      runtime,
+      context,
+      supportsVision: true,
+      supportsToolSearch: false,
+      skillContext: { text: '帮我查一下 MiniMax Design 的 TVC 知识库资料' },
+    });
+    await runtime.runner.run(agent, '帮我查一下 MiniMax Design 的 TVC 知识库资料', { context });
+    const toolNames = requests[0].tools.map((candidate) => candidate.name);
+    expect(toolNames).toContain('profile_search');
+    expect(toolNames).toContain('profile_read');
+  });
 });
+

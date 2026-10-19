@@ -35,6 +35,7 @@ const SAFE_NAMESPACES = new Set([
   'config',
   'prompting',
   'director',
+  'knowledge',
 ]);
 
 const SHARED_SKILL_RULES = [
@@ -134,6 +135,15 @@ export const BUILTIN_AGENT_SKILLS: readonly SkillDefinitionV1[] = Object.freeze(
     instructions: '先检查 manifest/schema/app 版本和冲突摘要；保留未知兼容字段，凭据默认不导出，任何覆盖都必须先展示影响。',
     examples: [{ input: '检查这个旧项目能否迁移', outcome: '版本/结构预检 -> 冲突和保留字段摘要 -> 等待导入确认' }],
     evalCaseIds: ['project-portability:legacy-project'],
+  }),
+  defineSkill({
+    id: 'minimax-design-profiles',
+    summary: '检索与查阅 MiniMax Design 202 份资料库（角色人设、模型卡、专项制作流程、方法卡与避坑知识）',
+    activation: ['资料', '知识库', '方法卡', '模型卡', '规约', 'profile', 'knowledge', 'minimax', 'tvc', '短剧', '微电影', 'mv', 'koc', '避坑', '防翻车', '制作流程'],
+    toolNamespaces: ['canvas.read', 'knowledge'],
+    instructions: '先通过 profile_search 搜索对应主题的资料摘要与 ID，需要详细内容时使用 profile_read 按需分页读取。小任务（如单图生成、剧本分析、分镜拆解）直接调用对应能力完成，不默认启动长流程编排。',
+    examples: [{ input: '帮我查一下 TVC 商业广告的制作方法卡', outcome: '调用 profile_search 查找 TVC 资料 -> 按需读取 -> 指导制作' }],
+    evalCaseIds: ['minimax-design-profiles:search'],
   }),
 ]);
 

@@ -1,0 +1,20 @@
+{
+  "pathPrefixes": {
+    "drama-series/": "03-DramaSeries-短剧微电影完整流程/",
+    "ad-tvc/": "04-AdTVC-商业广告与品牌大片流程/",
+    "mv/": "05-MV-音乐卡点与歌词视频流程/",
+    "general-video/": "06-GeneralVideo-通用视频制作流程/",
+    "koc-video/": "06-KOC-带货与口播种草流程/",
+    "_shared/": "07-SharedPipelines-共享资产与后期管线/",
+    "vendors/": "02-Vendors-模型生成提示词与参数/",
+    "failures/": "08-Failures-防翻车与负向避坑知识库/",
+    "contracts/": "09-Contracts-画布纪律与语义契约/",
+    "agents/": "01-Agents-智能体人设与编排/"
+  },
+  "templateVariables": {
+    "<workflowsDir>": "resources/agent-profiles/",
+    "<knowledgeDir>": "resources/agent-profiles/",
+    ".opencode-v2/": "resources/agent-profiles/"
+  },
+  "resolvedMappings": {}
+}

@@ -11,7 +11,7 @@ import {
 
 describe('agent skill router', () => {
   it('validates unique built-in skills, examples, eval ids, and safe namespaces', () => {
-    expect(BUILTIN_AGENT_SKILLS).toHaveLength(9);
+    expect(BUILTIN_AGENT_SKILLS).toHaveLength(10);
     expect(validateSkillCatalog(BUILTIN_AGENT_SKILLS)).toEqual([]);
   });
 

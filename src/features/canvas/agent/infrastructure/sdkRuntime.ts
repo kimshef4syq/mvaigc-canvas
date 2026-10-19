@@ -24,6 +24,7 @@ import { z } from 'zod';
 import { AgentModelGatewayError, createAgentModelTransport } from './agentModelGateway';
 import { getInstalledAgentSkills } from '../application/installedSkills';
 import { readSkillResource } from '@/commands/extensions';
+import { searchProfiles, readProfile } from './profileRepository';
 import type { McpAgentTool } from '@/commands/mcpClient';
 import { createMcpAgentTools } from './mcpAgentTools';
 import { createDavinciImageTool } from './davinciImageTools';
@@ -1528,6 +1529,67 @@ export function createCanvasAgent(options: {
       } catch (error) { return { ok: false, error: String(error) }; }
     },
   }) : null;
+  const profileSearchTool = tool({
+    name: 'profile_search',
+    description: '搜索 MiniMax Design 202 份资料目录（角色人设、模型卡、短剧/TVC/MV/通用视频制作方法与防翻车知识）。默认返回 8 条，可按 query、category、kind、stage、intent、modality 过滤并分页。',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: '关键词搜索（匹配 id、title 或 intent）' },
+        category: { type: 'string', description: '分类目录名' },
+        kind: { type: 'string', enum: ['role', 'workflow', 'reference', 'vendor', 'contract', 'index', 'authoring'], description: '资料类别' },
+        stage: { type: 'string', description: '制作阶段' },
+        intent: { type: 'string', description: '意图类别' },
+        modality: { type: 'string', enum: ['video', 'image', 'audio', 'text'], description: '模态' },
+        cursor: { type: 'string', description: '翻页游标（offset 字符串）' },
+        limit: { type: 'integer', minimum: 1, maximum: 20, description: '返回条数（默认 8，最大 20）' },
+      },
+      additionalProperties: false,
+    } as unknown as JsonObjectSchemaNonStrict<Record<string, Record<string, unknown>>>,
+    strict: false,
+    execute: async (raw) => {
+      const parsed = z.object({
+        query: z.string().optional(),
+        category: z.string().optional(),
+        kind: z.string().optional(),
+        stage: z.string().optional(),
+        intent: z.string().optional(),
+        modality: z.string().optional(),
+        cursor: z.string().optional(),
+        limit: z.number().int().min(1).max(20).optional(),
+      }).parse(raw);
+      return searchProfiles(parsed);
+    },
+  });
+  const profileReadTool = tool({
+    name: 'profile_read',
+    description: '分页受控读取 MiniMax Design 登记资料正文。只可读取白名单内的 profile ID，默认每页 12,000 字符。返回正文片段、SHA-256 hash、总字符数及下一页 cursor。',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '资料 ID，如 01-Agents-智能体人设与编排/media-agent' },
+        revision: { type: 'string', description: '可选的期望 revision 或 SHA-256 前缀，用于版本校验' },
+        cursor: { type: 'integer', minimum: 0, description: '字符起始偏移量（默认 0）' },
+        limitCharacters: { type: 'integer', minimum: 1, maximum: 12_000, description: '读取字符数限制（默认 12,000，上限 12,000）' },
+      },
+      required: ['id'],
+      additionalProperties: false,
+    } as unknown as JsonObjectSchemaNonStrict<Record<string, Record<string, unknown>>>,
+    strict: false,
+    execute: async (raw) => {
+      const parsed = z.object({
+        id: z.string(),
+        revision: z.string().optional(),
+        cursor: z.number().int().min(0).optional(),
+        limitCharacters: z.number().int().min(1).max(12_000).optional(),
+      }).parse(raw);
+      try {
+        return await readProfile(parsed);
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    },
+  });
   const selectedTools = [
     canvasTool,
     canvasSchemaTool,
@@ -1535,6 +1597,7 @@ export function createCanvasAgent(options: {
     ...(toolPolicy.toolKinds.includes('diagnostics') || options.restoreExtensions ? [diagnosticsTool] : []),
     ...(toolPolicy.toolKinds.includes('config') || options.restoreExtensions ? [configPatchTool] : []),
     ...(assetReadTool && (toolPolicy.toolKinds.includes('asset-read') || options.restoreExtensions) ? [assetReadTool] : []),
+    ...(skillContext.toolNamespaces.includes('knowledge') || options.restoreExtensions ? [profileSearchTool, profileReadTool] : []),
     ...(skillReadTool ? [skillReadTool] : []),
     ...(davinciImageTool ? [davinciImageTool] : []),
     ...(mcpDiscoveryTool ? options.restoreExtensions || mcpTools.length <= 8 ? [mcpDiscoveryTool, ...mcpTools] : [mcpDiscoveryTool] : []),

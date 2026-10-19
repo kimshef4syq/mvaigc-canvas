@@ -1,0 +1,437 @@
+{
+  "totalTools": 54,
+  "tools": [
+    {
+      "tool": "hub_canvas_write_node",
+      "occurrences": 13,
+      "primarySource": "01-Agents-智能体人设与编排/README.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/README.md",
+      "targetAllocation": "T07：命令/文档读写适配",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_plan_patch_stage",
+      "occurrences": 11,
+      "primarySource": "01-Agents-智能体人设与编排/README.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/README.md",
+      "targetAllocation": "T05/T07/T08：持久计划服务",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_read",
+      "occurrences": 9,
+      "primarySource": "01-Agents-智能体人设与编排/README.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/README.md",
+      "targetAllocation": "T02：资料/来源受控读取",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_analyse_media",
+      "occurrences": 8,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T04/T11：模态分析与实测",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_ffmpeg",
+      "occurrences": 8,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T11：分析/字幕/后期",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_list_capabilities",
+      "occurrences": 8,
+      "primarySource": "01-Agents-智能体人设与编排/README.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/README.md",
+      "targetAllocation": "T04/T06：能力快照与发现",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_plan_get_stage_detail",
+      "occurrences": 7,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T05/T07/T08：持久计划服务",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_generate_video",
+      "occurrences": 6,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T04/T08：复用生成链路",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_plan_write",
+      "occurrences": 6,
+      "primarySource": "01-Agents-智能体人设与编排/README.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/README.md",
+      "targetAllocation": "T05/T07/T08：持久计划服务",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_canvas_list_nodes",
+      "occurrences": 5,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T07：命令/文档读写适配",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_generate_audio_speech",
+      "occurrences": 5,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T11/T15：音频适配",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_media_transcribe",
+      "occurrences": 5,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T11：分析/字幕/后期",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_plan_get_work_items",
+      "occurrences": 5,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T05/T07/T08：持久计划服务",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_subtitle_format",
+      "occurrences": 5,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T11：分析/字幕/后期",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_voice_prepare",
+      "occurrences": 5,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T11/T15：音频适配",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_canvas_get_node",
+      "occurrences": 4,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T07：命令/文档读写适配",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_merge_videos",
+      "occurrences": 4,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T11：分析/字幕/后期",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_plan_get_stage_status",
+      "occurrences": 4,
+      "primarySource": "01-Agents-智能体人设与编排/media-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/media-agent.md",
+      "targetAllocation": "T05/T07/T08：持久计划服务",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_plan_update_stage_state",
+      "occurrences": 4,
+      "primarySource": "01-Agents-智能体人设与编排/media-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/media-agent.md",
+      "targetAllocation": "T05/T07/T08：持久计划服务",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_canvas_read_text",
+      "occurrences": 3,
+      "primarySource": "05-MV-音乐卡点与歌词视频流程/reference/storyboard.md",
+      "primarySourcePath": "05-MV-音乐卡点与歌词视频流程/reference/storyboard.md",
+      "targetAllocation": "T07：命令/文档读写适配",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_generate_image",
+      "occurrences": 3,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T04/T08：复用生成链路",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_image_enhance",
+      "occurrences": 3,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T04/T11：图像处理能力审计",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_image_layer_decompose",
+      "occurrences": 3,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T04/T11：图像处理能力审计",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_image_remove_background",
+      "occurrences": 3,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T04/T11：图像处理能力审计",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_plan_replan",
+      "occurrences": 3,
+      "primarySource": "01-Agents-智能体人设与编排/media-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/media-agent.md",
+      "targetAllocation": "T05/T07/T08：持久计划服务",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_generate_audio_music",
+      "occurrences": 2,
+      "primarySource": "01-Agents-智能体人设与编排/executor.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/executor.md",
+      "targetAllocation": "T11/T15：音频适配",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_image_search",
+      "occurrences": 2,
+      "primarySource": "01-Agents-智能体人设与编排/media-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/media-agent.md",
+      "targetAllocation": "T13：研究连接器",
+      "status": "externally-blocked"
+    },
+    {
+      "tool": "hub_run_comfyui_workflow",
+      "occurrences": 2,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T16：ComfyUI adapter",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_select_image_recipe",
+      "occurrences": 2,
+      "primarySource": "01-Agents-智能体人设与编排/media-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/media-agent.md",
+      "targetAllocation": "T04：知识配方选择",
+      "status": "mapped"
+    },
+    {
+      "tool": "design_capability_get",
+      "occurrences": 1,
+      "primarySource": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3.md",
+      "primarySourcePath": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3.md",
+      "targetAllocation": "T04/T06：能力快照与发现",
+      "status": "mapped"
+    },
+    {
+      "tool": "design_capability_list",
+      "occurrences": 1,
+      "primarySource": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3.md",
+      "primarySourcePath": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3.md",
+      "targetAllocation": "T04/T06：能力快照与发现",
+      "status": "mapped"
+    },
+    {
+      "tool": "design_image_search",
+      "occurrences": 1,
+      "primarySource": "02-Vendors-模型生成提示词与参数/v3/image-search.md",
+      "primarySourcePath": "02-Vendors-模型生成提示词与参数/v3/image-search.md",
+      "targetAllocation": "T13：研究连接器",
+      "status": "externally-blocked"
+    },
+    {
+      "tool": "design_read",
+      "occurrences": 1,
+      "primarySource": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3.md",
+      "primarySourcePath": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3.md",
+      "targetAllocation": "T02：资料/来源受控读取",
+      "status": "mapped"
+    },
+    {
+      "tool": "design_score",
+      "occurrences": 1,
+      "primarySource": "05-MV-音乐卡点与歌词视频流程/reference/typography-packaging.md",
+      "primarySourcePath": "05-MV-音乐卡点与歌词视频流程/reference/typography-packaging.md",
+      "targetAllocation": "T17/T19：有证据的质量评审",
+      "status": "pending"
+    },
+    {
+      "tool": "design_search_knowledge",
+      "occurrences": 1,
+      "primarySource": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3.md",
+      "primarySourcePath": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3.md",
+      "targetAllocation": "T02：资料/来源受控读取",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_add_comfyui_workflow",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T16：ComfyUI adapter",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_audio_analyze_music",
+      "occurrences": 1,
+      "primarySource": "05-MV-音乐卡点与歌词视频流程/reference/music.md",
+      "primarySourcePath": "05-MV-音乐卡点与歌词视频流程/reference/music.md",
+      "targetAllocation": "T11：分析/字幕/后期",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_browser",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/media-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/media-agent.md",
+      "targetAllocation": "T13：研究连接器",
+      "status": "externally-blocked"
+    },
+    {
+      "tool": "hub_canvas_apply_text_edits",
+      "occurrences": 1,
+      "primarySource": "09-Contracts-画布纪律与语义契约/canvas-discipline.md",
+      "primarySourcePath": "09-Contracts-画布纪律与语义契约/canvas-discipline.md",
+      "targetAllocation": "T07：命令/文档读写适配",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_canvas_grep_text",
+      "occurrences": 1,
+      "primarySource": "09-Contracts-画布纪律与语义契约/canvas-discipline.md",
+      "primarySourcePath": "09-Contracts-画布纪律与语义契约/canvas-discipline.md",
+      "targetAllocation": "T07：命令/文档读写适配",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_canvas_group_nodes",
+      "occurrences": 1,
+      "primarySource": "09-Contracts-画布纪律与语义契约/canvas-grouping.md",
+      "primarySourcePath": "09-Contracts-画布纪律与语义契约/canvas-grouping.md",
+      "targetAllocation": "T07/T17：分组与谱系",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_canvas_group_recent_outputs",
+      "occurrences": 1,
+      "primarySource": "09-Contracts-画布纪律与语义契约/canvas-grouping.md",
+      "primarySourcePath": "09-Contracts-画布纪律与语义契约/canvas-grouping.md",
+      "targetAllocation": "T07/T17：分组与谱系",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_canvas_ungroup_node",
+      "occurrences": 1,
+      "primarySource": "09-Contracts-画布纪律与语义契约/canvas-grouping.md",
+      "primarySourcePath": "09-Contracts-画布纪律与语义契约/canvas-grouping.md",
+      "targetAllocation": "T07/T17：分组与谱系",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_capability_search",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/media-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/media-agent.md",
+      "targetAllocation": "T04/T06：能力快照与发现",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_edit_comfyui_workflow",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T16：ComfyUI adapter",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_get_comfyui_run_status",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T16：ComfyUI adapter",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_get_comfyui_workflow",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T16：ComfyUI adapter",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_list_comfyui_template",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T16：ComfyUI adapter",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_list_comfyui_workflow",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T16：ComfyUI adapter",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_open_comfyui",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T16：ComfyUI adapter",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_plan_create",
+      "occurrences": 1,
+      "primarySource": "05-MV-音乐卡点与歌词视频流程/reference/music.md",
+      "primarySourcePath": "05-MV-音乐卡点与歌词视频流程/reference/music.md",
+      "targetAllocation": "T05/T07/T08：持久计划服务",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_plugin_agent_describe",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T04/T06：能力快照与发现",
+      "status": "mapped"
+    },
+    {
+      "tool": "hub_save_comfyui_run_as_workflow",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T16：ComfyUI adapter",
+      "status": "pending"
+    },
+    {
+      "tool": "hub_save_comfyui_workflow",
+      "occurrences": 1,
+      "primarySource": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "primarySourcePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+      "targetAllocation": "T16：ComfyUI adapter",
+      "status": "pending"
+    }
+  ]
+}
