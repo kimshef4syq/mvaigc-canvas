@@ -34,6 +34,10 @@ import { prepareCanvasAgentToolApproval, type AgentApprovalView } from './canvas
 import { redactSensitiveValue } from './agentRedaction';
 import type { ExternalAgentToolRequest } from '../domain/agentModel';
 import { loadDiagnosticEvents } from '@/features/canvas/application/diagnosticEvents';
+import { searchProfiles, readProfile } from '../infrastructure/profileRepository';
+import { sourceRepository } from '../infrastructure/sourceRepository';
+import { productionPlanService } from './productionPlanService';
+import { mediaPostprocessService } from './mediaPostprocessService';
 
 export interface ExternalAgentToolExecutionResult {
   approvalId: string;
@@ -220,6 +224,72 @@ async function executeApprovedTool(
     case 'config_patch': return executeConfigPatch(request.arguments);
     case 'asset_read':
       throw new Error('External image reads must use an explicitly attached, per-turn temporary resource.');
+    case 'profile_search':
+      return searchProfiles((request.arguments ?? {}) as any);
+    case 'profile_read':
+      return await readProfile(request.arguments as any);
+    case 'source_read':
+      return await sourceRepository.readSource(request.arguments as any);
+    case 'source_inspect':
+      return await sourceRepository.inspectSource(request.arguments as any);
+    case 'production_plan': {
+      const args = request.arguments as any;
+      if (!isRecord(args) || typeof args.action !== 'string') {
+        throw new Error('External Agent production_plan arguments are invalid.');
+      }
+      switch (args.action) {
+        case 'create':
+          return productionPlanService.createPlan({ projectId: approval.projectId, ...args.createInput });
+        case 'get':
+          return productionPlanService.getPlan(approval.projectId, args.planId);
+        case 'list':
+          return productionPlanService.listPlans(approval.projectId);
+        case 'author_stage':
+          return productionPlanService.authorStage({
+            projectId: approval.projectId,
+            planId: args.planId,
+            expectedRevision: args.expectedRevision,
+            ...args.authorStageInput,
+          });
+        case 'replan':
+          return productionPlanService.replanOutline({
+            projectId: approval.projectId,
+            planId: args.planId,
+            expectedRevision: args.expectedRevision,
+            ...args.replanInput,
+          });
+        case 'record_review':
+          return productionPlanService.recordReviewDecision({
+            projectId: approval.projectId,
+            planId: args.planId,
+            expectedRevision: args.expectedRevision,
+            ...args.recordReviewInput,
+          });
+        case 'retry_items':
+          return productionPlanService.retryStageItems({
+            projectId: approval.projectId,
+            planId: args.planId,
+            expectedRevision: args.expectedRevision,
+            ...args.retryItemsInput,
+          });
+        case 'set_status':
+          return productionPlanService.setPlanStatus({
+            projectId: approval.projectId,
+            planId: args.planId,
+            expectedRevision: args.expectedRevision,
+            status: args.setStatusInput?.status,
+          });
+        default:
+          throw new Error(`Unsupported external Agent production_plan action ${args.action}.`);
+      }
+    }
+    case 'media_postprocess': {
+      const args = request.arguments as any;
+      if (!isRecord(args) || !args.operation) {
+        throw new Error('External Agent media_postprocess arguments are invalid.');
+      }
+      return await mediaPostprocessService.executeOperation(args.operation as any);
+    }
   }
 }
 

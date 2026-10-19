@@ -31,4 +31,23 @@ describe('external Canvas MCP manifest', () => {
     expect(() => assertExternalCanvasToolAllowed(manifest, 'diagnostics')).toThrow(/not allowed/i);
     expect(() => assertExternalCanvasToolAllowed(manifest, 'shell')).toThrow(/not allowed/i);
   });
+
+  it('exposes knowledge, production, and media-postprocess tools when requested (T18)', () => {
+    const manifest = buildExternalCanvasMcpManifest(['canvas', 'knowledge', 'production', 'media-postprocess']);
+    const toolNames = manifest.tools.map((t) => t.name);
+
+    expect(toolNames).toContain('canvas_command');
+    expect(toolNames).toContain('profile_search');
+    expect(toolNames).toContain('profile_read');
+    expect(toolNames).toContain('source_read');
+    expect(toolNames).toContain('source_inspect');
+    expect(toolNames).toContain('production_plan');
+    expect(toolNames).toContain('media_postprocess');
+
+    const searchTool = assertExternalCanvasToolAllowed(manifest, 'profile_search');
+    expect(searchTool.annotations.readOnlyHint).toBe(true);
+
+    const planTool = assertExternalCanvasToolAllowed(manifest, 'production_plan');
+    expect(planTool.annotations.idempotentHint).toBe(true);
+  });
 });

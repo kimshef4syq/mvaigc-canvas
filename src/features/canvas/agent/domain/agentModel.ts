@@ -26,13 +26,25 @@ export interface ExternalAgentSessionReference {
   threadId?: string;
 }
 
+export type ExternalAgentToolName =
+  | 'canvas_command'
+  | 'diagnostics'
+  | 'config_patch'
+  | 'asset_read'
+  | 'profile_search'
+  | 'profile_read'
+  | 'source_read'
+  | 'source_inspect'
+  | 'production_plan'
+  | 'media_postprocess';
+
 export interface ExternalAgentToolRequest {
   version: typeof EXTERNAL_AGENT_EVENT_VERSION;
   runtime: ExternalAgentRuntimeId;
   sessionId: string;
   turnId: string;
   callId: string;
-  toolName: 'canvas_command' | 'diagnostics' | 'config_patch' | 'asset_read';
+  toolName: ExternalAgentToolName;
   arguments: unknown;
 }
 
