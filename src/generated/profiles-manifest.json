@@ -1,0 +1,1353 @@
+[
+  {
+    "id": "01-Agents-智能体人设与编排/README",
+    "name": "Agents — Per-Agent System Prompts",
+    "category": "01-Agents-智能体人设与编排",
+    "relativePath": "01-Agents-智能体人设与编排/README.md",
+    "sizeBytes": 4758
+  },
+  {
+    "id": "01-Agents-智能体人设与编排/comfyui-agent",
+    "name": "Input contract",
+    "category": "01-Agents-智能体人设与编排",
+    "relativePath": "01-Agents-智能体人设与编排/comfyui-agent.md",
+    "sizeBytes": 21599
+  },
+  {
+    "id": "01-Agents-智能体人设与编排/executor",
+    "name": "Input",
+    "category": "01-Agents-智能体人设与编排",
+    "relativePath": "01-Agents-智能体人设与编排/executor.md",
+    "sizeBytes": 20622
+  },
+  {
+    "id": "01-Agents-智能体人设与编排/media-agent",
+    "name": "Role",
+    "category": "01-Agents-智能体人设与编排",
+    "relativePath": "01-Agents-智能体人设与编排/media-agent.md",
+    "sizeBytes": 33518
+  },
+  {
+    "id": "01-Agents-智能体人设与编排/planner",
+    "name": "Input",
+    "category": "01-Agents-智能体人设与编排",
+    "relativePath": "01-Agents-智能体人设与编排/planner.md",
+    "sizeBytes": 12275
+  },
+  {
+    "id": "01-Agents-智能体人设与编排/router",
+    "name": "Input",
+    "category": "01-Agents-智能体人设与编排",
+    "relativePath": "01-Agents-智能体人设与编排/router.md",
+    "sizeBytes": 3321
+  },
+  {
+    "id": "01-Agents-智能体人设与编排/v3/media-agent",
+    "name": "身份与职责",
+    "category": "01-Agents-智能体人设与编排/v3",
+    "relativePath": "01-Agents-智能体人设与编排/v3/media-agent.md",
+    "sizeBytes": 3350
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/banana",
+    "name": "banana -- image 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/banana.md",
+    "sizeBytes": 2164
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/gpt-image",
+    "name": "gpt-image -- image 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/gpt-image.md",
+    "sizeBytes": 2487
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/kling-omni",
+    "name": "kling -- video model card",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/kling-omni.md",
+    "sizeBytes": 1234
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/midjourney",
+    "name": "midjourney -- image 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/midjourney.md",
+    "sizeBytes": 1640
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/minimax",
+    "name": "MiniMax H3 系列 -- video 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/minimax.md",
+    "sizeBytes": 3077
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/moss",
+    "name": "moss -- audio.tts 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/moss.md",
+    "sizeBytes": 1907
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/official-music",
+    "name": "official-music -- audio.music 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/official-music.md",
+    "sizeBytes": 971
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/seed-audio",
+    "name": "seed-audio -- audio.tts 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/seed-audio.md",
+    "sizeBytes": 1106
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/seedance",
+    "name": "seedance -- video 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/seedance.md",
+    "sizeBytes": 1275
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/seedaudio",
+    "name": "seedaudio -- audio.tts 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/seedaudio.md",
+    "sizeBytes": 1128
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/seedream",
+    "name": "seedream -- image 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/seedream.md",
+    "sizeBytes": 1887
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/banana",
+    "name": "banana -- image 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/banana.md",
+    "sizeBytes": 1109
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/gpt-image",
+    "name": "gpt-image -- image 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/gpt-image.md",
+    "sizeBytes": 1297
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/image-search",
+    "name": "image-search — query playbook for design_image_search",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/image-search.md",
+    "sizeBytes": 4215
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/kling-omni",
+    "name": "kling -- video model card",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/kling-omni.md",
+    "sizeBytes": 472
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/midjourney",
+    "name": "midjourney -- image 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/midjourney.md",
+    "sizeBytes": 627
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/minimax",
+    "name": "MiniMax H3 系列 -- video 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/minimax.md",
+    "sizeBytes": 1362
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/moss",
+    "name": "moss -- audio.tts 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/moss.md",
+    "sizeBytes": 533
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/official-music",
+    "name": "official-music -- audio.music 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/official-music.md",
+    "sizeBytes": 439
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/seedance",
+    "name": "seedance -- video 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/seedance.md",
+    "sizeBytes": 1355
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/seedaudio",
+    "name": "seedaudio -- audio.tts 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/seedaudio.md",
+    "sizeBytes": 550
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/seedream",
+    "name": "seedream -- image 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/seedream.md",
+    "sizeBytes": 738
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/veo",
+    "name": "veo -- video 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/veo.md",
+    "sizeBytes": 658
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/v3/wan",
+    "name": "wan -- video 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数/v3",
+    "relativePath": "02-Vendors-模型生成提示词与参数/v3/wan.md",
+    "sizeBytes": 645
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/veo",
+    "name": "veo -- video 后端卡片",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/veo.md",
+    "sizeBytes": 1506
+  },
+  {
+    "id": "02-Vendors-模型生成提示词与参数/wan",
+    "name": "Wan 3.0 — 模型使用指南",
+    "category": "02-Vendors-模型生成提示词与参数",
+    "relativePath": "02-Vendors-模型生成提示词与参数/wan.md",
+    "sizeBytes": 2646
+  },
+  {
+    "id": "03-DramaSeries-短剧微电影完整流程/reference/assets-blocking",
+    "name": "短剧资产与站位参考",
+    "category": "03-DramaSeries-短剧微电影完整流程/reference",
+    "relativePath": "03-DramaSeries-短剧微电影完整流程/reference/assets-blocking.md",
+    "sizeBytes": 10111
+  },
+  {
+    "id": "03-DramaSeries-短剧微电影完整流程/reference/assets",
+    "name": "短剧资产编写参考",
+    "category": "03-DramaSeries-短剧微电影完整流程/reference",
+    "relativePath": "03-DramaSeries-短剧微电影完整流程/reference/assets.md",
+    "sizeBytes": 5302
+  },
+  {
+    "id": "03-DramaSeries-短剧微电影完整流程/reference/h3-video-prompt",
+    "name": "MiniMax H3 视频片段 Prompt 参考",
+    "category": "03-DramaSeries-短剧微电影完整流程/reference",
+    "relativePath": "03-DramaSeries-短剧微电影完整流程/reference/h3-video-prompt.md",
+    "sizeBytes": 6026
+  },
+  {
+    "id": "03-DramaSeries-短剧微电影完整流程/reference/post",
+    "name": "短剧后期 / 精剪参考",
+    "category": "03-DramaSeries-短剧微电影完整流程/reference",
+    "relativePath": "03-DramaSeries-短剧微电影完整流程/reference/post.md",
+    "sizeBytes": 1762
+  },
+  {
+    "id": "03-DramaSeries-短剧微电影完整流程/reference/production-plan",
+    "name": "短剧制作计划参考",
+    "category": "03-DramaSeries-短剧微电影完整流程/reference",
+    "relativePath": "03-DramaSeries-短剧微电影完整流程/reference/production-plan.md",
+    "sizeBytes": 6878
+  },
+  {
+    "id": "03-DramaSeries-短剧微电影完整流程/reference/scene-keyframes",
+    "name": "场景关键帧宫格参考",
+    "category": "03-DramaSeries-短剧微电影完整流程/reference",
+    "relativePath": "03-DramaSeries-短剧微电影完整流程/reference/scene-keyframes.md",
+    "sizeBytes": 4851
+  },
+  {
+    "id": "03-DramaSeries-短剧微电影完整流程/reference/script-craft",
+    "name": "短剧剧本创作参考",
+    "category": "03-DramaSeries-短剧微电影完整流程/reference",
+    "relativePath": "03-DramaSeries-短剧微电影完整流程/reference/script-craft.md",
+    "sizeBytes": 5536
+  },
+  {
+    "id": "03-DramaSeries-短剧微电影完整流程/reference/storyboard",
+    "name": "短剧分镜参考",
+    "category": "03-DramaSeries-短剧微电影完整流程/reference",
+    "relativePath": "03-DramaSeries-短剧微电影完整流程/reference/storyboard.md",
+    "sizeBytes": 16123
+  },
+  {
+    "id": "03-DramaSeries-短剧微电影完整流程/reference/video-prompt",
+    "name": "视频片段 Prompt 参考",
+    "category": "03-DramaSeries-短剧微电影完整流程/reference",
+    "relativePath": "03-DramaSeries-短剧微电影完整流程/reference/video-prompt.md",
+    "sizeBytes": 5080
+  },
+  {
+    "id": "03-DramaSeries-短剧微电影完整流程/workflow",
+    "name": "短剧流程",
+    "category": "03-DramaSeries-短剧微电影完整流程",
+    "relativePath": "03-DramaSeries-短剧微电影完整流程/workflow.md",
+    "sizeBytes": 5645
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/category/appliance",
+    "name": "Category：家用电器",
+    "category": "04-AdTVC-商业广告与品牌大片流程/category",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/category/appliance.md",
+    "sizeBytes": 1268
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/category/auto",
+    "name": "Category：汽车",
+    "category": "04-AdTVC-商业广告与品牌大片流程/category",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/category/auto.md",
+    "sizeBytes": 4251
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/category/beauty/anchors-beauty",
+    "name": "美妆品类：Anchors 增量",
+    "category": "04-AdTVC-商业广告与品牌大片流程/category/beauty",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/category/beauty/anchors-beauty.md",
+    "sizeBytes": 2677
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/category/beauty/creative-route-beauty",
+    "name": "美妆品类：Anchors Video Creative Route 增量",
+    "category": "04-AdTVC-商业广告与品牌大片流程/category/beauty",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/category/beauty/creative-route-beauty.md",
+    "sizeBytes": 1946
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/category/beauty",
+    "name": "Category：美妆",
+    "category": "04-AdTVC-商业广告与品牌大片流程/category",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/category/beauty.md",
+    "sizeBytes": 2213
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/category/fashion",
+    "name": "Category：服装",
+    "category": "04-AdTVC-商业广告与品牌大片流程/category",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/category/fashion.md",
+    "sizeBytes": 1296
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/category/food",
+    "name": "Category：餐饮食品",
+    "category": "04-AdTVC-商业广告与品牌大片流程/category",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/category/food.md",
+    "sizeBytes": 1166
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/category/index",
+    "name": "TVC Category 索引",
+    "category": "04-AdTVC-商业广告与品牌大片流程/category",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/category/index.md",
+    "sizeBytes": 605
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/category/tech/casebook-tech-ads",
+    "name": "3C数码广告案例库 — Casebook",
+    "category": "04-AdTVC-商业广告与品牌大片流程/category/tech",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/category/tech/casebook-tech-ads.md",
+    "sizeBytes": 2586
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/category/tech",
+    "name": "Category：3C 数码",
+    "category": "04-AdTVC-商业广告与品牌大片流程/category",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/category/tech.md",
+    "sizeBytes": 1334
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/direction/brand-ad",
+    "name": "Direction：品牌广告",
+    "category": "04-AdTVC-商业广告与品牌大片流程/direction",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/direction/brand-ad.md",
+    "sizeBytes": 2449
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/direction/index",
+    "name": "TVC Direction 索引",
+    "category": "04-AdTVC-商业广告与品牌大片流程/direction",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/direction/index.md",
+    "sizeBytes": 552
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/direction/product-ad",
+    "name": "Direction：产品广告",
+    "category": "04-AdTVC-商业广告与品牌大片流程/direction",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/direction/product-ad.md",
+    "sizeBytes": 961
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/direction/story-ad",
+    "name": "Direction：剧情广告",
+    "category": "04-AdTVC-商业广告与品牌大片流程/direction",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/direction/story-ad.md",
+    "sizeBytes": 3065
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/direction/viral-ad",
+    "name": "Direction：病毒传播广告",
+    "category": "04-AdTVC-商业广告与品牌大片流程/direction",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/direction/viral-ad.md",
+    "sizeBytes": 731
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/_internal/brand-logo-guard",
+    "name": "Brand Logo Guard — Anchors 品牌资产约束",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/_internal",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/_internal/brand-logo-guard.md",
+    "sizeBytes": 1175
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/audio-strategy",
+    "name": "TVC 最小 BGM 策略",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/audio-strategy.md",
+    "sizeBytes": 2758
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/casting-spec",
+    "name": "Casting Spec — 品牌片选角规格",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/casting-spec.md",
+    "sizeBytes": 1901
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/character-design-sheet",
+    "name": "TVC 固定模特 5-PLATE 参考卡",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/character-design-sheet.md",
+    "sizeBytes": 4002
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/creative-brainstorm",
+    "name": "Anchors Creative Route（anchors）创意路线契约",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/creative-brainstorm.md",
+    "sizeBytes": 8824
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/creative-research",
+    "name": "TVC Visual Research — 产品与风格视觉调研",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/creative-research.md",
+    "sizeBytes": 5416
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/environment-anchors",
+    "name": "TVC Environment Anchors — MJ 环境锚点卡",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/environment-anchors.md",
+    "sizeBytes": 1955
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/intake-and-brief",
+    "name": "TVC Intake 与意图确认",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/intake-and-brief.md",
+    "sizeBytes": 6094
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/post-production",
+    "name": "TVC Post 合成合同",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/post-production.md",
+    "sizeBytes": 4114
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/product-research",
+    "name": "Anchors 前置产品调研与证据协议",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/product-research.md",
+    "sizeBytes": 1777
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/product-spec",
+    "name": "Product Spec — Anchors 产品参考路由",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/product-spec.md",
+    "sizeBytes": 7960
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/prompt-templates",
+    "name": "Anchors 图像 Prompt 模板",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/prompt-templates.md",
+    "sizeBytes": 9094
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/video-generation-execution",
+    "name": "TVC Visual Gen 授权与执行",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/video-generation-execution.md",
+    "sizeBytes": 7854
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/video-generation-strategy",
+    "name": "TVC 分镜与视频生成规划",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/video-generation-strategy.md",
+    "sizeBytes": 6821
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-style-spec",
+    "name": "Anchors 前置视觉参考与 Style Master 契约",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-style-spec.md",
+    "sizeBytes": 5521
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T01-glitch",
+    "name": "T01 — Glitch 热成像转场",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T01-glitch.md",
+    "sizeBytes": 495
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T02-logo-sequence",
+    "name": "T02 — Logo 多维叙事序列",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T02-logo-sequence.md",
+    "sizeBytes": 512
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T03-color-temperature-arc",
+    "name": "T03 — 冷暖色温弧线叙事",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T03-color-temperature-arc.md",
+    "sizeBytes": 427
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T04-flash-black-opening",
+    "name": "T04 — 闪黑碎片序章",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T04-flash-black-opening.md",
+    "sizeBytes": 492
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T05-hud-overlay",
+    "name": "T05 — HUD 技术叠层",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T05-hud-overlay.md",
+    "sizeBytes": 502
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T06-typography-composition",
+    "name": "T06 — 文案图形化排版",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T06-typography-composition.md",
+    "sizeBytes": 3310
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T07-iconic-light-hero",
+    "name": "T07 — 圣像光产品英雄镜头",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T07-iconic-light-hero.md",
+    "sizeBytes": 463
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T08-monochrome-color-puncture",
+    "name": "T08 — 黑白画面中的单点色彩",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T08-monochrome-color-puncture.md",
+    "sizeBytes": 429
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T09-spotlight-isolation",
+    "name": "T09 — 聚光灯孤立俯拍",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T09-spotlight-isolation.md",
+    "sizeBytes": 398
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T10-macro-texture-montage",
+    "name": "T10 — 微距质感蒙太奇",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T10-macro-texture-montage.md",
+    "sizeBytes": 433
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T11-logo-self-luminance",
+    "name": "T11 — Logo 自发光激活",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T11-logo-self-luminance.md",
+    "sizeBytes": 475
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T12-high-key-impact-flash",
+    "name": "T12 — 高反差过曝冲击帧",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T12-high-key-impact-flash.md",
+    "sizeBytes": 417
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T13-manifesto-end-card",
+    "name": "T13 — 碑文式宣言终帧",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T13-manifesto-end-card.md",
+    "sizeBytes": 969
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T14-industrial-manual-layout",
+    "name": "T14 — 工业说明书式参数版面",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T14-industrial-manual-layout.md",
+    "sizeBytes": 511
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T15-abstract-to-product-morph",
+    "name": "T15 — 抽象几何到产品形态蜕变",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T15-abstract-to-product-morph.md",
+    "sizeBytes": 451
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T16-acoustic-ripple",
+    "name": "T16 — 液体声波与悬浮声学隐喻",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T16-acoustic-ripple.md",
+    "sizeBytes": 482
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T17-inside-out-tech-chain",
+    "name": "T17 — 表里透视科技链",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T17-inside-out-tech-chain.md",
+    "sizeBytes": 466
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T18-physics-beat-matching",
+    "name": "T18 — 物理动力学卡点",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T18-physics-beat-matching.md",
+    "sizeBytes": 456
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T19-speed-driven-driving",
+    "name": "T19 — 高速推进与速度感驾驶",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T19-speed-driven-driving.md",
+    "sizeBytes": 506
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T20-sensory-motif-translation",
+    "name": "T20 — 感官母题互译链",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T20-sensory-motif-translation.md",
+    "sizeBytes": 895
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques-library",
+    "name": "TVC Visual Technique 索引",
+    "category": "04-AdTVC-商业广告与品牌大片流程/reference",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques-library.md",
+    "sizeBytes": 2239
+  },
+  {
+    "id": "04-AdTVC-商业广告与品牌大片流程/workflow",
+    "name": "Ad TVC — 视觉广告工作流",
+    "category": "04-AdTVC-商业广告与品牌大片流程",
+    "relativePath": "04-AdTVC-商业广告与品牌大片流程/workflow.md",
+    "sizeBytes": 6452
+  },
+  {
+    "id": "05-MV-音乐卡点与歌词视频流程/reference/assets",
+    "name": "MV Stage 4 — 角色与场景锚点（可选风格 Research）",
+    "category": "05-MV-音乐卡点与歌词视频流程/reference",
+    "relativePath": "05-MV-音乐卡点与歌词视频流程/reference/assets.md",
+    "sizeBytes": 13869
+  },
+  {
+    "id": "05-MV-音乐卡点与歌词视频流程/reference/creative-and-plan",
+    "name": "MV Stage 1 / 3 — 创意方向与制作计划",
+    "category": "05-MV-音乐卡点与歌词视频流程/reference",
+    "relativePath": "05-MV-音乐卡点与歌词视频流程/reference/creative-and-plan.md",
+    "sizeBytes": 24744
+  },
+  {
+    "id": "05-MV-音乐卡点与歌词视频流程/reference/music",
+    "name": "MV 音乐生成与实际成歌时间轴",
+    "category": "05-MV-音乐卡点与歌词视频流程/reference",
+    "relativePath": "05-MV-音乐卡点与歌词视频流程/reference/music.md",
+    "sizeBytes": 21791
+  },
+  {
+    "id": "05-MV-音乐卡点与歌词视频流程/reference/post",
+    "name": "MV Stage 7 — 后期合成",
+    "category": "05-MV-音乐卡点与歌词视频流程/reference",
+    "relativePath": "05-MV-音乐卡点与歌词视频流程/reference/post.md",
+    "sizeBytes": 3182
+  },
+  {
+    "id": "05-MV-音乐卡点与歌词视频流程/reference/script-writing",
+    "name": "Script Writing — 故事与剧本写作",
+    "category": "05-MV-音乐卡点与歌词视频流程/reference",
+    "relativePath": "05-MV-音乐卡点与歌词视频流程/reference/script-writing.md",
+    "sizeBytes": 964
+  },
+  {
+    "id": "05-MV-音乐卡点与歌词视频流程/reference/storyboard",
+    "name": "MV Stage 5 — 导演分镜与镜头组规划",
+    "category": "05-MV-音乐卡点与歌词视频流程/reference",
+    "relativePath": "05-MV-音乐卡点与歌词视频流程/reference/storyboard.md",
+    "sizeBytes": 6047
+  },
+  {
+    "id": "05-MV-音乐卡点与歌词视频流程/reference/style-system",
+    "name": "MV 五种视觉风格系统",
+    "category": "05-MV-音乐卡点与歌词视频流程/reference",
+    "relativePath": "05-MV-音乐卡点与歌词视频流程/reference/style-system.md",
+    "sizeBytes": 19804
+  },
+  {
+    "id": "05-MV-音乐卡点与歌词视频流程/reference/typography-packaging",
+    "name": "MV 动态字体与包装系统",
+    "category": "05-MV-音乐卡点与歌词视频流程/reference",
+    "relativePath": "05-MV-音乐卡点与歌词视频流程/reference/typography-packaging.md",
+    "sizeBytes": 20857
+  },
+  {
+    "id": "05-MV-音乐卡点与歌词视频流程/reference/video-generation",
+    "name": "MV Stage 6 — H3 最终 Prompt 编译、确认与派单",
+    "category": "05-MV-音乐卡点与歌词视频流程/reference",
+    "relativePath": "05-MV-音乐卡点与歌词视频流程/reference/video-generation.md",
+    "sizeBytes": 11183
+  },
+  {
+    "id": "05-MV-音乐卡点与歌词视频流程/workflow",
+    "name": "MV — music-led video workflow",
+    "category": "05-MV-音乐卡点与歌词视频流程",
+    "relativePath": "05-MV-音乐卡点与歌词视频流程/workflow.md",
+    "sizeBytes": 8699
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/profiles/narrative",
+    "name": "故事驱动 profile（N）",
+    "category": "06-GeneralVideo-通用视频制作流程/profiles",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/profiles/narrative.md",
+    "sizeBytes": 7294
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/profiles/on-camera",
+    "name": "出镜驱动 profile（C）",
+    "category": "06-GeneralVideo-通用视频制作流程/profiles",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/profiles/on-camera.md",
+    "sizeBytes": 4843
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/profiles/speech",
+    "name": "语音驱动 profile（S）",
+    "category": "06-GeneralVideo-通用视频制作流程/profiles",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/profiles/speech.md",
+    "sizeBytes": 10321
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/assets/asset-extraction",
+    "name": "Visual Asset Extraction — 最小可复用资产判定",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/assets",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/assets/asset-extraction.md",
+    "sizeBytes": 1849
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/assets/casting-spec",
+    "name": "Casting Spec — 出镜主体与角色选定",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/assets",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/assets/casting-spec.md",
+    "sizeBytes": 1372
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/assets/character-consistency",
+    "name": "Character Consistency — 人物连续性",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/assets",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/assets/character-consistency.md",
+    "sizeBytes": 1840
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/assets/character-features",
+    "name": "Character Features — 多参考人物贡献隔离",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/assets",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/assets/character-features.md",
+    "sizeBytes": 1136
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/assets/character-guard",
+    "name": "Character Guard — 人物参考图守卫",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/assets",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/assets/character-guard.md",
+    "sizeBytes": 1299
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/assets/character-sheet",
+    "name": "Character Sheet — general-video 角色锚点",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/assets",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/assets/character-sheet.md",
+    "sizeBytes": 2037
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/assets/era-identity-guard",
+    "name": "Era & Identity Guard — 时代、地域与身份连续性",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/assets",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/assets/era-identity-guard.md",
+    "sizeBytes": 1205
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/assets/prop-sheet",
+    "name": "Prop Sheet — 关键道具辅助参考",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/assets",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/assets/prop-sheet.md",
+    "sizeBytes": 1314
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/assets/scene-sheet",
+    "name": "Scene Sheet — 可复用场景身份",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/assets",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/assets/scene-sheet.md",
+    "sizeBytes": 1441
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/assets/style-consistency",
+    "name": "Style Consistency — 跨镜视觉系统",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/assets",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/assets/style-consistency.md",
+    "sizeBytes": 1611
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/digital-presenter",
+    "name": "Digital Presenter — 数字讲者",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/digital-presenter.md",
+    "sizeBytes": 1628
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/film-language-handbook",
+    "name": "Film Language Toolkit — 视听语言工具箱",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/film-language-handbook.md",
+    "sizeBytes": 1607
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/intercut-overlay-spec",
+    "name": "Intercut and Overlay — 辅助画面编排",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/intercut-overlay-spec.md",
+    "sizeBytes": 1262
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/live-action-shooting",
+    "name": "Live-action Direction — 真人出镜",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/live-action-shooting.md",
+    "sizeBytes": 946
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/minimax-h3-shortgroup",
+    "name": "Continuity-first Clip Groups — 连续镜头组",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/minimax-h3-shortgroup.md",
+    "sizeBytes": 1495
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/montage-theory",
+    "name": "Montage — 蒙太奇设计",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/montage-theory.md",
+    "sizeBytes": 1192
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/n-grid",
+    "name": "N-grid — 多格视觉预览",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/n-grid.md",
+    "sizeBytes": 1523
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/photoreal-skin",
+    "name": "Photoreal Human Texture — 真人写实质感",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/photoreal-skin.md",
+    "sizeBytes": 2399
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/scene-description-layers",
+    "name": "Scene Description Layers — 画面描述分层",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/scene-description-layers.md",
+    "sizeBytes": 1140
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/storyboard-discipline",
+    "name": "Storyboard Discipline — 分镜与 Shot Plan",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/storyboard-discipline.md",
+    "sizeBytes": 1831
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/storyboard-format",
+    "name": "Storyboard Format — 视频执行表与可选逐镜格式",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/storyboard-format.md",
+    "sizeBytes": 1995
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/storyboard-image-strategy",
+    "name": "Storyboard Image Strategy — 分镜图与稳定状态参考",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/storyboard-image-strategy.md",
+    "sizeBytes": 1751
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/video-generation-spec",
+    "name": "Video Generation Strategy — 视频生成策略",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/video-generation-spec.md",
+    "sizeBytes": 2792
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/directing/video-generation-strategy",
+    "name": "Video Generation Strategy — 分组与生成策略",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/directing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/directing/video-generation-strategy.md",
+    "sizeBytes": 2042
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/editing/dramatic-pause",
+    "name": "戏剧性停顿（Dramatic Pause）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/editing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/editing/dramatic-pause.md",
+    "sizeBytes": 769
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/editing/duration-reconciliation",
+    "name": "时长对齐（Duration Reconciliation）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/editing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/editing/duration-reconciliation.md",
+    "sizeBytes": 809
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/editing/editing-principles",
+    "name": "剪辑原则（Editing Principles）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/editing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/editing/editing-principles.md",
+    "sizeBytes": 821
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/editing/ffmpeg-templates",
+    "name": "确定性后期操作选择（Deterministic Post Operations）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/editing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/editing/ffmpeg-templates.md",
+    "sizeBytes": 855
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/editing/transition-decision-tree",
+    "name": "转场判断（Transition Decision Tree）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/editing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/editing/transition-decision-tree.md",
+    "sizeBytes": 788
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/editing/trim-strategy",
+    "name": "裁切策略（Trim Strategy）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/editing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/editing/trim-strategy.md",
+    "sizeBytes": 776
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/model-routing/minimax-h3-multi-ref",
+    "name": "MiniMax H3 Multi-Ref — 条件性多参考绑定",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/model-routing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/model-routing/minimax-h3-multi-ref.md",
+    "sizeBytes": 1549
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/model-routing/models",
+    "name": "Model Routing — plan capability requirements",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/model-routing",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/model-routing/models.md",
+    "sizeBytes": 1588
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/orchestration/canvas-workflow",
+    "name": "Canvas Workflow — general-video 产物谱系",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/orchestration",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/orchestration/canvas-workflow.md",
+    "sizeBytes": 1164
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/orchestration/cross-modal-coordination",
+    "name": "Cross-Modal Coordination — 声画与时间协同",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/orchestration",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/orchestration/cross-modal-coordination.md",
+    "sizeBytes": 1489
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/quality-control/iterate",
+    "name": "Iterate — 局部修复与安全续跑",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/quality-control",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/quality-control/iterate.md",
+    "sizeBytes": 1691
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/screenwriting/explainer-narrative",
+    "name": "Explainer Narrative — 讲解叙事",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/screenwriting",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/screenwriting/explainer-narrative.md",
+    "sizeBytes": 1282
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/screenwriting/script-writing",
+    "name": "Script Writing — 故事与剧本写作",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/screenwriting",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/screenwriting/script-writing.md",
+    "sizeBytes": 964
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/screenwriting/vo-natural-writing",
+    "name": "Natural Voiceover — 自然旁白",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/screenwriting",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/screenwriting/vo-natural-writing.md",
+    "sizeBytes": 770
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/sound/audio-engineering",
+    "name": "音频工程判断（Audio Engineering）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/sound",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/sound/audio-engineering.md",
+    "sizeBytes": 836
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/sound/audio-mix-hierarchy",
+    "name": "混音层级（Audio Mix Hierarchy）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/sound",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/sound/audio-mix-hierarchy.md",
+    "sizeBytes": 864
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/sound/audio-strategy",
+    "name": "Audio Strategy — 旁白与音乐策略",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/sound",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/sound/audio-strategy.md",
+    "sizeBytes": 2392
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/sound/batching",
+    "name": "语音批次组织（Speech Batching）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/sound",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/sound/batching.md",
+    "sizeBytes": 818
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/sound/pronunciation",
+    "name": "发音与读法（Pronunciation）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/sound",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/sound/pronunciation.md",
+    "sizeBytes": 722
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/sound/seedaudio-prompting",
+    "name": "场景化音频提示（Scene-based Audio Prompting）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/sound",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/sound/seedaudio-prompting.md",
+    "sizeBytes": 847
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/sound/source-separation",
+    "name": "声源分离与重建（Source Separation）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/sound",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/sound/source-separation.md",
+    "sizeBytes": 796
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/sound/voice-control",
+    "name": "声音控制（Voice Control）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/sound",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/sound/voice-control.md",
+    "sizeBytes": 707
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/color",
+    "name": "色彩（Color）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/color.md",
+    "sizeBytes": 885
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/composition-depth",
+    "name": "构图与空间（Composition and Depth）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/composition-depth.md",
+    "sizeBytes": 905
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/lighting",
+    "name": "光线（Lighting）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/lighting.md",
+    "sizeBytes": 2278
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/materials",
+    "name": "材质与质感（Materials）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/materials.md",
+    "sizeBytes": 1780
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/movie-poster",
+    "name": "配套海报与标题卡（Poster and Title Card）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/movie-poster.md",
+    "sizeBytes": 845
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/style-migration",
+    "name": "风格迁移（Style Migration）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/style-migration.md",
+    "sizeBytes": 1150
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/typography",
+    "name": "文字与排版（Typography）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/typography.md",
+    "sizeBytes": 864
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/video-reference-analysis",
+    "name": "Video Reference Analysis — 参考视频与节奏拆解",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/video-reference-analysis.md",
+    "sizeBytes": 1430
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/vision-decomposer",
+    "name": "视觉参考拆解（Vision Decomposer）",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/vision-decomposer.md",
+    "sizeBytes": 1283
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/visual-style-presets",
+    "name": "Visual Style Presets — 可选视觉方向样本",
+    "category": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/visual-style-presets.md",
+    "sizeBytes": 2145
+  },
+  {
+    "id": "06-GeneralVideo-通用视频制作流程/workflow",
+    "name": "General Video — open-ended dependency workflow",
+    "category": "06-GeneralVideo-通用视频制作流程",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/workflow.md",
+    "sizeBytes": 9053
+  },
+  {
+    "id": "06-KOC-带货与口播种草流程/reference/creative-route",
+    "name": "KOC Creative Route Reference — 卖点 / 钩子 / 人设 / CTA",
+    "category": "06-KOC-带货与口播种草流程/reference",
+    "relativePath": "06-KOC-带货与口播种草流程/reference/creative-route.md",
+    "sizeBytes": 3955
+  },
+  {
+    "id": "06-KOC-带货与口播种草流程/reference/product-grounding",
+    "name": "KOC Product Grounding Reference — 素材判定 / 人物锚 / 产品保真",
+    "category": "06-KOC-带货与口播种草流程/reference",
+    "relativePath": "06-KOC-带货与口播种草流程/reference/product-grounding.md",
+    "sizeBytes": 4413
+  },
+  {
+    "id": "06-KOC-带货与口播种草流程/reference/shot-vo-craft",
+    "name": "KOC Shot & VO Craft Reference — 真人感 / 分镜节奏 / 口播文案",
+    "category": "06-KOC-带货与口播种草流程/reference",
+    "relativePath": "06-KOC-带货与口播种草流程/reference/shot-vo-craft.md",
+    "sizeBytes": 6687
+  },
+  {
+    "id": "06-KOC-带货与口播种草流程/workflow",
+    "name": "KOC Video — UGC product seeding workflow",
+    "category": "06-KOC-带货与口播种草流程",
+    "relativePath": "06-KOC-带货与口播种草流程/workflow.md",
+    "sizeBytes": 12838
+  },
+  {
+    "id": "07-SharedPipelines-共享资产与后期管线/asset-pipeline",
+    "name": "Asset Pipeline — reusable core anchors",
+    "category": "07-SharedPipelines-共享资产与后期管线",
+    "relativePath": "07-SharedPipelines-共享资产与后期管线/asset-pipeline.md",
+    "sizeBytes": 6901
+  },
+  {
+    "id": "07-SharedPipelines-共享资产与后期管线/audio-pipeline",
+    "name": "Audio Pipeline — voice, music, stems, and mix decisions",
+    "category": "07-SharedPipelines-共享资产与后期管线",
+    "relativePath": "07-SharedPipelines-共享资产与后期管线/audio-pipeline.md",
+    "sizeBytes": 4758
+  },
+  {
+    "id": "07-SharedPipelines-共享资产与后期管线/stage-execution-plan",
+    "name": "Stage Execution Plan — complete execution workflow",
+    "category": "07-SharedPipelines-共享资产与后期管线",
+    "relativePath": "07-SharedPipelines-共享资产与后期管线/stage-execution-plan.md",
+    "sizeBytes": 25022
+  },
+  {
+    "id": "07-SharedPipelines-共享资产与后期管线/subtitle-pipeline",
+    "name": "Subtitle Pipeline — ASS timed-text postprocess",
+    "category": "07-SharedPipelines-共享资产与后期管线",
+    "relativePath": "07-SharedPipelines-共享资产与后期管线/subtitle-pipeline.md",
+    "sizeBytes": 4571
+  },
+  {
+    "id": "07-SharedPipelines-共享资产与后期管线/video-merge",
+    "name": "Video Merge — final media assembly",
+    "category": "07-SharedPipelines-共享资产与后期管线",
+    "relativePath": "07-SharedPipelines-共享资产与后期管线/video-merge.md",
+    "sizeBytes": 3143
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/anatomy-traps",
+    "name": "anatomy-traps -- semantic anatomy risk",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/anatomy-traps.md",
+    "sizeBytes": 1142
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/brand-injection",
+    "name": "brand-injection -- semantic brand asset risk",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/brand-injection.md",
+    "sizeBytes": 1083
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/character-refs",
+    "name": "character-refs -- semantic reference binding risk",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/character-refs.md",
+    "sizeBytes": 1519
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/constraint-negation",
+    "name": "constraint-negation -- semantic absence risk",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/constraint-negation.md",
+    "sizeBytes": 968
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/cultural-stereotypes",
+    "name": "cultural-stereotypes -- semantic culture specificity risk",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/cultural-stereotypes.md",
+    "sizeBytes": 962
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/era-disambiguation",
+    "name": "era-disambiguation -- semantic era anchoring risk",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/era-disambiguation.md",
+    "sizeBytes": 860
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/intent-overreach",
+    "name": "intent-overreach -- prompt expansion drift",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/intent-overreach.md",
+    "sizeBytes": 1710
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/medium-drift",
+    "name": "medium-drift -- semantic medium locking risk",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/medium-drift.md",
+    "sizeBytes": 966
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/mood-vocabulary",
+    "name": "mood-vocabulary -- semantic mood ambiguity risk",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/mood-vocabulary.md",
+    "sizeBytes": 965
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/on-image-text",
+    "name": "on-image-text -- semantic typography rendering risk",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/on-image-text.md",
+    "sizeBytes": 1048
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/plastic-skin",
+    "name": "plastic-skin -- semantic photoreal portrait texture risk",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/plastic-skin.md",
+    "sizeBytes": 1084
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/spoken-video",
+    "name": "spoken-video -- native audio video routing",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/spoken-video.md",
+    "sizeBytes": 1229
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/webtoon-proportions",
+    "name": "webtoon-proportions -- semantic stylized body-scale risk",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/webtoon-proportions.md",
+    "sizeBytes": 894
+  },
+  {
+    "id": "09-Contracts-画布纪律与语义契约/README",
+    "name": "Contracts — Always-On Behavior Rules",
+    "category": "09-Contracts-画布纪律与语义契约",
+    "relativePath": "09-Contracts-画布纪律与语义契约/README.md",
+    "sizeBytes": 4515
+  },
+  {
+    "id": "09-Contracts-画布纪律与语义契约/anti-loop",
+    "name": "Anti-Loop",
+    "category": "09-Contracts-画布纪律与语义契约",
+    "relativePath": "09-Contracts-画布纪律与语义契约/anti-loop.md",
+    "sizeBytes": 1228
+  },
+  {
+    "id": "09-Contracts-画布纪律与语义契约/baseline",
+    "name": "Baseline Contract",
+    "category": "09-Contracts-画布纪律与语义契约",
+    "relativePath": "09-Contracts-画布纪律与语义契约/baseline.md",
+    "sizeBytes": 1617
+  },
+  {
+    "id": "09-Contracts-画布纪律与语义契约/canvas-discipline",
+    "name": "Canvas Discipline",
+    "category": "09-Contracts-画布纪律与语义契约",
+    "relativePath": "09-Contracts-画布纪律与语义契约/canvas-discipline.md",
+    "sizeBytes": 2542
+  },
+  {
+    "id": "09-Contracts-画布纪律与语义契约/canvas-grouping",
+    "name": "Canvas Grouping",
+    "category": "09-Contracts-画布纪律与语义契约",
+    "relativePath": "09-Contracts-画布纪律与语义契约/canvas-grouping.md",
+    "sizeBytes": 2939
+  },
+  {
+    "id": "09-Contracts-画布纪律与语义契约/semantic-judgment",
+    "name": "Semantic Judgment Contract",
+    "category": "09-Contracts-画布纪律与语义契约",
+    "relativePath": "09-Contracts-画布纪律与语义契约/semantic-judgment.md",
+    "sizeBytes": 15626
+  }
+]
