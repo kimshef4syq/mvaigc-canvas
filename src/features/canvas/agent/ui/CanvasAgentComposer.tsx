@@ -30,6 +30,8 @@ interface ModelEntry {
 
 type ComposerMenu = 'models' | 'mode' | 'context' | null;
 
+type ModelTab = 'text' | 'image' | 'video';
+
 interface Props {
   textModels: ModelEntry[];
   imageModels: ModelEntry[];
@@ -241,13 +243,11 @@ export function CanvasAgentComposer({
   const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const modelScrollRef = useRef<HTMLDivElement | null>(null);
-  const textModelsRef = useRef<HTMLDivElement | null>(null);
-  const imageModelsRef = useRef<HTMLDivElement | null>(null);
-  const videoModelsRef = useRef<HTMLDivElement | null>(null);
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const compositionActiveRef = useRef(false);
   const compositionEndedAtRef = useRef(0);
   const [openMenu, setOpenMenu] = useState<ComposerMenu>(null);
+  const [activeModelTab, setActiveModelTab] = useState<ModelTab>('text');
   const canAttach = attachments.length < maxAttachments;
   const blockedByVision = attachments.length > 0 && !selectedTextModel?.supportsMultimodal;
   const contextPercent = contextWindow
@@ -269,13 +269,6 @@ export function CanvasAgentComposer({
   const toggleMenu = (menu: Exclude<ComposerMenu, null>, trigger: HTMLButtonElement) => {
     menuTriggerRef.current = trigger;
     setOpenMenu((current) => current === menu ? null : menu);
-  };
-
-  const jumpToModelGroup = (target: HTMLDivElement | null) => {
-    if (!target || !modelScrollRef.current) return;
-    const top = target.offsetTop - 54;
-    modelScrollRef.current.scrollTo({ top, behavior: 'smooth' });
-    requestAnimationFrame(() => target.querySelector<HTMLElement>('button:not([disabled])')?.focus({ preventScroll: true }));
   };
 
   if (!selectedTextModel) {
@@ -300,16 +293,17 @@ export function CanvasAgentComposer({
           <ComposerPopover title={t('canvasAgent.modelMenuTitle')} onClose={closeMenu}>
             <div className="sticky top-0 z-10 -mx-2.5 -mt-2.5 border-b border-border-dark/60 bg-[var(--ui-surface-panel)] px-2.5 pb-2 pt-2.5">
               <div className="grid grid-cols-3 gap-1 rounded-[8px] bg-text-dark/[0.045] p-1">
-                {[
-                  { label: t('canvasAgent.modelTabs.text'), icon: <Type className="h-3.5 w-3.5" />, ref: textModelsRef },
-                  { label: t('canvasAgent.modelTabs.image'), icon: <ImageIcon className="h-3.5 w-3.5" />, ref: imageModelsRef },
-                  { label: t('canvasAgent.modelTabs.video'), icon: <Video className="h-3.5 w-3.5" />, ref: videoModelsRef },
-                ].map((item) => (
+                {([
+                  { tab: 'text' as const, label: t('canvasAgent.modelTabs.text'), icon: <Type className="h-3.5 w-3.5" /> },
+                  { tab: 'image' as const, label: t('canvasAgent.modelTabs.image'), icon: <ImageIcon className="h-3.5 w-3.5" /> },
+                  { tab: 'video' as const, label: t('canvasAgent.modelTabs.video'), icon: <Video className="h-3.5 w-3.5" /> },
+                ]).map((item) => (
                   <button
-                    key={item.label}
+                    key={item.tab}
                     type="button"
-                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[6px] px-2 text-[11px] font-medium text-text-muted transition-[background-color,color,transform] duration-150 hover:bg-[var(--ui-surface-field)] hover:text-text-dark active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-                    onClick={() => jumpToModelGroup(item.ref.current)}
+                    className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[6px] px-2 text-[11px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${activeModelTab === item.tab ? 'bg-[var(--ui-surface-field)] text-text-dark' : 'text-text-muted hover:bg-[var(--ui-surface-field)] hover:text-text-dark'}`}
+                    aria-pressed={activeModelTab === item.tab}
+                    onClick={() => setActiveModelTab(item.tab)}
                   >
                     {item.icon}
                     {item.label}
@@ -318,7 +312,7 @@ export function CanvasAgentComposer({
               </div>
             </div>
             <div ref={modelScrollRef} className="ui-scrollbar -mx-2.5 max-h-[min(320px,42vh)] overflow-y-auto px-2.5 pt-3">
-              <div ref={textModelsRef}>
+              {activeModelTab === 'text' ? (
                 <ModelGroup
                   icon={<Type className="h-3.5 w-3.5" />}
                   title={t('canvasAgent.textModels')}
@@ -327,8 +321,8 @@ export function CanvasAgentComposer({
                   onChange={(id) => { onTextModelChange(id); closeMenu(); }}
                   emptyLabel={t('canvasAgent.noTextModels')}
                 />
-              </div>
-              <div ref={imageModelsRef}>
+              ) : null}
+              {activeModelTab === 'image' ? (
                 <ModelGroup
                   icon={<ImageIcon className="h-3.5 w-3.5" />}
                   title={t('canvasAgent.imageModels')}
@@ -337,8 +331,8 @@ export function CanvasAgentComposer({
                   onChange={onImageModelChange}
                   emptyLabel={t('canvasAgent.noImageModels')}
                 />
-              </div>
-              <div ref={videoModelsRef}>
+              ) : null}
+              {activeModelTab === 'video' ? (
                 <ModelGroup
                   icon={<Video className="h-3.5 w-3.5" />}
                   title={t('canvasAgent.videoModels')}
@@ -347,7 +341,7 @@ export function CanvasAgentComposer({
                   onChange={onVideoModelChange}
                   emptyLabel={t('canvasAgent.noVideoModels')}
                 />
-              </div>
+              ) : null}
               <button type="button" className="mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-[7px] border border-border-dark text-xs text-text-muted hover:bg-text-dark/[0.045] hover:text-text-dark" onClick={onSettings}>
                 <Settings2 className="h-3.5 w-3.5" />
                 {t('canvasAgent.manageModels')}

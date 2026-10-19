@@ -72,6 +72,14 @@ function inferSupportsMultimodal(modelId: string): boolean {
   return /(gpt-(?:4o|4\.1|5|5\.4|5\.5)|gemini|claude-(?:3|4)|sonnet|opus|haiku|vision|multimodal|vl\b|qwen.*vl|llava)/i.test(id);
 }
 
+/** Models that a chat provider may list but that cannot answer a chat turn —
+ *  embeddings and rerankers. They are excluded from the text-model picker so a
+ *  provider that mixes them into one flat model list does not surface them. */
+export function isNonChatModel(modelId: string): boolean {
+  const id = modelId.toLowerCase();
+  return /(embedding|embed-|[\w.-]*-embed\b|\bbge\b|reranker|rerank|-rerank|text-embedding)/.test(id);
+}
+
 function metadataFor(
   provider: CustomProviderConfig,
   modelId: string,
@@ -92,6 +100,9 @@ export function buildChatModelCatalog(
     const hasCredential = hasCustomProviderCredential(provider);
     const usable = hasBaseUrl && hasCredential;
     for (const modelId of provider.models) {
+      if (isNonChatModel(modelId)) {
+        continue;
+      }
       const metadata = metadataFor(provider, modelId);
       const agentProtocol = resolveAgentProtocol(provider, metadata);
       entries.push({
