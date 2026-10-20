@@ -63,6 +63,13 @@
     "sizeBytes": 2487
   },
   {
+    "id": "02-Vendors-模型生成提示词与参数/image-recipes/poster",
+    "name": "Poster Image Recipe",
+    "category": "02-Vendors-模型生成提示词与参数/image-recipes",
+    "relativePath": "02-Vendors-模型生成提示词与参数/image-recipes/poster.md",
+    "sizeBytes": 2544
+  },
+  {
     "id": "02-Vendors-模型生成提示词与参数/kling-omni",
     "name": "kling -- video model card",
     "category": "02-Vendors-模型生成提示词与参数",
@@ -735,6 +742,13 @@
     "sizeBytes": 8699
   },
   {
+    "id": "06-GeneralVideo-通用视频制作流程/audio-production/workflow",
+    "name": "Audio Production — standalone speech / music / audio post workflow",
+    "category": "06-GeneralVideo-通用视频制作流程/audio-production",
+    "relativePath": "06-GeneralVideo-通用视频制作流程/audio-production/workflow.md",
+    "sizeBytes": 3800
+  },
+  {
     "id": "06-GeneralVideo-通用视频制作流程/profiles/narrative",
     "name": "故事驱动 profile（N）",
     "category": "06-GeneralVideo-通用视频制作流程/profiles",
@@ -1183,6 +1197,20 @@
     "sizeBytes": 12838
   },
   {
+    "id": "07-SharedPipelines-共享资产与后期管线/AUTHORING",
+    "name": "Workflow 编写规范",
+    "category": "07-SharedPipelines-共享资产与后期管线",
+    "relativePath": "07-SharedPipelines-共享资产与后期管线/AUTHORING.md",
+    "sizeBytes": 3548
+  },
+  {
+    "id": "07-SharedPipelines-共享资产与后期管线/README-Workflows",
+    "name": "Workflows — authoring and directory guide",
+    "category": "07-SharedPipelines-共享资产与后期管线",
+    "relativePath": "07-SharedPipelines-共享资产与后期管线/README-Workflows.md",
+    "sizeBytes": 1098
+  },
+  {
     "id": "07-SharedPipelines-共享资产与后期管线/asset-pipeline",
     "name": "Asset Pipeline — reusable core anchors",
     "category": "07-SharedPipelines-共享资产与后期管线",
@@ -1216,6 +1244,27 @@
     "category": "07-SharedPipelines-共享资产与后期管线",
     "relativePath": "07-SharedPipelines-共享资产与后期管线/video-merge.md",
     "sizeBytes": 3143
+  },
+  {
+    "id": "07-SharedPipelines-共享资产与后期管线/workflow-routing-index",
+    "name": "Workflows — runtime routing index",
+    "category": "07-SharedPipelines-共享资产与后期管线",
+    "relativePath": "07-SharedPipelines-共享资产与后期管线/workflow-routing-index.md",
+    "sizeBytes": 3571
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v2",
+    "name": "Knowledge — 按需 Read 的领域知识",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v2.md",
+    "sizeBytes": 1069
+  },
+  {
+    "id": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3",
+    "name": "Knowledge — 按需 Read 的领域知识",
+    "category": "08-Failures-防翻车与负向避坑知识库",
+    "relativePath": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3.md",
+    "sizeBytes": 921
   },
   {
     "id": "08-Failures-防翻车与负向避坑知识库/anatomy-traps",
@@ -1307,6 +1356,20 @@
     "category": "08-Failures-防翻车与负向避坑知识库",
     "relativePath": "08-Failures-防翻车与负向避坑知识库/webtoon-proportions.md",
     "sizeBytes": 894
+  },
+  {
+    "id": "09-Contracts-画布纪律与语义契约/README-Plugins-v2",
+    "name": "Plugins — OpenCode 运行时插件",
+    "category": "09-Contracts-画布纪律与语义契约",
+    "relativePath": "09-Contracts-画布纪律与语义契约/README-Plugins-v2.md",
+    "sizeBytes": 782
+  },
+  {
+    "id": "09-Contracts-画布纪律与语义契约/README-Plugins-v3",
+    "name": "Plugins — OpenCode 运行时插件",
+    "category": "09-Contracts-画布纪律与语义契约",
+    "relativePath": "09-Contracts-画布纪律与语义契约/README-Plugins-v3.md",
+    "sizeBytes": 427
   },
   {
     "id": "09-Contracts-画布纪律与语义契约/README",
