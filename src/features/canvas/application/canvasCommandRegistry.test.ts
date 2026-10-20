@@ -1244,3 +1244,27 @@ describe('atomic reference graph creation', () => {
     expect(useCanvasStore.getState().edges).toHaveLength(0);
   });
 });
+
+
+describe('shared node.create field compatibility', () => {
+  beforeEach(resetCanvas);
+  it.each([false, true])('normalizes input.type before both preview and approved execution (canonical present: %s)', async (canonicalPresent) => {
+    const command = {
+      type: 'node.create', version: CANVAS_COMMAND_VERSION,
+      input: { type: CANVAS_NODE_TYPES.imageEdit, ...(canonicalPresent ? { nodeType: CANVAS_NODE_TYPES.imageEdit } : {}), position: { x: 0, y: 0 }, configuration: { prompt: 'A pressure cooker' } },
+    } as unknown as CanvasCommand;
+    const preview = canvasCommandRegistry.inspect(command, 'agent');
+    expect(preview.valid).toBe(true);
+    const result = await canvasCommandRegistry.executeApproved(command, preview.baseRevision, 'agent');
+    expect(result.ok).toBe(true);
+    expect(useCanvasStore.getState().nodes).toHaveLength(1);
+    expect(useCanvasStore.getState().nodes[0].type).toBe(CANVAS_NODE_TYPES.imageEdit);
+    expect(useCanvasStore.getState().nodes[0].data.prompt).toBe('A pressure cooker');
+    expect((command.input as unknown as Record<string, unknown>).type).toBe(CANVAS_NODE_TYPES.imageEdit);
+  });
+  it('does not silently resolve conflicting type fields', () => {
+    const command = { type: 'node.create', version: CANVAS_COMMAND_VERSION, input: { type: CANVAS_NODE_TYPES.aiVideo, nodeType: CANVAS_NODE_TYPES.imageEdit, position: { x: 0, y: 0 } } } as unknown as CanvasCommand;
+    expect(canvasCommandRegistry.inspect(command, 'agent').valid).toBe(false);
+    expect(useCanvasStore.getState().nodes).toHaveLength(0);
+  });
+});

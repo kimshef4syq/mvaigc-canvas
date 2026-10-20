@@ -1,3 +1,4 @@
+import { normalizeNodeCreateCommand } from './normalizeNodeCreateCommand';
 import {
   CANVAS_COMMAND_VERSION,
   type CanvasCommand,
@@ -1123,6 +1124,7 @@ export class CanvasCommandRegistry {
     command: CanvasCommand,
     origin: CanvasCommandOrigin = 'agent',
   ): CanvasTransactionPreview {
+    command = normalizeNodeCreateCommand(command);
     const revision = this.getRevision();
     const errors = this.validate(command, origin);
     if (errors.length > 0) {
@@ -1162,6 +1164,7 @@ export class CanvasCommandRegistry {
     expectedRevision: number,
     origin: CanvasTransaction['origin'] = 'agent',
   ): Promise<CanvasCommandExecutionResult> {
+    command = normalizeNodeCreateCommand(command);
     const revisionBefore = this.getRevision();
     const errors = this.validate(command, origin);
     if (errors.length > 0) {
@@ -1217,6 +1220,7 @@ export class CanvasCommandRegistry {
   }
 
   async execute(command: CanvasCommand, origin: CanvasTransaction['origin'] = 'agent'): Promise<CanvasCommandExecutionResult> {
+    command = normalizeNodeCreateCommand(command);
     const revisionBefore = this.getRevision();
     const validationErrors = this.validate(command, origin);
     if (validationErrors.length > 0) {

@@ -87,3 +87,10 @@ describe('Canvas Agent approval preflight', () => {
     }])).toBe(true);
   });
 });
+
+
+it('accepts the unambiguous input.type alias before approval preflight', () => {
+  expect(explainInvalidCanvasAgentCommand('canvas_command', {
+    type: 'node.create', input: { type: 'imageNode', position: { x: 0, y: 0 }, configuration: { prompt: 'A pressure cooker' } },
+  })).toBeNull();
+});

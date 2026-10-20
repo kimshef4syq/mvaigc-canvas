@@ -497,7 +497,7 @@ export function normalizeCanvasCommandToolArguments(argumentsJson: string): stri
     return argumentsJson;
   }
   const input = { ...(command.input as Record<string, unknown>) };
-  if (input.nodeType === undefined && typeof input.type === 'string') {
+  if (typeof input.type === 'string' && (input.nodeType === undefined || input.nodeType === input.type)) {
     input.nodeType = input.type;
     delete input.type;
   }
