@@ -296,7 +296,7 @@ const INPUT_SCHEMAS: Record<CanvasCommandType, CanvasJsonSchema> = {
     select: booleanField('Whether to select focused nodes.'),
   }),
   'asset.list': objectSchema([], {
-    generatedOnly: booleanField('Only return final generated images; exclude screenshots, inputs and references.'),
+    generatedOnly: booleanField('Only return final generated assets (images or videos); exclude screenshots, inputs and references.'),
     kind: stringField('Optional image, video, or audio filter.'),
     query: stringField('Optional case-insensitive title, source, or asset id search.'),
     nodeIds: arrayField('Optional exact owning node ids.'),

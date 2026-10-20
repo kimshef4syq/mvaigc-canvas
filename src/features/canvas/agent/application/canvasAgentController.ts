@@ -248,8 +248,9 @@ function buildApprovalImpact(toolName: string, args: unknown): {
             ? `读取画布图片“${asset.title}”并仅发送给当前多模态模型。`
             : `读取一项稳定画布图片资产（${assetId ?? '未提供 assetId'}）。`
           : toolName === 'mcp_davinci_append_images' ? '将指定画布原图保存到本机，并追加到达芬奇当前打开时间线的末尾；默认每图 5 秒。'
+            : toolName === 'mcp_davinci_append_videos' ? '将指定画布成品视频按顺序追加到达芬奇当前时间线末尾，保留完整时长和原音频。'
             : toolName.startsWith('mcp_') ? '调用已授权的外部 MCP 工具，可能修改外部软件、文件或发起渲染。' : '运行已列出的只读诊断，不发送付费生成请求。',
-      affectedNodeCount: toolName === 'mcp_davinci_append_images' && args && typeof args === 'object' && 'assetIds' in args && Array.isArray(args.assetIds) ? args.assetIds.length : asset ? 1 : 0,
+      affectedNodeCount: ['mcp_davinci_append_images', 'mcp_davinci_append_videos'].includes(toolName) && args && typeof args === 'object' && 'assetIds' in args && Array.isArray(args.assetIds) ? args.assetIds.length : asset ? 1 : 0,
       affectedEdgeCount: 0,
       externalSideEffect: toolName.startsWith('mcp_'),
     },

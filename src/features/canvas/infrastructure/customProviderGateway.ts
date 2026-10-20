@@ -4700,6 +4700,24 @@ async function pollGeneratedVideoTask(
   );
 }
 
+async function markVideoMaterializing(jobId: string, videoSource: string): Promise<boolean> {
+  const resultUrl = asLightweightRetryResultSource(videoSource);
+  if (!(await persistCriticalCustomJobUpdate(jobId, {
+    status: 'materializing',
+    phase: 'materialize',
+    resultUrl: resultUrl ?? undefined,
+    resumable: Boolean(resultUrl || cache.get(jobId)?.external_task_id),
+  }))) return false;
+  updateCachedJob(jobId, {
+    status: 'materializing',
+    phase: 'materialize',
+    result_url: resultUrl,
+    error: null,
+    resumable: Boolean(resultUrl || cache.get(jobId)?.external_task_id),
+  });
+  return true;
+}
+
 async function materializeGeneratedVideoSource(
   cfg: CustomProviderConfig,
   videoSource: string,
@@ -4900,6 +4918,7 @@ async function runCustomVideoJob(
       });
       return;
     }
+    if (!(await markVideoMaterializing(jobId, videoSource))) return;
     let preparedVideoSource: string;
     try {
       preparedVideoSource = await materializeGeneratedVideoSource(cfg, videoSource, network);
@@ -5001,6 +5020,7 @@ async function retryCustomVideoPoll(jobId: string, retryContext: VideoPollRetryC
       retryContext.taskId,
       retryContext.network,
     );
+    if (!(await markVideoMaterializing(jobId, videoSource))) return;
     let preparedVideoSource: string;
     try {
       preparedVideoSource = await materializeGeneratedVideoSource(

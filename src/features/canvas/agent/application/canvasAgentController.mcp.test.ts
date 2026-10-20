@@ -4,7 +4,7 @@ import type { ChatCatalogEntry } from '../../application/chatModelCatalog';
 import { useProjectStore } from '@/stores/projectStore';
 import { runCanvasAgentTurn } from './canvasAgentController';
 import { callMcpTool } from '@/commands/mcpClient';
-import { prepareExternalImageSource } from '@/commands/image';
+import { prepareExternalImageSource, prepareExternalVideoSource } from '@/commands/image';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { CANVAS_NODE_TYPES } from '../../domain/canvasNodes';
 
@@ -15,7 +15,7 @@ vi.mock('@/commands/mcpClient', () => ({
   listMcpServers: vi.fn().mockResolvedValue([{ config: { id: 'fixture', transport: 'stdio', command: '/Applications/ResolveMCP', allowedTools: ['run_script'] }, connected: true }]),
   connectMcpServer: vi.fn(),
 }));
-vi.mock('@/commands/image', () => ({ prepareExternalImageSource: vi.fn().mockResolvedValue({ path: '/tmp/fixture-original.png', width: 100, height: 100, bytes: 1234 }) }));
+vi.mock('@/commands/image', () => ({ prepareExternalVideoSource: vi.fn().mockResolvedValue({ path: '/tmp/fixture-video.mp4', bytes: 1234 }), prepareExternalImageSource: vi.fn().mockResolvedValue({ path: '/tmp/fixture-original.png', width: 100, height: 100, bytes: 1234 }) }));
 vi.mock('./agentRuntimeLoader', () => ({
   loadCanvasAgentSdkRuntime: async () => {
     const runtime = await import('../infrastructure/sdkRuntime');
@@ -27,24 +27,27 @@ describe('MCP automatic approval orchestration', () => {
   beforeEach(() => {
     vi.mocked(callMcpTool).mockReset().mockResolvedValue({ content: [{ type: 'text', text: 'ok' }] });
     vi.mocked(prepareExternalImageSource).mockClear();
+    vi.mocked(prepareExternalVideoSource).mockClear();
   });
-  it('finishes asset discovery and current-timeline image handoff through the real SDK approval loop', async () => {
+  it.each(['image', 'video'] as const)('finishes asset discovery and current-timeline %s handoff through the real SDK approval loop', async (kind) => {
+    const toolName = `mcp_davinci_append_${kind}s`;
+    const source = kind === 'image' ? 'https://media.example/original.png' : '/media/generated.mp4';
     const previousProject = useProjectStore.getState().currentProjectId;
     const previousNodes = useCanvasStore.getState().nodes;
     useProjectStore.setState({ currentProjectId: 'image-handoff' });
-    useCanvasStore.setState({ nodes: [{ id: 'result-image', type: CANVAS_NODE_TYPES.imageEdit, position: { x: 0, y: 0 }, data: { imageUrl: 'https://media.example/original.png', aspectRatio: '16:9' } }] });
-    vi.mocked(callMcpTool).mockResolvedValue({ content: [{ type: 'text', text: JSON.stringify({ result: { canvas_append_images: true, ok: true, stage: 'timeline-append', outcome: 'succeeded', imported: 1, requested: 1, appended: 1, timeline: 'Current timeline' } }) }] });
+    useCanvasStore.setState({ nodes: [{ id: 'result-image', type: kind === 'image' ? CANVAS_NODE_TYPES.imageEdit : CANVAS_NODE_TYPES.video, position: { x: 0, y: 0 }, data: { ...(kind === 'image' ? { imageUrl: source } : { videoUrl: source, sourcePrompt: 'Generated shot' }), aspectRatio: '16:9' } }] });
+    vi.mocked(callMcpTool).mockResolvedValue({ content: [{ type: 'text', text: JSON.stringify({ result: { [`canvas_append_${kind}s`]: true, ok: true, stage: 'timeline-append', outcome: 'succeeded', imported: 1, requested: 1, appended: 1, timeline: 'Current timeline' } }) }] });
     let round = 0;
     fixture.respond.mockImplementation(async (request) => {
-      expect(request.tools.some((tool) => tool.name === 'mcp_davinci_append_images')).toBe(true);
+      expect(request.tools.some((tool) => tool.name === toolName)).toBe(true);
       const i = round++;
-      return { responseId: `images-${i}`, text: i === 2 ? '已追加 1 张图片到当前时间线' : undefined, toolCalls: i === 0 ? [{ name: 'canvas_command', callId: 'find-images', arguments: JSON.stringify({ type: 'asset.list', input: { kind: 'image' } }) }] : i === 1 ? [{ name: 'mcp_davinci_append_images', callId: 'append-images', arguments: JSON.stringify({ serverId: 'fixture', assetIds: ['result-image:image'] }) }] : [], usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 } };
+      return { responseId: `images-${i}`, text: i === 2 ? '已追加 1 张图片到当前时间线' : undefined, toolCalls: i === 0 ? [{ name: 'canvas_command', callId: 'find-images', arguments: JSON.stringify({ type: 'asset.list', input: { kind, generatedOnly: true } }) }] : i === 1 ? [{ name: toolName, callId: 'append-images', arguments: JSON.stringify({ serverId: 'fixture', assetIds: [`result-image:${kind}`] }) }] : [], usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 } };
     });
     const model: ChatCatalogEntry = { id: 'fixture', providerId: 'fixture', providerLabel: 'Fixture', modelId: 'fixture', modelLabel: 'Fixture', supportsTools: true, supportsMultimodal: false, supportsStreaming: false, supportsReasoningSummary: false, supportsToolSearch: false, agentProtocol: 'openai-chat-completions', usable: true };
     try {
       const result = await runCanvasAgentTurn({ projectId: 'image-handoff', model, message: '把画布上的图放到达芬奇当前时间线', executionMode: 'auto' });
       expect(result.status).toBe('completed');
-      expect(prepareExternalImageSource).toHaveBeenCalledWith('https://media.example/original.png');
+      expect(kind === 'image' ? prepareExternalImageSource : prepareExternalVideoSource).toHaveBeenCalledWith(source);
       expect(callMcpTool).toHaveBeenCalledTimes(1);
       expect(round).toBe(3);
     } finally {

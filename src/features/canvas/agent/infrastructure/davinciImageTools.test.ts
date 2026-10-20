@@ -2,32 +2,34 @@ import { execFileSync } from 'node:child_process';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RunContext } from '@openai/agents';
 import { callMcpTool, listMcpServers, type McpServerView } from '@/commands/mcpClient';
-import { prepareExternalImageSource } from '@/commands/image';
+import { prepareExternalImageSource, prepareExternalVideoSource } from '@/commands/image';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { CANVAS_NODE_TYPES } from '@/features/canvas/domain/canvasNodes';
 import { canvasAgentApprovalStore, createAgentRequestFingerprint, createApprovalId, createApprovalRecord } from '../application/agentApproval';
-import { buildDavinciAppendImagesScript, decodeDavinciAppendResult, createDavinciImageTool, DAVINCI_APPEND_IMAGES_TOOL } from './davinciImageTools';
+import { buildDavinciAppendImagesScript, buildDavinciAppendVideosScript, createDavinciVideoTool, DAVINCI_APPEND_VIDEOS_TOOL, decodeDavinciAppendResult, createDavinciImageTool, DAVINCI_APPEND_IMAGES_TOOL } from './davinciImageTools';
 
 vi.mock('@/commands/mcpClient', () => ({ callMcpTool: vi.fn(), listMcpServers: vi.fn() }));
-vi.mock('@/commands/image', () => ({ prepareExternalImageSource: vi.fn() }));
+vi.mock('@/commands/image', () => ({ prepareExternalImageSource: vi.fn(), prepareExternalVideoSource: vi.fn() }));
 
 const definition = { agentName: 'mcp_resolve_script', serverId: 'davinci', revision: 'v1', tool: { name: 'run_script', inputSchema: { type: 'object' } } };
 const server: McpServerView = { config: { id: 'davinci', label: 'Resolve', transport: 'stdio', command: '/Applications/DaVinci Resolve/ResolveMCP', args: [], url: '', allowedTools: ['run_script'] }, connected: true, tools: [] };
 
 describe('canvas images to current DaVinci timeline', () => {
   beforeEach(() => {
+    vi.mocked(prepareExternalVideoSource).mockReset().mockImplementation(async (source) => ({ path: source, bytes: 4096 }));
     vi.mocked(listMcpServers).mockReset().mockResolvedValue([server]);
     vi.mocked(prepareExternalImageSource).mockReset().mockImplementation(async (source) => ({ path: `/tmp/${source.endsWith('one.png') ? 'one' : 'two'}.png`, width: 100, height: 100, bytes: 1234 }));
     vi.mocked(callMcpTool).mockReset().mockResolvedValue({ content: [{ type: 'text', text: JSON.stringify({ result: { canvas_append_images: true, ok: true, stage: 'timeline-append', outcome: 'succeeded', imported: 2, timeline: 'Existing timeline', requested: 2, appended: 2 } }) }] });
   });
-  async function prepared(runId: string, assetIds = ['one:image', 'two:image']) {
+  async function prepared(runId: string, assetIds = ['one:image', 'two:image'], videos = false) {
+    const name = videos ? DAVINCI_APPEND_VIDEOS_TOOL : DAVINCI_APPEND_IMAGES_TOOL;
     const args = { serverId: 'davinci', assetIds };
-    const adapter = createDavinciImageTool([definition], { projectId: 'project', runId, getActiveProjectId: () => 'project' });
+    const adapter = (videos ? createDavinciVideoTool : createDavinciImageTool)([definition], { projectId: 'project', runId, getActiveProjectId: () => 'project' });
     if (!adapter) throw new Error('Missing adapter');
     const callId = 'append';
-    const record = createApprovalRecord({ id: createApprovalId(runId, DAVINCI_APPEND_IMAGES_TOOL, callId), runId, projectId: 'project', interruptionId: callId, toolName: DAVINCI_APPEND_IMAGES_TOOL, arguments: args, requestFingerprint: await createAgentRequestFingerprint(DAVINCI_APPEND_IMAGES_TOOL, args), baseRevision: 0, impact: { effect: 'external-submit', title: 'Append images', summary: 'Append to current timeline', affectedNodeCount: assetIds.length, affectedEdgeCount: 0, externalSideEffect: true } });
+    const record = createApprovalRecord({ id: createApprovalId(runId, name, callId), runId, projectId: 'project', interruptionId: callId, toolName: name, arguments: args, requestFingerprint: await createAgentRequestFingerprint(name, args), baseRevision: 0, impact: { effect: 'external-submit', title: 'Append images', summary: 'Append to current timeline', affectedNodeCount: assetIds.length, affectedEdgeCount: 0, externalSideEffect: true } });
     canvasAgentApprovalStore.put(record);
-    return { record, invoke: () => adapter.invoke(new RunContext(), JSON.stringify(args), { toolCall: { type: 'function_call', name: DAVINCI_APPEND_IMAGES_TOOL, callId, arguments: JSON.stringify(args) } }) };
+    return { record, invoke: () => adapter.invoke(new RunContext(), JSON.stringify(args), { toolCall: { type: 'function_call', name: name, callId, arguments: JSON.stringify(args) } }) };
   }
   it('requires approval, passes original files internally, and never replays a completed append', async () => {
     const previous = useCanvasStore.getState().nodes;
@@ -86,6 +88,37 @@ describe('canvas images to current DaVinci timeline', () => {
       expect(callMcpTool).not.toHaveBeenCalled();
     } finally { useCanvasStore.setState({ nodes: previous }); }
   });
+  it('imports five generated videos in selection order without using the image pipeline or replaying', async () => {
+    const previous = useCanvasStore.getState().nodes;
+    const ids = ['v1', 'v2', 'v3', 'v4', 'v5'];
+    useCanvasStore.setState({ nodes: [
+      ...ids.map((id) => ({ id, type: CANVAS_NODE_TYPES.video, position: { x: 0, y: 0 }, data: { localVideoUrl: `/tmp/${id}.mp4`, videoUrl: null, aspectRatio: '16:9', sourcePrompt: 'Generated shot' } })),
+      { id: 'ref', type: CANVAS_NODE_TYPES.video, position: { x: 0, y: 0 }, data: { videoUrl: '/tmp/reference.mp4', aspectRatio: '16:9', assetPurpose: 'reference' } },
+    ] });
+    vi.mocked(callMcpTool).mockResolvedValue({ result: { canvas_append_videos: true, ok: true, outcome: 'succeeded', stage: 'timeline-append', requested: 5, imported: 5, appended: 5 } });
+    try {
+      const { record, invoke } = await prepared('five-videos', [...ids.map((id) => `${id}:video`), 'ref:video'], true);
+      canvasAgentApprovalStore.update(record.id, { status: 'approved' });
+      expect(await invoke()).toMatchObject({ ok: true, imported: 5, appended: 5, skippedAssets: [{ assetId: 'ref:video' }] });
+      await invoke();
+      expect(prepareExternalImageSource).not.toHaveBeenCalled();
+      expect(vi.mocked(prepareExternalVideoSource).mock.calls.map(([source]) => source)).toEqual(ids.map((id) => `/tmp/${id}.mp4`));
+      expect(callMcpTool).toHaveBeenCalledExactlyOnceWith('davinci', 'run_script', 'v1', { script: buildDavinciAppendVideosScript(ids.map((id) => `/tmp/${id}.mp4`)) });
+    } finally { useCanvasStore.setState({ nodes: previous }); }
+  });
+
+  it('does not invoke Resolve when a selected video file cannot be prepared', async () => {
+    const previous = useCanvasStore.getState().nodes;
+    useCanvasStore.setState({ nodes: [{ id: 'missing', type: CANVAS_NODE_TYPES.video, position: { x: 0, y: 0 }, data: { videoUrl: '/missing.mp4', aspectRatio: '16:9', sourcePrompt: 'Generated shot' } }] });
+    vi.mocked(prepareExternalVideoSource).mockRejectedValue(new Error('Video file missing'));
+    try {
+      const { record, invoke } = await prepared('missing-video', ['missing:video'], true);
+      canvasAgentApprovalStore.update(record.id, { status: 'approved' });
+      expect(await invoke()).toMatchObject({ ok: false, stage: 'file-preparation', appended: 0 });
+      expect(callMcpTool).not.toHaveBeenCalled();
+    } finally { useCanvasStore.setState({ nodes: previous }); }
+  });
+
   it('retains structured API failures and raw Python error details instead of replacing them with a generic message', () => {
     const report = { canvas_append_images: true, ok: false, outcome: 'failed', stage: 'media-pool-import', requested: 1, imported: 0, appended: 0, error: { type: 'RuntimeError', message: 'MediaPool.ImportMedia returned no image' } };
     expect(decodeDavinciAppendResult({ content: [{ type: 'text', text: JSON.stringify({ result: report }) }] }, 1)).toMatchObject(report);
@@ -144,6 +177,15 @@ resolve = Resolve()
     const script = fixture + buildDavinciAppendImagesScript(paths, 5) + '\nprint(json.dumps(result))';
     const output = execFileSync('python3', ['-c', script], { input: JSON.stringify(paths), encoding: 'utf8' });
     expect(JSON.parse(output)).toMatchObject({ ok: true, appended: 2, timeline: 'Existing timeline', trackIndex: 2 });
+    const videoFixture = fixture + `
+def append_videos(clips):
+    assert clips == [1, 2], "Pass full media pool items, not fixed still-image frame ranges"
+    assert project.pool.paths == paths
+    return clips
+project.pool.AppendToTimeline = append_videos
+`;
+    const videoOutput = execFileSync('python3', ['-c', videoFixture + buildDavinciAppendVideosScript(paths) + '\nprint(json.dumps(result))'], { input: JSON.stringify(paths), encoding: 'utf8' });
+    expect(JSON.parse(videoOutput)).toMatchObject({ canvas_append_videos: true, ok: true, imported: 2, appended: 2 });
     const failed = execFileSync('python3', ['-c', fixture + '\nproject = None\n' + buildDavinciAppendImagesScript(paths, 5) + '\nprint(json.dumps(result))'], { input: JSON.stringify(paths), encoding: 'utf8' });
     expect(JSON.parse(failed)).toMatchObject({ ok: false, stage: 'resolve-project', outcome: 'failed', appended: 0, error: { type: 'RuntimeError' } });
     const dryRun = execFileSync('python3', ['-c', fixture + '\nproject.pool.ImportMedia = lambda clips: (_ for _ in ()).throw(RuntimeError("must not import"))\n' + buildDavinciAppendImagesScript(paths, 5, true) + '\nprint(json.dumps(result))'], { input: JSON.stringify(paths), encoding: 'utf8' });

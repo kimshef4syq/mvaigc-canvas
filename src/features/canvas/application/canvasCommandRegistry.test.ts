@@ -1006,6 +1006,18 @@ describe('CanvasCommandRegistry read and generation facades', () => {
     expect(result.output.value).toEqual([expect.not.objectContaining({ available: true })]);
   });
 
+  it('discovers generated videos while excluding reference and intermediate videos', async () => {
+    const store = useCanvasStore.getState();
+    const generated = store.addNode(CANVAS_NODE_TYPES.video, { x: 0, y: 0 }, { videoUrl: '/media/final.mp4', generationLastJobId: 'completed-job' });
+    store.addNode(CANVAS_NODE_TYPES.video, { x: 1, y: 0 }, { videoUrl: '/media/ref.mp4', assetPurpose: 'reference' });
+    store.addNode(CANVAS_NODE_TYPES.video, { x: 2, y: 0 }, { videoUrl: '/media/intermediate.mp4', sourcePrompt: 'temporary', assetPurpose: 'intermediate' });
+    const result = await canvasCommandRegistry.execute({ type: 'asset.list', version: CANVAS_COMMAND_VERSION, input: { kind: 'video', generatedOnly: true } });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Asset query failed');
+    expect(result.output.references.assetIds).toEqual([`${generated}:video`]);
+    expect(result.output.value).toEqual([expect.objectContaining({ kind: 'video', purpose: 'generated-result', availability: 'unchecked' })]);
+  });
+
   it('filters assets by query, node, selection, direct relationship, and region', async () => {
     const seedId = useCanvasStore.getState().addNode(CANVAS_NODE_TYPES.upload, { x: 0, y: 0 }, {
       displayName: 'Seed reference',

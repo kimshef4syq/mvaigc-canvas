@@ -18,7 +18,7 @@ use std::sync::OnceLock;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 use tokio::time::sleep;
-use tracing::info;
+use tracing::{info, warn};
 
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSPasteboard, NSPasteboardTypePNG, NSPasteboardTypeTIFF};
@@ -40,6 +40,10 @@ static REMOTE_IMAGE_NO_PROXY_CLIENT: OnceLock<Result<reqwest::Client, String>> =
 
 fn build_remote_media_client(no_proxy: bool) -> Result<reqwest::Client, reqwest::Error> {
     let builder = reqwest::Client::builder()
+        // Bound stalled connections and idle reads, while retaining the larger
+        // total timeout for videos that keep making download progress.
+        .connect_timeout(Duration::from_secs(15))
+        .read_timeout(Duration::from_secs(30))
         .pool_idle_timeout(Duration::from_secs(90))
         .tcp_keepalive(Duration::from_secs(60))
         .no_gzip()
@@ -58,6 +62,8 @@ fn build_remote_media_client(no_proxy: bool) -> Result<reqwest::Client, reqwest:
 fn build_custom_proxy_media_client(proxy_url: &str) -> Result<reqwest::Client, String> {
     let proxy = crate::commands::http::validated_custom_proxy(proxy_url)?;
     reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(15))
+        .read_timeout(Duration::from_secs(30))
         .pool_idle_timeout(Duration::from_secs(90))
         .tcp_keepalive(Duration::from_secs(60))
         .no_gzip()
@@ -545,6 +551,7 @@ async fn try_remote_media_route(
                 let retryable = failure.retryable();
                 let fallback_allowed = failure.fallback_allowed();
                 let message = failure.into_message();
+                warn!(media_kind, route = route_label, attempt, retryable, error = %message, "remote media download attempt failed");
                 if !retryable || attempt == REMOTE_IMAGE_DOWNLOAD_ATTEMPTS {
                     return Err(RemoteMediaRouteFailure {
                         message,
@@ -3068,6 +3075,71 @@ pub async fn prepare_external_image_source(app: AppHandle, source: String) -> Re
         .await.map_err(|e| format!("External image preparation interrupted: {e}"))?
 }
 
+#[derive(Serialize)]
+pub struct ExternalVideoFile {
+    path: String,
+    bytes: u64,
+}
+
+fn prepare_external_video_bytes(directory: &Path, bytes: &[u8], extension: &str) -> Result<ExternalVideoFile, String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Write;
+    if bytes.is_empty() || bytes.len() > REMOTE_VIDEO_MAX_BYTES {
+        return Err("External video must contain between 1 byte and 512 MiB".into());
+    }
+    // Reject accidental image/HTML/JSON inputs before invoking the editor.
+    let iso_media = bytes.len() >= 12 && matches!(&bytes[4..8], b"ftyp" | b"moov" | b"mdat" | b"wide");
+    let matroska = bytes.starts_with(&[0x1a, 0x45, 0xdf, 0xa3]);
+    let avi = bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"AVI ";
+    let mpeg = bytes.starts_with(&[0, 0, 1, 0xba]) || bytes.starts_with(&[0, 0, 1, 0xb3]);
+    if !(iso_media || matroska || avi || mpeg) {
+        return Err("Unsupported or invalid external video container".into());
+    }
+    std::fs::create_dir_all(directory).map_err(|e| format!("Cannot create external video directory: {e}"))?;
+    let output = directory.join(format!("{:x}.{}", Sha256::digest(bytes), normalize_video_extension(extension)));
+    if std::fs::read(&output).ok().as_deref() != Some(bytes) {
+        let mut temporary = tempfile::NamedTempFile::new_in(directory).map_err(|e| e.to_string())?;
+        temporary.write_all(bytes).map_err(|e| e.to_string())?;
+        temporary.persist(&output).map_err(|e| e.error.to_string())?;
+    }
+    let metadata = std::fs::File::open(&output).and_then(|file| file.metadata()).map_err(|e| e.to_string())?;
+    Ok(ExternalVideoFile { path: output.to_string_lossy().into_owned(), bytes: metadata.len() })
+}
+
+#[cfg(test)]
+mod external_video_tests {
+    use super::*;
+
+    #[test]
+    fn video_preparation_preserves_bytes_and_uses_durable_idempotent_copy() {
+        let directory = tempfile::tempdir().unwrap();
+        let bytes = b"\x00\x00\x00\x18ftypisom\x00\x00\x00\x00isommp42";
+        let first = prepare_external_video_bytes(directory.path(), bytes, "mp4").unwrap();
+        assert_eq!(std::fs::read(&first.path).unwrap(), bytes);
+        assert_eq!(first.bytes, bytes.len() as u64);
+        assert_eq!(prepare_external_video_bytes(directory.path(), bytes, "mp4").unwrap().path, first.path);
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn invalid_video_does_not_create_files() {
+        let directory = tempfile::tempdir().unwrap();
+        for bytes in [b"".as_slice(), b"<html>not a video</html>", b"\x89PNG\r\n\x1a\n"] {
+            assert!(prepare_external_video_bytes(directory.path(), bytes, "mp4").is_err());
+        }
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+    }
+}
+
+#[tauri::command]
+pub async fn prepare_external_video_source(app: AppHandle, source: String) -> Result<ExternalVideoFile, String> {
+    let (bytes, extension) = resolve_video_source_bytes_with_headers(source.trim(), None, None).await?;
+    // Dedicated copies remain available if canvas originals are later removed.
+    let directory = app.path().app_data_dir().map_err(|e| e.to_string())?.join("external-media").join("videos");
+    tauri::async_runtime::spawn_blocking(move || prepare_external_video_bytes(&directory, &bytes, &extension))
+        .await.map_err(|e| format!("External video preparation interrupted: {e}"))?
+}
+
 #[tauri::command]
 pub async fn persist_image_source(app: AppHandle, source: String) -> Result<String, String> {
     let trimmed = source.trim();
@@ -3102,9 +3174,13 @@ pub async fn persist_video_source(
         return Err("Video source is empty".to_string());
     }
 
+    info!(source = %describe_remote_media_url(trimmed), "persist_video_source started");
     let (bytes, extension) =
         resolve_video_source_bytes_with_headers(trimmed, headers.as_ref(), network.as_ref())
-            .await?;
+            .await.map_err(|error| {
+                warn!(elapsed_ms = started.elapsed().as_millis(), error = %error, "persist_video_source failed");
+                error
+            })?;
     let output = persist_video_bytes(&app, &bytes, &extension)?;
     info!(
         "persist_video_source done: bytes={}, ext={}, elapsed={}ms",

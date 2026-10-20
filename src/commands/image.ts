@@ -183,6 +183,10 @@ export async function prepareExternalImageSource(source: string): Promise<Extern
   return invoke('prepare_external_image_source', { source });
 }
 
+export async function prepareExternalVideoSource(source: string): Promise<{ path: string; bytes: number }> {
+  return invoke('prepare_external_video_source', { source });
+}
+
 export async function persistImageSource(source: string): Promise<string> {
   if (!isTauri()) {
     return source;

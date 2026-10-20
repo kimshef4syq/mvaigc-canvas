@@ -307,6 +307,9 @@ export function buildCanvasAssetCatalog(nodes: CanvasNode[]): CanvasAssetCatalog
         id: `${node.id}:video`,
         nodeId: node.id,
         kind: 'video',
+        purpose: data.assetPurpose === 'intermediate' ? 'intermediate'
+          : data.assetPurpose === 'reference' ? 'reference'
+          : readString(data.generatedFileName) || readString(data.generationLastJobId) || readString(data.sourcePrompt) ? 'generated-result' : 'reference',
         title,
         sourceLabel,
         order: baseOrder,

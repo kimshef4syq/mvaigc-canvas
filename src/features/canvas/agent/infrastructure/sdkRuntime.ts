@@ -37,7 +37,7 @@ import { mediaPostprocessOperationSchema } from '../domain/mediaPostprocess';
 import { mediaPostprocessService } from '../application/mediaPostprocessService';
 import type { McpAgentTool } from '@/commands/mcpClient';
 import { createMcpAgentTools } from './mcpAgentTools';
-import { createDavinciImageTool } from './davinciImageTools';
+import { createDavinciImageTool, createDavinciVideoTool } from './davinciImageTools';
 import type {
   AgentModelContentPart,
   AgentModelInputItem,
@@ -1550,6 +1550,7 @@ export function createCanvasAgent(options: {
   });
   const mcpTools = createMcpAgentTools(options.mcpTools ?? [], context);
   const davinciImageTool = createDavinciImageTool(options.mcpTools ?? [], context);
+  const davinciVideoTool = createDavinciVideoTool(options.mcpTools ?? [], context);
   const mcpDiscoveryTool = mcpTools.length ? tool({
     name: 'mcp_tools',
     description: `分页查看已授权 MCP 工具目录和参数要求，或加载需要的工具。可用服务：${[...new Set(options.mcpTools?.map((item) => item.serverId))].join('、')}。检测工具时先用 mode=inspect，不执行工具。query 可为空字符串，offset 用于翻页。`,
@@ -1917,6 +1918,7 @@ export function createCanvasAgent(options: {
       : []),
     ...(skillReadTool ? [skillReadTool] : []),
     ...(davinciImageTool ? [davinciImageTool] : []),
+    ...(davinciVideoTool ? [davinciVideoTool] : []),
     ...(mcpDiscoveryTool ? options.restoreExtensions || mcpTools.length <= 8 ? [mcpDiscoveryTool, ...mcpTools] : [mcpDiscoveryTool] : []),
   ];
   const routedTools = toolPolicy.mode === 'tool-search'
@@ -1933,7 +1935,7 @@ export function createCanvasAgent(options: {
       '你是 Storyboard Copilot 的全能画布助手。你可以理解文本和获批的图片引用，使用类型化工具完成画布工作。',
       'canvas_command 是常驻画布入口；技能只影响任务指导，不会撤走它。需要跨软件使用画布素材时先通过该工具读取真实节点和资产。不了解某命令参数时先调用 canvas_command_schema；定位使用 viewport.focus，禁止发明 viewbox.focus 等命令。',
       `本轮 MCP 实际连接状态：${JSON.stringify(redactSensitiveValue(options.mcpConnectionStatus ?? []))}。历史消息中的工具名不代表本轮仍可调用；以当前工具定义为准。服务未连接时根据错误说明缺口，禁止反复调用旧工具名。`,
-      'asset.locate 仅在画布中定位，参数只有 assetId 和可选 select；不支持 reveal，也不返回磁盘路径。用户要求把成品图放入达芬奇时：先 asset.list {kind:"image",generatedOnly:true} 查询真实成品 assetIds，再调用 mcp_davinci_append_images（若已注册）。中间截图、输入及参考素材不得导入。availability=unchecked 只说明存在引用，不代表文件已验证；宿主会预检文件。不要绕过路径脱敏或停在“先查一下”的承诺。根据返回 stage/error/imported/appended 报告实际结果。',
+      'asset.locate 仅在画布中定位，参数只有 assetId 和可选 select；不支持 reveal，也不返回磁盘路径。用户要求把成品图放入达芬奇时：先 asset.list {kind:"image",generatedOnly:true} 查询真实成品 assetIds，再调用 mcp_davinci_append_images（若已注册）。用户要求把成品视频放入达芬奇时：先 asset.list {kind:"video",generatedOnly:true} 查询真实 assetIds，再调用 mcp_davinci_append_videos（若已注册），保留完整视频时长及原音频；不要调用图片导入工具处理视频。中间截图、输入及参考素材不得导入。availability=unchecked 只说明存在引用，不代表文件已验证；宿主会预检文件。不要绕过路径脱敏或停在“先查一下”的承诺。根据返回 stage/error/imported/appended 报告实际结果。',
       options.executionMode === 'auto'
         ? '当前是自动模式：直接发起结构化工具调用，应用会自动执行本次用户要求范围内的操作；只有删除节点会等待用户确认。不要先要求用户回复“继续”或批准，也不要把“我会做”当成已执行。'
         : '当前是手动模式：需要操作时直接发起结构化工具调用，由应用显示确认卡；不要在正文里要求用户另行回复“继续”，也不要把“我会做”当成已执行。',
