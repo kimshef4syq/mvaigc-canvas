@@ -1,7 +1,7 @@
 import {
   type ComfyUiConnectionStatus,
   type ComfyUiWorkflowSummary,
-  type ComfyUiRunRequest,
+  type ComfyUiRunRequestInput,
   type ComfyUiRunReceipt,
   comfyUiRunReceiptSchema,
   validateComfyUiInputs,
@@ -107,7 +107,7 @@ export class ComfyUiAdapterService {
     return null;
   }
 
-  public async runWorkflow(request: ComfyUiRunRequest): Promise<ComfyUiRunReceipt> {
+  public async runWorkflow(request: ComfyUiRunRequestInput): Promise<ComfyUiRunReceipt> {
     const workflow = await this.getWorkflow({
       workflowId: request.workflowId,
       sourceNodeId: request.sourceNodeId,

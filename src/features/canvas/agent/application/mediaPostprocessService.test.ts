@@ -42,6 +42,8 @@ describe('Media Postprocess Application Service (T11 & A20)', () => {
       service.executeOperation({
         type: 'concat',
         assetIds: ['only-one'],
+        transition: 'cut',
+        keepAudio: true,
       })
     ).rejects.toThrow('至少需要提供 2 个');
   });
@@ -106,6 +108,7 @@ describe('Media Postprocess Application Service (T11 & A20)', () => {
         text: '关键信息提示',
         startSeconds: 0.5,
         endSeconds: 3.5,
+        position: 'bottom',
       },
       { tauriInvoke }
     );

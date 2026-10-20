@@ -5,10 +5,8 @@ import {
 import {
   type OutputReferenceV1,
   type ProductionPlanV1,
-  type ProductionStageV1,
   type ProductionWorkItemV1,
   type StageStatus,
-  type WorkItemStatus,
 } from '../domain/productionPlan';
 import { computeSha256 } from '../infrastructure/sourceRepository';
 

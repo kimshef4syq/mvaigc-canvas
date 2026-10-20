@@ -4,7 +4,6 @@ import {
 } from '../infrastructure/productionPlanRepository';
 import {
   type DecisionRecordV1,
-  type OutputReferenceV1,
   type PlanStatus,
   type ProductionPlanV1,
   type ProductionStageV1,

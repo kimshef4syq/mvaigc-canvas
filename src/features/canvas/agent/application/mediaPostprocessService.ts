@@ -348,7 +348,7 @@ export class MediaPostprocessService {
    * Measures audio and validates voice reference duration (> 2.0s).
    */
   public measureAndValidateVoiceReference(
-    assetId: string,
+    _assetId: string,
     measuredSeconds: number
   ): { valid: boolean; measuredSeconds: number; error?: string } {
     const check = validateVoiceReferenceDuration(measuredSeconds);

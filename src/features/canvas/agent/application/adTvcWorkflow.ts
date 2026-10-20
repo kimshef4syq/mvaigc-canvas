@@ -9,7 +9,6 @@ import {
   type AdTvcDirection,
   type AdTvcTypographyPackage,
   buildAdTvcStageOutline,
-  matchAdTvcTechniques,
   AD_TVC_VISUAL_TECHNIQUES,
 } from '../domain/adTvc';
 

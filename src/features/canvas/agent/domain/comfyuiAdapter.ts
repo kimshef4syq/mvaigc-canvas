@@ -43,7 +43,7 @@ export const comfyUiRunRequestSchema = z.object({
   workflowId: z.string().min(1),
   sourceNodeId: z.string().optional(),
   expectedSourceSha256: z.string().length(64).optional(),
-  inputValues: z.record(z.unknown()).default({}),
+  inputValues: z.record(z.string(), z.unknown()).default({}),
   inputBindings: z.array(z.object({
     nodeId: z.string().min(1),
     parameter: z.string().min(1),
@@ -53,6 +53,8 @@ export const comfyUiRunRequestSchema = z.object({
 });
 
 export type ComfyUiRunRequest = z.infer<typeof comfyUiRunRequestSchema>;
+// Input shape: defaulted fields (inputValues/inputBindings/count) are optional on call.
+export type ComfyUiRunRequestInput = z.input<typeof comfyUiRunRequestSchema>;
 
 export const comfyUiRunReceiptSchema = z.object({
   runId: z.string().min(1),
@@ -77,7 +79,7 @@ export type ComfyUiRunReceipt = z.infer<typeof comfyUiRunReceiptSchema>;
  */
 export function validateComfyUiInputs(
   workflow: ComfyUiWorkflowSummary,
-  request: ComfyUiRunRequest
+  request: ComfyUiRunRequestInput
 ): {
   valid: boolean;
   missingInputs: string[];

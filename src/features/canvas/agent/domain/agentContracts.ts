@@ -31,7 +31,8 @@ export function validateCanvasDiscipline(
 
   // P199: Redundant read check - returning a canvas node id is completion proof,
   // do not call node.list right after a node creation to verify the same write.
-  if (command.type === 'node.list' && context?.lastCreatedNodeId) {
+  // Guard a legacy/aliased command name not present in the CanvasCommand union.
+  if ((command.type as string) === 'node.list' && context?.lastCreatedNodeId) {
     return {
       code: 'REDUNDANT_READ_FORBIDDEN',
       message: `Canvas baseline contract violation: redundant read call 'node.list' right after creating node '${context.lastCreatedNodeId}'. Returning node ID is completion proof.`,
@@ -106,7 +107,6 @@ export function lintFailureRisks(
   context?: { modality?: 'image' | 'video'; hasReference?: boolean },
 ): FailureRiskWarning[] {
   const warnings: FailureRiskWarning[] = [];
-  const text = prompt.toLowerCase();
 
   // P180: anatomy-traps (hands, feet, fingers, close-up)
   if (/(?:手|手指|hands?|fingers?|feet|脚|特写|close-?up|portrait|肖像)/i.test(prompt)) {

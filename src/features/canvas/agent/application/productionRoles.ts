@@ -1,14 +1,9 @@
 import { z } from 'zod';
-import { taskRouteSchema, type TaskRouteV1 } from '../domain/taskRoute';
+import { taskRouteSchema } from '../domain/taskRoute';
 import {
   productionStageSchema,
   outputReferenceSchema,
-  type ProductionStageV1,
   type ProductionWorkItemV1,
-  type OutputReferenceV1,
-  type StageStatus,
-  type WorkItemStatus,
-  type StageOutlineItem,
 } from '../domain/productionPlan';
 
 export const roleKindSchema = z.enum([
@@ -51,7 +46,7 @@ export const plannerRequestSchema = z.object({
     condition: z.string().optional(),
   }),
   sourceIds: z.array(z.string()).default([]),
-  lockedDecisions: z.record(z.unknown()).default({}),
+  lockedDecisions: z.record(z.string(), z.unknown()).default({}),
   userFeedback: z.string().optional(),
 });
 
@@ -75,7 +70,7 @@ export const executorRequestSchema = z.object({
   stageId: z.string().min(1),
   expectedRevision: z.number().int().positive(),
   workItems: z.array(z.custom<ProductionWorkItemV1>()).min(1),
-  executionLocks: z.record(z.unknown()).default({}),
+  executionLocks: z.record(z.string(), z.unknown()).default({}),
 });
 
 export type ExecutorRequest = z.infer<typeof executorRequestSchema>;

@@ -506,14 +506,12 @@ class SourceRepository {
     }
 
     let targetText = fullText;
-    let baseOffset = 0;
     let activeSegment: SourceSegmentV1 | undefined;
 
     if (params.segmentId) {
       activeSegment = reference.segments.find((s) => s.id === params.segmentId);
       if (activeSegment) {
         targetText = fullText.slice(activeSegment.charStart, activeSegment.charEnd);
-        baseOffset = activeSegment.charStart;
       }
     }
 

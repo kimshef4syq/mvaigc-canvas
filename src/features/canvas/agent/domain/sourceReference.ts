@@ -34,7 +34,7 @@ export const sourceReferenceSchema = z.object({
   segments: z.array(sourceSegmentSchema).default([]),
   requiresOcr: z.boolean().default(false),
   ocrReason: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   createdAt: z.number().int().positive(),
   updatedAt: z.number().int().positive(),
 });

@@ -127,7 +127,9 @@ describe('agent skill router', () => {
         workflow: 'ad-tvc',
         requestedDeliverables: ['commercial-video'],
         scope: { targetNodeIds: [] },
+        sourceIds: [],
         requiredCapabilities: ['generation:video', 'generation:image', 'media:postprocess'],
+        missingFacts: [],
         evidence: [{ source: 'user', referenceId: 'prompt', excerpt: text }],
       },
     });

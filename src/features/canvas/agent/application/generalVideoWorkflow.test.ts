@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   detectGeneralVideoDriver,
-  buildGeneralVideoStageOutline,
   matchGeneralVideoMethodCards,
   TEXT_ANIMATION_STYLES,
 } from '../domain/generalVideoCards';

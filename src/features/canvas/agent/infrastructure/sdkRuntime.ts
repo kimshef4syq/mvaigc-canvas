@@ -1798,7 +1798,7 @@ export function createCanvasAgent(options: {
             if (workflowId === 'general-video') {
               const plan = createGeneralVideoPlan({
                 projectId: context.projectId,
-                title: input.title ?? input.prompt ?? '',
+                prompt: input.prompt ?? '',
                 driver: input.driver,
               });
               return productionPlanRepository.savePlan(plan);

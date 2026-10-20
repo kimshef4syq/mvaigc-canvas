@@ -45,7 +45,7 @@ describe('MiniMax Design Acceptance Matrix: A01 - A34 Verification Suite', () =>
   });
 
   it('A04: 新任务与旧视频计划并存 (New request independently routed)', () => {
-    const route = routeUserTask({ text: '生成一张雨夜街景', activeWorkflow: 'drama_series' });
+    const route = routeUserTask({ text: '生成一张雨夜街景', activePlanId: 'drama_series' });
     expect(route.kind).toBe('direct');
     expect(route.requestedDeliverables).toEqual(['image']);
   });
@@ -94,9 +94,9 @@ describe('MiniMax Design Acceptance Matrix: A01 - A34 Verification Suite', () =>
   it('A08: 无必要资产和独立音轨的视频 (Omit optional stages)', () => {
     const plan = createGeneralVideoPlan({
       projectId,
-      title: 'Nature B-roll',
+      prompt: 'Nature B-roll',
       driver: 'narrative',
-      hasAnchors: false,
+      options: { hasAssets: false },
     });
     expect(plan.stageOutline.some((s) => s.id === 'anchor_review')).toBe(false);
   });
@@ -125,7 +125,7 @@ describe('MiniMax Design Acceptance Matrix: A01 - A34 Verification Suite', () =>
   });
 
   it('A11: 三个工作项中一个失败 (Partial success preserved, retry only failed item)', () => {
-    const plan = createGeneralVideoPlan({ projectId, title: 'Three Shots', driver: 'speech' });
+    const plan = createGeneralVideoPlan({ projectId, prompt: 'Three Shots', driver: 'speech' });
     const stage = plan.stages[0];
     stage.workItems = [
       { id: 'item-1', name: 'Shot 1', kind: 'video', status: 'succeeded', attempts: 0, inputRefs: [], requiredCapabilities: [], payload: {}, supersededOutputs: [] },
@@ -149,7 +149,7 @@ describe('MiniMax Design Acceptance Matrix: A01 - A34 Verification Suite', () =>
   });
 
   it('A12: POST 超时后重启 (Status unknown / recoverable, forbids duplicate POST)', () => {
-    const plan = createGeneralVideoPlan({ projectId, title: 'Timeout Test', driver: 'narrative' });
+    const plan = createGeneralVideoPlan({ projectId, prompt: 'Timeout Test', driver: 'narrative' });
     const stage = plan.stages[0];
     stage.workItems = [{
       id: 'item-timeout',
@@ -169,7 +169,7 @@ describe('MiniMax Design Acceptance Matrix: A01 - A34 Verification Suite', () =>
   });
 
   it('A13: 下载失败但上游成功 (Recover output via existing job id)', () => {
-    const plan = createGeneralVideoPlan({ projectId, title: 'Recover Job Test', driver: 'narrative' });
+    const plan = createGeneralVideoPlan({ projectId, prompt: 'Recover Job Test', driver: 'narrative' });
     const stage = plan.stages[0];
     stage.workItems = [{
       id: 'item-recover',
@@ -241,7 +241,7 @@ describe('MiniMax Design Acceptance Matrix: A01 - A34 Verification Suite', () =>
   });
 
   it('A16: 暂停/取消/切换项目 (Receipts remain in original project, no leakage)', () => {
-    const plan = createGeneralVideoPlan({ projectId, title: 'Pause Project Test', driver: 'speech' });
+    const plan = createGeneralVideoPlan({ projectId, prompt: 'Pause Project Test', driver: 'speech' });
     productionPlanRepository.savePlan(plan);
     const paused = productionPlanService.setPlanStatus({
       projectId,
@@ -289,6 +289,7 @@ describe('MiniMax Design Acceptance Matrix: A01 - A34 Verification Suite', () =>
     const receipt = await mediaPostprocessService.executeOperation({
       type: 'concat',
       assetIds: ['clip1.mp4', 'clip2.mp4'],
+      transition: 'cut',
       targetResolution: { width: 1920, height: 1080 },
       keepAudio: true,
     });
@@ -366,13 +367,13 @@ describe('MiniMax Design Acceptance Matrix: A01 - A34 Verification Suite', () =>
   });
 
   it('A29: 成片完成但持久化失败 (Retains recovery handle)', () => {
-    const plan = createGeneralVideoPlan({ projectId, title: 'Persistence Recovery Test', driver: 'narrative' });
+    const plan = createGeneralVideoPlan({ projectId, prompt: 'Persistence Recovery Test', driver: 'narrative' });
     expect(plan.id).toBeDefined();
     expect(plan.revision).toBe(1);
   });
 
   it('A30: 整项目导出后在新环境导入 (Plan structure and versions preserved without secret paths)', () => {
-    const plan = createGeneralVideoPlan({ projectId, title: 'Export Plan', driver: 'narrative' });
+    const plan = createGeneralVideoPlan({ projectId, prompt: 'Export Plan', driver: 'narrative' });
     const serialized = JSON.stringify(plan);
     expect(serialized).not.toContain('apiKey');
     expect(serialized).not.toContain('/Users/');

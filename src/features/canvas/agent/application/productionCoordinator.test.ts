@@ -15,7 +15,9 @@ describe('ProductionCoordinator', () => {
     projectId: 'proj-video',
     revision: 1,
     workflow: { id: 'general-video', variant: 'canonical', profileRevision: '1.0' },
-    scope: { deliverables: ['continuity-video-series'] },
+    scope: { deliverables: ['continuity-video-series'], targetNodeIds: [] },
+    sourceIds: [],
+    decisions: [],
     stageOutline: [{ id: 'stage-shots', order: 0, name: 'Shot Generation' }],
     stages: [
       {

@@ -233,10 +233,11 @@ async function executeApprovedTool(
     case 'source_inspect':
       return await sourceRepository.inspectSource(request.arguments as any);
     case 'production_plan': {
-      const args = request.arguments as any;
-      if (!isRecord(args) || typeof args.action !== 'string') {
+      const rawArgs = request.arguments as any;
+      if (!isRecord(rawArgs) || typeof rawArgs.action !== 'string') {
         throw new Error('External Agent production_plan arguments are invalid.');
       }
+      const args = rawArgs as any;
       switch (args.action) {
         case 'create':
           return productionPlanService.createPlan({ projectId: approval.projectId, ...args.createInput });
@@ -252,21 +253,21 @@ async function executeApprovedTool(
             ...args.authorStageInput,
           });
         case 'replan':
-          return productionPlanService.replanOutline({
+          return productionPlanService.replan({
             projectId: approval.projectId,
             planId: args.planId,
             expectedRevision: args.expectedRevision,
             ...args.replanInput,
           });
         case 'record_review':
-          return productionPlanService.recordReviewDecision({
+          return productionPlanService.recordReview({
             projectId: approval.projectId,
             planId: args.planId,
             expectedRevision: args.expectedRevision,
             ...args.recordReviewInput,
           });
         case 'retry_items':
-          return productionPlanService.retryStageItems({
+          return productionPlanService.retryItems({
             projectId: approval.projectId,
             planId: args.planId,
             expectedRevision: args.expectedRevision,
