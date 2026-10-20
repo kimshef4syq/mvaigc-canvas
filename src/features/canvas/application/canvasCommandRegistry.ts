@@ -296,6 +296,7 @@ const INPUT_SCHEMAS: Record<CanvasCommandType, CanvasJsonSchema> = {
     select: booleanField('Whether to select focused nodes.'),
   }),
   'asset.list': objectSchema([], {
+    generatedOnly: booleanField('Only return final generated assets (images or videos); exclude screenshots, inputs and references.'),
     kind: stringField('Optional image, video, or audio filter.'),
     query: stringField('Optional case-insensitive title, source, or asset id search.'),
     nodeIds: arrayField('Optional exact owning node ids.'),
@@ -971,6 +972,7 @@ function validateCommandInput(
       if (command.input.select !== undefined && typeof command.input.select !== 'boolean') errors.push('select must be a boolean.');
       break;
     case 'asset.list':
+      if (command.input.generatedOnly !== undefined && typeof command.input.generatedOnly !== 'boolean') errors.push('generatedOnly must be a boolean.');
       if (command.input.kind !== undefined && !['image', 'video', 'audio'].includes(command.input.kind)) errors.push('Invalid asset kind.');
       if (command.input.query !== undefined) {
         validateString(command.input.query, 'query', errors);
@@ -1495,6 +1497,7 @@ export class CanvasCommandRegistry {
           : null;
         const query = command.input.query?.trim().toLocaleLowerCase();
         const assets = buildCanvasAssetCatalog(snapshot.nodes)
+          .filter((asset) => !command.input.generatedOnly || asset.purpose === 'generated-result')
           .filter((asset) => !command.input.kind || asset.kind === command.input.kind)
           .filter((asset) => !explicitNodeIds || explicitNodeIds.has(asset.nodeId))
           .filter((asset) => !selectedNodeIds || selectedNodeIds.has(asset.nodeId))

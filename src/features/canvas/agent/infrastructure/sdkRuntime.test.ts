@@ -53,6 +53,31 @@ const reference: AgentModelReference = {
 };
 
 describe('Storyboard Agent top-level tool normalization', () => {
+  it('turns stale tool calls into explicit feedback instead of silently discarding them', () => {
+    const [call] = normalizeStoryboardAgentToolCalls([{ callId: 'stale', name: 'mcp_davinci_oldhash', arguments: '{"script":"must not run"}' }], ['canvas_command', 'agent_tool_unavailable']);
+    expect(call).toEqual({ callId: 'stale', name: 'agent_tool_unavailable', arguments: JSON.stringify({ requestedTool: 'mcp_davinci_oldhash' }) });
+  });
+  it('accepts the redundant locate reveal boolean without weakening other field checks', () => {
+    const calls = normalizeStoryboardAgentToolCalls([
+      { callId: 'locate', name: 'canvas_command', arguments: JSON.stringify({ type: 'asset.locate', input: { assetId: 'image-1', select: true, reveal: true } }) },
+      { callId: 'unknown', name: 'canvas_command', arguments: JSON.stringify({ type: 'asset.locate', input: { assetId: 'image-1', arbitrary: true } }) },
+    ]);
+    expect(JSON.parse(calls[0].arguments).input).toEqual({ assetId: 'image-1', select: true });
+    expect(JSON.parse(calls[1].arguments).input).toEqual({ assetId: 'image-1', arbitrary: true });
+  });
+  it('canonicalizes only the known navigation spelling and preserves all input fields', () => {
+    const input = { nodeIds: ['node-1'], padding: 0.2 };
+    const calls = normalizeStoryboardAgentToolCalls([
+      { callId: 'focus-envelope', name: 'canvas_command', arguments: JSON.stringify({ type: 'viewbox.focus', input }) },
+      { callId: 'focus-top-level', name: 'viewbox.focus', arguments: JSON.stringify(input) },
+      { callId: 'focus-namespaced', name: 'canvas_command', namespace: 'storyboard_canvas', arguments: JSON.stringify({ type: 'viewbox.focus', input }) },
+      { callId: 'unknown', name: 'canvas_command', arguments: JSON.stringify({ type: 'viewbox.delete', input }) },
+    ]);
+    expect(calls.slice(0, 3).map((call) => JSON.parse(call.arguments))).toEqual([
+      { type: 'viewport.focus', input }, { type: 'viewport.focus', input }, { type: 'viewport.focus', input },
+    ]);
+    expect(JSON.parse(calls[3].arguments).type).toBe('viewbox.delete');
+  });
   it('wraps CanvasCommand names in canvas_command and drops truly unknown top-level tools', () => {
     const calls = normalizeStoryboardAgentToolCalls([
       { callId: 'status', name: 'generation.status', arguments: '{"nodeId":"node-1"}' },
@@ -97,6 +122,36 @@ describe('Storyboard Agent top-level tool normalization', () => {
       },
     });
     expect(JSON.parse(call.arguments).input).not.toHaveProperty('nodeId');
+  });
+
+  it('canonicalizes generation.submit with prompt and missing nodeIds into node.create', () => {
+    const [call] = normalizeStoryboardAgentToolCalls([{
+      callId: 'submit-direct-prompt',
+      name: 'canvas_command',
+      arguments: JSON.stringify({
+        type: 'generation.submit',
+        input: {
+          prompt: '生成一张雨夜街景',
+          modelId: 'agnes:image:image-2.1-flash',
+          aspectRatio: '16:9',
+          resolution: '2K',
+        },
+      }),
+    }]);
+
+    expect(JSON.parse(call.arguments)).toEqual({
+      type: 'node.create',
+      input: {
+        nodeType: 'imageNode',
+        position: { x: 0, y: 0 },
+        configuration: {
+          prompt: '生成一张雨夜街景',
+          modelId: 'agnes:image:image-2.1-flash',
+          aspectRatio: '16:9',
+          resolution: '2K',
+        },
+      },
+    });
   });
 
   it('adds only the safe default position when node.create omits its layout hint', () => {
@@ -410,8 +465,46 @@ describe('OpenAI Agents SDK runtime adapter', () => {
     expect(captured).not.toBeNull();
     const body = buildAgentProviderBody(captured!, false);
     const serialized = JSON.stringify(body);
-    expect(captured!.tools).toEqual([]);
+    expect(captured!.tools.map((tool) => tool.name)).toEqual(['canvas_command', 'canvas_command_schema', 'agent_tool_unavailable']);
+    expect(captured!.tools[0].parameters).not.toHaveProperty('anyOf');
     expect(serialized.length).toBeLessThan(8_000);
+  });
+
+  it('gives the model current connection evidence after a stale MCP call instead of looping on an unchanged request', async () => {
+    let calls = 0;
+    const transport: AgentModelTransport = {
+      async getResponse(request) {
+        calls++;
+        if (calls === 2) {
+          const feedback = request.input.find((item) => item.type === 'function_call_result');
+          expect(feedback?.type === 'function_call_result' ? JSON.parse(feedback.output) : null).toMatchObject({ code: 'tool_unavailable', mcpConnections: [{ serverId: 'davinci', connected: false }] });
+        }
+        return { responseId: `stale-${calls}`, text: calls === 2 ? '达芬奇未连接，需要先恢复连接。' : undefined, toolCalls: calls === 1 ? [{ callId: 'old-hash', name: 'mcp_davinci_oldhash', arguments: '{}' }] : [], usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 } };
+      },
+      async *getStreamedResponse() { throw new Error('unused'); },
+    };
+    const runtime = createStoryboardAgentRuntime({ resolveModel: () => reference, transport });
+    const context = { projectId: 'project', runId: 'stale-feedback' };
+    const agent = createCanvasAgent({ runtime, context, skillContext: { text: '继续', installedSkills: [] }, mcpConnectionStatus: [{ serverId: 'davinci', connected: false, authorizedToolCount: 14 }] });
+    const result = await runtime.runner.run(agent, '继续', { context });
+    expect(result.finalOutput).toContain('未连接');
+    expect(calls).toBe(2);
+  });
+
+  it('stops repeated unavailable calls after bounded feedback rather than spending 24 turns', async () => {
+    let calls = 0;
+    const transport: AgentModelTransport = {
+      async getResponse() {
+        calls++;
+        return { responseId: `unavailable-${calls}`, toolCalls: [{ callId: `stale-${calls}`, name: 'mcp_davinci_oldhash', arguments: '{}' }], usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 } };
+      },
+      async *getStreamedResponse() { throw new Error('unused'); },
+    };
+    const runtime = createStoryboardAgentRuntime({ resolveModel: () => reference, transport });
+    const context = { projectId: 'project', runId: 'stale-bounded' };
+    const agent = createCanvasAgent({ runtime, context, skillContext: { text: '继续', installedSkills: [] } });
+    await expect(runtime.runner.run(agent, '继续', { context })).rejects.toThrow('已停止空转');
+    expect(calls).toBe(3);
   });
 
   it('keeps structured canvas tools loaded across a short multi-turn continuation', async () => {
@@ -526,11 +619,12 @@ describe('OpenAI Agents SDK runtime adapter', () => {
       }),
     });
     const serialized = serializeStoryboardRunState(interrupted.state);
-    const restored = await restoreStoryboardRunState(agent, serialized, context);
+    const resumedAgent = createCanvasAgent({ runtime, context, restoreExtensions: true, skillContext: { text: '恢复已中断的工具审批', installedSkills: [] } });
+    const restored = await restoreStoryboardRunState(resumedAgent, serialized, context);
     const approval = restored.getInterruptions()[0];
     canvasAgentApprovalExecution.decide(approvalId, true);
     restored.approve(approval);
-    const completed = await runtime.runner.run(agent, restored, { context });
+    const completed = await runtime.runner.run(resumedAgent, restored, { context });
     expect(completed.finalOutput).toBe('Renamed the node.');
     expect(commandCalls).toBe(1);
     expect(persistedCheckpoints).toBe(1);
@@ -966,7 +1060,7 @@ describe('OpenAI Agents SDK runtime adapter', () => {
     useCanvasStore.setState({ nodes: [], edges: [], revision: 0, history: { past: [], future: [] } });
   });
 
-  it('registers only tools allowed by the routed skills', async () => {
+  it('keeps core canvas tools registered while routing optional tools by skills', async () => {
     const requests: AgentModelTurnRequest[] = [];
     const transport: AgentModelTransport = {
       async getResponse(requestValue) {
@@ -990,7 +1084,7 @@ describe('OpenAI Agents SDK runtime adapter', () => {
       skillContext: { text: '帮我诊断 429 错误' },
     });
     await runtime.runner.run(diagnosticAgent, '帮我诊断 429 错误', { context: diagnosticContext });
-    expect(requests[0].tools.map((candidate) => candidate.name)).toEqual(['diagnostics']);
+    expect(requests[0].tools.map((candidate) => candidate.name)).toEqual(['canvas_command', 'canvas_command_schema', 'agent_tool_unavailable', 'diagnostics']);
 
     const minimalContext: CanvasAgentContext = { projectId: 'project-1', runId: 'skills-minimal-run' };
     const minimalAgent = createCanvasAgent({
@@ -1001,7 +1095,7 @@ describe('OpenAI Agents SDK runtime adapter', () => {
       skillContext: { text: '你好' },
     });
     await runtime.runner.run(minimalAgent, '你好', { context: minimalContext });
-    expect(requests[1].tools.map((candidate) => candidate.name)).toEqual([]);
+    expect(requests[1].tools.map((candidate) => candidate.name)).toEqual(['canvas_command', 'canvas_command_schema', 'agent_tool_unavailable']);
   });
 
   it('marks deferred namespaced tools only for a compatible Responses model', async () => {
@@ -1041,7 +1135,7 @@ describe('OpenAI Agents SDK runtime adapter', () => {
     });
     await responsesRuntime.runner.run(responsesAgent, '帮我诊断 429 错误', { context: responsesContext });
     expect(requests[0]).toMatchObject({
-      tools: [{
+      tools: [{ name: 'canvas_command', namespace: 'storyboard_canvas', deferLoading: false }, { name: 'canvas_command_schema', namespace: 'storyboard_canvas', deferLoading: false }, { name: 'agent_tool_unavailable', namespace: 'storyboard_canvas', deferLoading: false }, {
         name: 'diagnostics',
         namespace: 'storyboard_canvas',
         deferLoading: true,
@@ -1071,7 +1165,7 @@ describe('OpenAI Agents SDK runtime adapter', () => {
     });
     await chatRuntime.runner.run(chatAgent, '帮我诊断 429 错误', { context: chatContext });
     expect(requests[1]).toMatchObject({
-      tools: [{ name: 'diagnostics', deferLoading: false }],
+      tools: [{ name: 'canvas_command', deferLoading: false }, { name: 'canvas_command_schema', deferLoading: false }, { name: 'agent_tool_unavailable', deferLoading: false }, { name: 'diagnostics', deferLoading: false }],
       toolPolicy: {
         mode: 'local-pruned',
         deferredToolNames: [],
@@ -1202,4 +1296,89 @@ describe('OpenAI Agents SDK runtime adapter', () => {
       expect(serialized).not.toContain('"filter"');
     }
   });
+
+  it('exposes profile_search and profile_read when knowledge skill is routed', async () => {
+    const requests: AgentModelTurnRequest[] = [];
+    const transport: AgentModelTransport = {
+      async getResponse(requestValue) {
+        requests.push(requestValue);
+        return {
+          responseId: `response-${requests.length}`,
+          text: 'Found profiles.',
+          toolCalls: [],
+          usage: { inputTokens: 5, outputTokens: 2, totalTokens: 7 },
+        };
+      },
+      async *getStreamedResponse() { throw new Error('unused'); },
+    };
+    const runtime = createStoryboardAgentRuntime({ resolveModel: () => reference, transport });
+    const context: CanvasAgentContext = { projectId: 'project-1', runId: 'skills-knowledge-run' };
+    const agent = createCanvasAgent({
+      runtime,
+      context,
+      supportsVision: true,
+      supportsToolSearch: false,
+      skillContext: { text: '帮我查一下 MiniMax Design 的 TVC 知识库资料' },
+    });
+    await runtime.runner.run(agent, '帮我查一下 MiniMax Design 的 TVC 知识库资料', { context });
+    const toolNames = requests[0].tools.map((candidate) => candidate.name);
+    expect(toolNames).toContain('profile_search');
+    expect(toolNames).toContain('profile_read');
+    expect(toolNames).toContain('source_read');
+    expect(toolNames).toContain('source_inspect');
+    expect(toolNames).toContain('production_plan');
+  });
+
+  it('executes production_plan create with ad-tvc workflow factory', async () => {
+    let executedToolCall: any;
+    const transport: AgentModelTransport = {
+      async getResponse(request: AgentModelTurnRequest): Promise<AgentModelTurnResponse> {
+        const hasToolResult = request.input.some((item) => item.type === 'function_call_result');
+        if (!hasToolResult) {
+          return {
+            responseId: 'plan-call-resp',
+            text: '',
+            toolCalls: [{
+              callId: 'call-create-tvc-plan',
+              name: 'production_plan',
+              arguments: JSON.stringify({
+                action: 'create',
+                createInput: {
+                  workflow: 'ad-tvc',
+                  prompt: '为全新智能电动SUV制作一段30秒广告TVC',
+                  category: 'auto',
+                },
+              }),
+            }],
+            usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+          };
+        }
+        const toolResult = request.input.find((item) => item.type === 'function_call_result');
+        executedToolCall = typeof toolResult?.output === 'string' ? JSON.parse(toolResult.output) : toolResult?.output;
+        return {
+          responseId: 'plan-final-resp',
+          text: 'Plan created successfully',
+          toolCalls: [],
+          usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+        };
+      },
+      async *getStreamedResponse() { throw new Error('unused'); },
+    };
+    const runtime = createStoryboardAgentRuntime({ resolveModel: () => reference, transport });
+    const context: CanvasAgentContext = { projectId: 'project-tvc-test', runId: 'tvc-plan-run' };
+    const agent = createCanvasAgent({
+      runtime,
+      context,
+      supportsVision: true,
+      supportsToolSearch: false,
+      skillContext: { text: '为全新智能电动SUV制作一段30秒广告TVC' },
+    });
+    await runtime.runner.run(agent, '为全新智能电动SUV制作一段30秒广告TVC', { context });
+    expect(executedToolCall.id).toMatch(/^plan-tvc-/);
+    expect(executedToolCall.workflow.id).toBe('ad-tvc');
+    expect(executedToolCall.workflow.variant).toBe('auto:product-ad');
+    expect(executedToolCall.stageOutline.length).toBeGreaterThanOrEqual(4);
+  });
 });
+
+

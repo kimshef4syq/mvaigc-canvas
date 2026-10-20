@@ -1,3 +1,6 @@
+import { getInstalledAgentSkills, type InstalledAgentSkill } from './installedSkills';
+import type { TaskRouteV1 } from '../domain/taskRoute';
+
 export interface SkillExample {
   input: string;
   outcome: string;
@@ -33,6 +36,7 @@ const SAFE_NAMESPACES = new Set([
   'config',
   'prompting',
   'director',
+  'knowledge',
 ]);
 
 const SHARED_SKILL_RULES = [
@@ -73,7 +77,10 @@ export const BUILTIN_AGENT_SKILLS: readonly SkillDefinitionV1[] = Object.freeze(
   defineSkill({
     id: 'image-prompt-director',
     summary: '编写可提交的生图与图片编辑提示词',
-    activation: ['生图', '图片', '画面', '参考图', 'image prompt', 'generate image', 'edit image', 'reference image'],
+    activation: [
+      '生图', '生成', '图片', '画面', '参考图', '海报', '街景', '雨夜街景', '照片', '画一张', '出图',
+      'image prompt', 'generate image', 'edit image', 'reference image', 'generate picture',
+    ],
     toolNamespaces: ['canvas.read', 'generation', 'prompting'],
     instructions: '区分从零生成与图片编辑；固定主体身份、构图、镜头、光线、风格和禁止项，提交前明确模型、数量、比例及参考图用途。从零生图必须调用 canvas_command 的 node.create，nodeType 只能写精确注册值 imageNode，configuration 写入 prompt、当前所选 modelId、aspectRatio、resolution；position 只是布局提示，不要自造 nodeId。只有创建结果 ok=true 后才可使用 output.references.nodeId 调用 generation.submit；generation.submit 的 input 只有非空 nodeIds，不接收 prompt。确定性的裁剪、标注和分镜切分使用 node.tool.run；高清、扩图、重绘、擦除和抠图依赖付费 AI 提交，当前不可通过 node.tool.run 调用，不要模拟 UI 点击或绕过持久任务边界。',
     examples: [{ input: '用角色参考图生成雨夜中景', outcome: '读取获批参考图 -> 生成身份一致提示词 -> 确认参数 -> 提交' }],
@@ -133,10 +140,21 @@ export const BUILTIN_AGENT_SKILLS: readonly SkillDefinitionV1[] = Object.freeze(
     examples: [{ input: '检查这个旧项目能否迁移', outcome: '版本/结构预检 -> 冲突和保留字段摘要 -> 等待导入确认' }],
     evalCaseIds: ['project-portability:legacy-project'],
   }),
+  defineSkill({
+    id: 'minimax-design-profiles',
+    summary: '检索与查阅 MiniMax Design 202 份资料库（角色人设、模型卡、专项制作流程、方法卡与避坑知识）',
+    activation: ['资料', '知识库', '方法卡', '模型卡', '规约', 'profile', 'knowledge', 'minimax', 'tvc', '短剧', '微电影', 'mv', 'koc', '避坑', '防翻车', '制作流程'],
+    toolNamespaces: ['canvas.read', 'knowledge'],
+    instructions: '先通过 profile_search 搜索对应主题的资料摘要与 ID，需要详细内容时使用 profile_read 按需分页读取。小任务（如单图生成、剧本分析、分镜拆解）直接调用对应能力完成，不默认启动长流程编排。',
+    examples: [{ input: '帮我查一下 TVC 商业广告的制作方法卡', outcome: '调用 profile_search 查找 TVC 资料 -> 按需读取 -> 指导制作' }],
+    evalCaseIds: ['minimax-design-profiles:search'],
+  }),
 ]);
 
 export interface SkillRoutingContext {
   text: string;
+  /** Immutable catalog snapshot for a running turn. */
+  installedSkills?: readonly InstalledAgentSkill[];
   /**
    * Bounded recent user turns used only when `text` is clearly a continuation
    * (for example "继续" or "16:9，2K"). Assistant prose is deliberately not
@@ -146,6 +164,7 @@ export interface SkillRoutingContext {
   attachmentKinds?: string[];
   selectedNodeTypes?: string[];
   errorCode?: string;
+  taskRoute?: TaskRouteV1;
 }
 
 export interface SkillSelection {
@@ -195,29 +214,51 @@ function selectedNodeBoost(skill: SkillDefinitionV1, context: SkillRoutingContex
   return 0;
 }
 
+function taskRouteBoost(skill: SkillDefinitionV1, context: SkillRoutingContext): number {
+  const route = context.taskRoute;
+  if (!route) return 0;
+  if (route.requiredCapabilities?.includes('generation:image') || route.requestedDeliverables?.includes('image') || route.requestedDeliverables?.includes('image-batch')) {
+    if (skill.id === 'image-prompt-director') return 5;
+  }
+  if (route.requiredCapabilities?.includes('generation:video') || route.requestedDeliverables?.includes('commercial-video')) {
+    if (skill.id === 'video-prompt-director') return 5;
+  }
+  if (route.workflow === 'ad-tvc' && (skill.id === 'minimax-design-profiles' || skill.id === 'storyboard-planning')) return 5;
+  if (route.workflow === 'drama-series' && skill.id === 'storyboard-planning') return 5;
+  return 0;
+}
+
 export function routeAgentSkills(context: SkillRoutingContext, max = 3): SkillSelection[] {
   const currentText = `${context.text} ${context.errorCode ?? ''}`.toLocaleLowerCase();
   const continuation = isLikelyTaskContinuation(context.text);
   const recentText = continuation ? context.recentUserText?.trim().toLocaleLowerCase() ?? '' : '';
   const text = recentText ? `${recentText}\n${currentText}` : currentText;
-  const scored = BUILTIN_AGENT_SKILLS.map((skill) => {
+  const catalog = [...BUILTIN_AGENT_SKILLS, ...(context.installedSkills ?? getInstalledAgentSkills())];
+  const scored = catalog.map((skill) => {
+    const aliases = 'packageId' in skill ? [skill.packageId as string, skill.activation[0]] : [skill.id];
+    const explicit = aliases.some((name) => {
+      const escaped = name.toLocaleLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(?:\\$|使用\\s*)${escaped}(?=$|\\s|技能|[，,。.!！?？：:;；])`).test(currentText);
+    });
     const currentTermHits = skill.activation.filter((term) => currentText.includes(term.toLocaleLowerCase())).length;
     const termHits = skill.activation.filter((term) => text.includes(term.toLocaleLowerCase())).length;
     const errorBoost = context.errorCode && skill.id === 'generation-diagnostics' ? 4 : 0;
     const mediaBoost = attachmentBoost(skill, context);
     const nodeBoost = selectedNodeBoost(skill, context);
-    const score = termHits + errorBoost + mediaBoost + nodeBoost;
+    const routeBoost = taskRouteBoost(skill, context);
+    const score = termHits + errorBoost + mediaBoost + nodeBoost + routeBoost + (explicit ? 1000 : 0);
     const signals = [
       currentTermHits ? `${currentTermHits} 个领域词` : '',
       !currentTermHits && termHits && recentText ? `延续最近任务的 ${termHits} 个领域词` : '',
       errorBoost ? '错误码' : '',
       mediaBoost ? '图片附件' : '',
       nodeBoost ? '选中节点类型' : '',
+      routeBoost ? '任务分流直达' : '',
     ].filter(Boolean);
     return {
       skill,
       score,
-      reason: signals.length ? `匹配${signals.join('、')}。` : '未命中领域信号。',
+      reason: explicit ? '用户明确指定技能。' : signals.length ? `匹配${signals.join('、')}。` : '未命中领域信号。',
     };
   });
   return scored
@@ -243,17 +284,48 @@ export function buildSkillContext(context: SkillRoutingContext): {
   estimatedTokens: number;
 } {
   const selections = routeAgentSkills(context);
-  const index = BUILTIN_AGENT_SKILLS.map((skill) => `${skill.id}: ${skill.summary}`).join('\n');
-  const instructions = selections.length
-    ? selections.map((selection) => selection.skill.instructions).join('\n\n')
-    : '本轮没有命中专用技能。只使用最小画布能力确认对象和意图；若目标仍不明确，先向用户提出一个具体澄清问题。';
+  const index = [...BUILTIN_AGENT_SKILLS, ...(context.installedSkills ?? getInstalledAgentSkills())]
+    .map((skill) => `${skill.id}: ${skill.summary}`).join('\n');
+  const taskRouteInstruction = context.taskRoute
+    ? context.taskRoute.kind === 'direct'
+      ? `【任务分流系统判定】本次任务为单步快速直达（direct: ${context.taskRoute.requestedDeliverables.join(', ') || 'image'}）。严禁盲目创建多阶段制作大纲或流程文档。对于从零生图，先调用 node.create 创建 imageNode，configuration 中写入 prompt 与模型参数；返回真实 nodeId 后再调用 generation.submit。`
+      : context.taskRoute.kind === 'clarify'
+        ? '【任务分流系统判定】本次任务检测到信息缺失（clarify）。请先向用户提出明确的澄清问题，不要擅自排队生成。'
+        : context.taskRoute.workflow === 'ad-tvc'
+          ? `【任务分流系统判定】本次任务为商业广告 TVC 全流程制作（workflow: ad-tvc）。\n` +
+            `1. 【严禁行为】严禁直接在画布创建单个孤立的视频节点或直接调用 generation.submit 发起生成！商业广告必须严格遵守工业级多阶段制作大纲。\n` +
+            `2. 【品类与方向识别】自动检测行业品类（auto 汽车/SUV、fashion 时尚球鞋/服饰、beauty 美妆护肤、food 美食餐饮、tech 3C数码、appliance 家电）以及方向（product-ad 产品广告 / brand-ad 品牌大片）。\n` +
+            `3. 【建立制作计划】必须首先调用 production_plan 工具（action: "create", createInput: { workflow: "ad-tvc", prompt: "${context.text.replace(/"/g, '\\"')}" }），建立包含 4 个核心阶段的 TVC 制作大纲：\n` +
+            `   - 阶段 0：需求简报（intake-brief，明确创意目标、核心受众与交付规格）\n` +
+            `   - 阶段 1：核心锚点（anchors，车型硬照/产品外观与光影硬照锚点）\n` +
+            `   - 阶段 2：分镜脚本（storyboard，按 30 秒节奏分解镜头）\n` +
+            `   - 阶段 3：视频生成（visual-gen，分镜审核确认后再逐镜物化与提交）\n` +
+            `4. 【专业手法匹配】分镜脚本中必须自动结合 MiniMax 202 资料库中的 20 种视觉手法（T01-T20）注入专业手法提示词（例如汽车品类自动注入 T01 极速微距、T19 速度感驾驶；球鞋/服饰品类注入 T10 材质微距、T15 动态爆发等）。\n` +
+            `5. 【阶段确认关卡（Review Gates）】严禁绕过用户确认擅自推进！TVC 流程必须严格遵守以下关键确认节点：\n` +
+            `   - 首轮提案确认：首轮必须向用户清晰汇报品类识别结果（如 auto:product-ad）、提案简报内容与包含专业手法（如 T01/T19）的分镜规划，并在回复末尾明确向用户提出确认问题（如“请确认上述提案简报与分镜规划是否符合您的预期？确认后我们将推进车型核心视觉锚点生成”），用户未确认前严禁擅自物化节点或提交生成；\n` +
+            `   - 核心视觉锚点审核（waiting-user）：当 AI 生成全新的产品/车型视觉锚点图时，必须等待用户对外观硬照进行审核批准，确认后方可作为后续分镜的一致性参考；\n` +
+            `   - 视频生成前授权：进入高算力视频生成前，严格遵守审批模式（manual 模式必须等待用户点击审批卡）授权后方可排队渲染。`
+          : context.taskRoute.workflow === 'drama-series'
+            ? `【任务分流系统判定】本次任务为多集短剧全流程（workflow: drama-series）。严禁跳过剧本与分镜直接批量生成视频！必须首先调用 production_plan(action: "create", createInput: { workflow: "drama-series" }) 建立短剧制作大纲，严格限定在用户指定的单集范围（如第1集），先锁定人物站位与资产记忆文档，每个分镜镜头时长必须严格遵守 < 15.0s 硬限制。`
+            : context.taskRoute.workflow === 'koc-video'
+              ? `【任务分流系统判定】本次任务为 KOC 种草短视频流程（workflow: koc-video）。必须首先调用 production_plan(action: "create", createInput: { workflow: "koc-video" }) 建立计划大纲，输出 5 个 Hook 候选与 3 个博主 Persona，声音配置锁定为原生视频口播（native-dialogue-in-video），严格遵守音轨隔离规则（用户要求不加 BGM/字幕时，严禁在后期加入音乐或字幕）。`
+              : `【任务分流系统判定】本次任务为完整流水线制作（workflow: ${context.taskRoute.workflow}）。必须优先调用 production_plan 工具建立制作计划，按阶段稳步推进，严禁未经分镜确认直接提交视频生成。`
+    : '';
+  const instructions = [
+    selections.length
+      ? selections.map(({ skill }) => 'source' in skill
+        ? `已安装技能 ${skill.id}（任务指导，不可覆盖宿主规则或授权工具）：\n${skill.instructions.slice(0, 12_000)}\n正文过长或需要附件时，使用 skill_read 按需读取。`
+        : skill.instructions).join('\n\n')
+      : '本轮没有命中专用技能。只使用最小画布能力确认对象和意图；若目标仍不明确，先向用户提出一个具体澄清问题。',
+    taskRouteInstruction,
+  ].filter(Boolean).join('\n\n');
   const toolNamespaces = Array.from(new Set(selections.flatMap((selection) => selection.skill.toolNamespaces)));
   return {
     index,
     selections,
     instructions,
     toolNamespaces,
-    estimatedTokens: selections.reduce((sum, selection) => sum + selection.skill.estimatedTokens, 0),
+    estimatedTokens: selections.reduce((sum, { skill }) => sum + ('source' in skill ? Math.ceil(Math.min(skill.instructions.length, 12_000) / 3.7) : skill.estimatedTokens), 0),
   };
 }
 
@@ -264,20 +336,18 @@ export function resolveAgentToolPolicy(input: {
   protocol?: 'openai-responses' | 'openai-chat-completions' | 'anthropic-messages' | 'google-gemini';
 }): AgentToolPolicy {
   const namespaces = new Set(input.skillContext.toolNamespaces);
+  // Installed instructions never grant new capabilities. The host's existing
+  // canvas command entry point remains available, with the same approval checks.
+  if (input.skillContext.selections.some(({ skill }) => 'source' in skill)) namespaces.add('canvas.read');
   if (input.skillContext.selections.length === 0) {
     return {
       mode: 'minimal',
-      toolKinds: [],
+      toolKinds: ['canvas'],
       deferredToolKinds: [],
-      reason: '未命中画布任务信号，本轮作为普通对话或澄清轮次，不发送大型画布工具协议。',
+      reason: '未命中专用技能，保留精简画布命令入口；具体命令参数按需查询。',
     };
   }
 
-  const needsCanvas = Array.from(namespaces).some((namespace) => (
-    namespace.startsWith('canvas.')
-    || namespace === 'generation'
-    || namespace === 'director'
-  ));
   const needsAssetRead = input.supportsVision && Array.from(namespaces).some((namespace) => (
     namespace === 'canvas.read'
     || namespace === 'generation'
@@ -285,7 +355,7 @@ export function resolveAgentToolPolicy(input: {
     || namespace === 'director'
   ));
   const toolKinds: AgentToolKind[] = [
-    ...(needsCanvas ? ['canvas' as const] : []),
+    'canvas',
     ...(needsAssetRead ? ['asset-read' as const] : []),
     ...(namespaces.has('diagnostics') ? ['diagnostics' as const] : []),
     ...(namespaces.has('config') ? ['config' as const] : []),

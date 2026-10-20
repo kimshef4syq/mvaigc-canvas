@@ -99,6 +99,14 @@ describe('CanvasAgentComposer', () => {
     expect(source).toContain('canvasAgent.modelTabs.video');
   });
 
+  it('filters the model list to the active tab instead of scrolling between groups', () => {
+    const source = String(CanvasAgentComposer);
+    // The category tabs must switch which group renders, not jump-scroll a
+    // list that shows every group at once.
+    expect(source).toContain('activeModelTab');
+    expect(source).not.toContain('jumpToModelGroup');
+  });
+
   it('formats estimated context usage against the selected model limit', () => {
     const used = 480;
     const limit = 128_000;

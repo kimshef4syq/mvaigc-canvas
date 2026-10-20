@@ -12,7 +12,7 @@ MANIFEST_DIR="$PROJECT_ROOT/src/generated"
 MANIFEST_FILE="$MANIFEST_DIR/profiles-manifest.json"
 
 echo "=========================================================="
-echo "🚀 开始将 MiniMax Design 202 篇规约资产同步至 mvaigc-canvas"
+echo "🚀 开始同步 MiniMax Design 规约资产至 mvaigc-canvas"
 echo "=========================================================="
 
 # 1. 创建目标目录
@@ -20,7 +20,7 @@ mkdir -p "$TARGET_DIR"
 mkdir -p "$MANIFEST_DIR"
 
 # 2. 增量同步分类文件
-echo "📦 正在同步 12 个分类目录文件..."
+echo "📦 正在同步分类目录文件..."
 rsync -av --delete "$SOURCE_DIR/" "$TARGET_DIR/"
 
 # 3. 复制白皮书总册参考

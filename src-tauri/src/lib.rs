@@ -86,6 +86,7 @@ pub fn run() {
         .manage(project_state::ProjectDb::new())
         .manage(portability::PortabilityJobs::new())
         .manage(external_agent_state)
+        .manage(commands::mcp_client::McpClientState::default())
         .manage(commands::mvaigc_proxy::MvaigcProxyState::default())
         .on_page_load(|window, _payload| {
             if window.label() != MAIN_WINDOW_LABEL {
@@ -193,6 +194,21 @@ pub fn run() {
             frontend_ready,
             commands::startup::play_startup_sound,
             commands::startup::stop_startup_sound,
+            commands::video_caption::burn_video_caption,
+            commands::mcp_client::list_mcp_servers,
+            commands::mcp_client::save_mcp_server,
+            commands::mcp_client::remove_mcp_server,
+            commands::mcp_client::connect_mcp_server,
+            commands::mcp_client::disconnect_mcp_server,
+            commands::mcp_client::list_mcp_agent_tools,
+            commands::mcp_client::call_mcp_tool,
+            commands::extensions::list_installed_skills,
+            commands::extensions::install_local_skill,
+            commands::extensions::install_skill_zip,
+            commands::extensions::set_skill_enabled,
+            commands::extensions::remove_skill,
+            commands::extensions::rollback_skill,
+            commands::extensions::read_skill_resource,
             commands::check_dreamina_login,
             commands::dreamina_oauth_start,
             commands::dreamina_oauth_check,
@@ -237,6 +253,8 @@ pub fn run() {
             image::embed_storyboard_image_metadata,
             image::load_image,
             image::persist_image_source,
+            image::prepare_external_image_source,
+            image::prepare_external_video_source,
             image::persist_video_source,
             image::persist_image_binary,
             image::rename_local_media_files,

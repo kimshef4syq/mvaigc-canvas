@@ -34,6 +34,7 @@ import { CanvasAgentAttachmentPicker } from './CanvasAgentAttachmentPicker';
 import { CanvasAgentComposer } from './CanvasAgentComposer';
 import { CanvasAgentFeedViewport } from './CanvasAgentFeedViewport';
 import { CanvasAgentHeader } from './CanvasAgentHeader';
+import { AgentExtensionsPanel } from './AgentExtensionsPanel';
 import { ExternalAgentApprovalCard } from './ExternalAgentApprovalCard';
 import { useExternalAgentApprovals } from './useExternalAgentApprovals';
 import { ExternalAgentConnectionPanel } from './ExternalAgentConnectionPanel';
@@ -176,6 +177,7 @@ export function CanvasAgentDock({ projectId }: Props) {
   const usableVideoModels = useMemo(() => videoCatalog.filter((entry) => entry.usable), [videoCatalog]);
 
   const [draft, setDraft] = useState('');
+  const [extensionsOpen, setExtensionsOpen] = useState(false);
   const attachmentState = useCanvasAgentAttachments(projectId);
   const attachmentPickerRef = useRef({ open: false, close: () => {} });
   attachmentPickerRef.current = {
@@ -259,6 +261,7 @@ export function CanvasAgentDock({ projectId }: Props) {
       setRunning(false);
       setAutoModeConfirmOpen(false);
       setExternalConnectionOpen(false);
+      setExtensionsOpen(false);
       streamMessageIdRef.current = null;
       streamReasoningIdRef.current = null;
       activeStatusIdRef.current = null;
@@ -315,7 +318,7 @@ export function CanvasAgentDock({ projectId }: Props) {
     (panel as HTMLElement & { inert?: boolean }).inert = !isOpen;
     if (!isOpen) return;
 
-    const focusTarget = isAutoModeConfirmOpen || isExternalConnectionOpen
+    const focusTarget = isAutoModeConfirmOpen || isExternalConnectionOpen || extensionsOpen
       ? panel.querySelector<HTMLElement>('[role="dialog"] button')
       : isCompactViewport
         ? closeRef.current
@@ -325,6 +328,7 @@ export function CanvasAgentDock({ projectId }: Props) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
+        if (extensionsOpen) { setExtensionsOpen(false); return; }
         if (isExternalConnectionOpen) {
           setExternalConnectionOpen(false);
           return;
@@ -340,8 +344,8 @@ export function CanvasAgentDock({ projectId }: Props) {
         setOpen(false);
         return;
       }
-      if (event.key !== 'Tab' || !isCompactViewport) return;
-      const elements = focusableElements(panel);
+      if (event.key !== 'Tab' || (!isCompactViewport && !extensionsOpen)) return;
+      const elements = focusableElements(extensionsOpen ? panel.querySelector<HTMLElement>('[aria-label="技能与插件"]') ?? panel : panel);
       if (!elements.length) return;
       const first = elements[0];
       const last = elements[elements.length - 1];
@@ -356,7 +360,7 @@ export function CanvasAgentDock({ projectId }: Props) {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isAutoModeConfirmOpen, isCompactViewport, isExternalConnectionOpen, isOpen, setOpen]);
+  }, [isAutoModeConfirmOpen, isCompactViewport, isExternalConnectionOpen, extensionsOpen, isOpen, setOpen]);
 
   useEffect(() => {
     if (isOpen) return;
@@ -504,6 +508,12 @@ export function CanvasAgentDock({ projectId }: Props) {
         startedAt: Date.now(),
         createdAt: Date.now(),
       });
+      if (status === 'succeeded') {
+        const targetIds = generationTargets.resultNodeIds.length
+          ? generationTargets.resultNodeIds
+          : nodeIdsFromAgentOutput(event.output);
+        if (targetIds.length > 0) void canvasNavigationFacade.focusNodeIds(targetIds, { select: true });
+      }
       return;
     }
 
@@ -523,6 +533,12 @@ export function CanvasAgentDock({ projectId }: Props) {
       ...execution,
       durationMs: startedAt ? Date.now() - startedAt : undefined,
     });
+    if (status === 'succeeded') {
+      const targetIds = generationTargets.resultNodeIds.length
+        ? generationTargets.resultNodeIds
+        : nodeIds;
+      if (targetIds.length > 0) void canvasNavigationFacade.focusNodeIds(targetIds, { select: true });
+    }
   };
 
   const runtimeReady = Boolean(selectedEntry);
@@ -1056,6 +1072,7 @@ export function CanvasAgentDock({ projectId }: Props) {
             onNewConversation={startConversation}
             onViewChange={setActiveView}
             onOpenExternalConnection={() => setExternalConnectionOpen(true)}
+            onOpenExtensions={() => setExtensionsOpen(true)}
             onClose={() => setOpen(false)}
             closeRef={closeRef}
           />
@@ -1187,6 +1204,7 @@ export function CanvasAgentDock({ projectId }: Props) {
             </section>
           </div>
         ) : null}
+        {extensionsOpen && <AgentExtensionsPanel onClose={() => setExtensionsOpen(false)} onUse={(id) => { setDraft((value) => `$${id} ${value}`); setExtensionsOpen(false); }} />}
         </aside>
       </div>
     </>

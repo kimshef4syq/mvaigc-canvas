@@ -165,4 +165,76 @@ describe('external Agent Canvas approval bridge', () => {
     })).rejects.toThrow(/native session closed/i);
     expect(useCanvasStore.getState()).toMatchObject({ revision: 0, history: { past: [], future: [] } });
   });
+
+  it('allows external agents to query profile knowledge via profile_search', async () => {
+    const toolRequest: ExternalAgentToolRequest = {
+      version: 1,
+      runtime: 'claude',
+      sessionId: 'session-2',
+      turnId: 'turn-2',
+      callId: 'profile-search-1',
+      toolName: 'profile_search',
+      arguments: { query: 'minimax', limit: 3 },
+    };
+
+    const approvalView = await prepareExternalAgentToolRequest({
+      projectId: 'project-1',
+      request: toolRequest,
+    });
+    expect(approvalView.toolName).toBe('profile_search');
+
+    const result = await resolveExternalAgentToolApproval({
+      projectId: 'project-1',
+      request: toolRequest,
+      approve: true,
+    });
+
+    expect(result.status).toBe('approved');
+    expect(result.output).toBeDefined();
+    const searchOutput = result.output as { items: unknown[]; total: number };
+    expect(searchOutput.items.length).toBeGreaterThan(0);
+  });
+
+  it('allows external agents to manage production plans via production_plan', async () => {
+    const toolRequest: ExternalAgentToolRequest = {
+      version: 1,
+      runtime: 'codex',
+      sessionId: 'session-3',
+      turnId: 'turn-3',
+      callId: 'plan-create-1',
+      toolName: 'production_plan',
+      arguments: {
+        action: 'create',
+        createInput: {
+          title: 'External Agent TVC Plan',
+          workflow: { id: 'general_video' },
+          scope: { deliverables: ['tvc_preview'] },
+          stageOutline: [
+            { id: 'script', order: 1, name: 'Script breakdown', role: 'scriptwriter', promptPackageIds: [] },
+          ],
+        },
+      },
+    };
+
+    const approvalView = await prepareExternalAgentToolRequest({
+      projectId: 'project-1',
+      request: toolRequest,
+    });
+    expect(approvalView.toolName).toBe('production_plan');
+
+    const result = await resolveExternalAgentToolApproval({
+      projectId: 'project-1',
+      request: toolRequest,
+      approve: true,
+    });
+
+    if (result.status === 'error') {
+      throw new Error(`Production plan failed: ${result.error}`);
+    }
+    expect(result.status).toBe('approved');
+    const plan = result.output as { id: string; workflow: { id: string }; revision: number };
+    expect(plan.id).toBeDefined();
+    expect(plan.workflow.id).toBe('general_video');
+    expect(plan.revision).toBe(1);
+  });
 });

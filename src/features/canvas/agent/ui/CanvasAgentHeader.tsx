@@ -15,6 +15,7 @@ interface Props {
   onNewConversation: () => void;
   onViewChange: (view: CanvasAgentView) => void;
   onOpenExternalConnection: () => void;
+  onOpenExtensions?: () => void;
   onClose: () => void;
   closeRef: RefObject<HTMLButtonElement>;
 }
@@ -67,6 +68,7 @@ export function CanvasAgentHeader({
   onNewConversation,
   onViewChange,
   onOpenExternalConnection,
+  onOpenExtensions,
   onClose,
   closeRef,
 }: Props) {
@@ -126,6 +128,7 @@ export function CanvasAgentHeader({
                 <Wrench className="h-4 w-4 text-text-muted" aria-hidden="true" />
                 {showCompletedTools ? t('canvasAgent.hideCompletedTools') : t('canvasAgent.showCompletedTools')}
               </button>
+              {onOpenExtensions && <button type="button" role="menuitem" onClick={() => { onOpenExtensions(); setMenuOpen(false); }} className="flex min-h-10 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs text-text-dark hover:bg-text-dark/[0.055]"><Wrench className="h-4 w-4 text-text-muted" />技能与插件</button>}
               <button type="button" role="menuitem" onClick={() => { onOpenExternalConnection(); setMenuOpen(false); }} className="flex min-h-10 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs text-text-dark hover:bg-text-dark/[0.055]">
                 <Link2 className="h-4 w-4 text-text-muted" aria-hidden="true" />
                 {t('canvasAgent.externalConnection')}

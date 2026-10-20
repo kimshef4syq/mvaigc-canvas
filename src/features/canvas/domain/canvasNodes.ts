@@ -109,6 +109,7 @@ export interface GeneratedVideoEntry {
 }
 
 export interface ExportImageNodeData extends NodeImageData {
+  assetPurpose?: 'generated-result' | 'intermediate';
   resultKind?: ExportImageNodeResultKind;
   images?: GeneratedImageEntry[];
   mainImageIndex?: number;

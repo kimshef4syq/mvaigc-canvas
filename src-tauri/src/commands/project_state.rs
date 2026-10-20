@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 use tracing::warn;
@@ -61,6 +61,10 @@ fn ensure_projects_table(conn: &Connection) -> Result<(), String> {
           image_pool_json TEXT NOT NULL DEFAULT '[]'
         );
         CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at DESC);
+        CREATE TABLE IF NOT EXISTS project_histories (
+          project_id TEXT PRIMARY KEY,
+          history_json TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS project_image_refs (
           project_id TEXT NOT NULL,
           path TEXT NOT NULL,
@@ -1021,7 +1025,7 @@ pub(crate) fn get_project_record_impl(
     db: &State<ProjectDb>,
     project_id: &str,
 ) -> Result<Option<ProjectRecord>, String> {
-    with_db(app, db, |conn| {
+    let (result, needs_migration) = with_db(app, db, |conn| {
         let mut stmt = conn
             .prepare(
                 r#"
@@ -1060,6 +1064,16 @@ pub(crate) fn get_project_record_impl(
 
         match result {
             Ok(mut record) => {
+                let mut needs_migration = !collect_project_assets(&record.nodes_json).is_empty();
+                let stored_history: Option<String> = conn.query_row(
+                    "SELECT history_json FROM project_histories WHERE project_id = ?1",
+                    params![project_id], |row| row.get(0),
+                ).optional().map_err(|e| format!("Failed to read project history: {e}"))?;
+                if let Some(history) = stored_history {
+                    record.history_json = history;
+                } else if record.history_json != "{}" {
+                    needs_migration = true;
+                }
                 let mut asset_stmt = conn
                     .prepare("SELECT asset_id, metadata_json FROM assets WHERE project_id = ?1")
                     .map_err(|e| format!("Failed to prepare asset query: {}", e))?;
@@ -1078,12 +1092,21 @@ pub(crate) fn get_project_record_impl(
                 }
                 record.nodes_json =
                     hydrate_asset_media_fields(&record.nodes_json, &metadata_by_asset);
-                Ok(Some(record))
+                Ok((Some(record), needs_migration))
             }
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok((None, false)),
             Err(error) => Err(format!("Failed to load project: {}", error)),
         }
-    })
+    })?;
+    if needs_migration {
+        if let Some(record) = result {
+            // Rewrite a legacy row through the same transactional asset indexer used
+            // for new saves. The returned project is hydrated for existing callers.
+            upsert_project_record_impl(app, db, record)?;
+            return get_project_record_impl(app, db, project_id);
+        }
+    }
+    Ok(result)
 }
 
 #[tauri::command]
@@ -1171,11 +1194,17 @@ pub(crate) fn upsert_project_record_impl(
                 indexed_nodes_json,
                 record.edges_json,
                 record.viewport_json,
-                record.history_json,
+                "{}",
                 image_pool_json,
             ],
         )
         .map_err(|e| format!("Failed to upsert project: {}", e))?;
+
+        tx.execute(
+            "INSERT INTO project_histories (project_id, history_json) VALUES (?1, ?2) \
+             ON CONFLICT(project_id) DO UPDATE SET history_json = excluded.history_json",
+            params![record.id, record.history_json],
+        ).map_err(|e| format!("Failed to save project history: {e}"))?;
 
         tx.execute(
             "DELETE FROM project_image_refs WHERE project_id = ?1",
@@ -1277,6 +1306,8 @@ pub fn delete_project_record(
 
         tx.execute("DELETE FROM projects WHERE id = ?1", params![project_id])
             .map_err(|e| format!("Failed to delete project: {}", e))?;
+        tx.execute("DELETE FROM project_histories WHERE project_id = ?1", params![project_id])
+            .map_err(|e| format!("Failed to delete project history: {e}"))?;
         tx.execute(
             "DELETE FROM project_image_refs WHERE project_id = ?1",
             params![project_id],
@@ -1362,7 +1393,7 @@ mod tests {
     fn creates_asset_and_dependency_tables() {
         let conn = Connection::open_in_memory().unwrap();
         ensure_projects_table(&conn).unwrap();
-        for table in ["assets", "asset_dependencies"] {
+        for table in ["assets", "asset_dependencies", "project_histories"] {
             let count: i64 = conn
                 .query_row(
                     "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",

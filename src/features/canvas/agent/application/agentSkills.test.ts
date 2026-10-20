@@ -11,7 +11,7 @@ import {
 
 describe('agent skill router', () => {
   it('validates unique built-in skills, examples, eval ids, and safe namespaces', () => {
-    expect(BUILTIN_AGENT_SKILLS).toHaveLength(9);
+    expect(BUILTIN_AGENT_SKILLS).toHaveLength(10);
     expect(validateSkillCatalog(BUILTIN_AGENT_SKILLS)).toEqual([]);
   });
 
@@ -22,6 +22,8 @@ describe('agent skill router', () => {
       .toEqual(['director-studio', 'storyboard-planning', 'video-prompt-director']);
     expect(routeAgentSkills({ text: '4K 3:4 生图失败，帮我诊断 Issue 11', errorCode: 'pixel-limit' })[0]?.skill.id)
       .toBe('generation-diagnostics');
+    expect(routeAgentSkills({ text: '生成一张雨夜街景' }).map((item) => item.skill.id))
+      .toContain('image-prompt-director');
   });
 
   it('keeps unmatched requests minimal and never loads every skill detail', () => {
@@ -33,7 +35,7 @@ describe('agent skill router', () => {
       skillContext: unmatched,
       supportsVision: true,
       supportsToolSearch: false,
-    })).toMatchObject({ mode: 'minimal', toolKinds: [] });
+    })).toMatchObject({ mode: 'minimal', toolKinds: ['canvas'] });
 
     const selected = buildSkillContext({ text: '帮我诊断 429 错误' });
     const allDetailTokens = BUILTIN_AGENT_SKILLS.reduce((sum, skill) => sum + skill.estimatedTokens, 0);
@@ -77,7 +79,7 @@ describe('agent skill router', () => {
     expect(local.mode).toBe('local-router');
     expect(searched.mode).toBe('tool-search');
     expect(searched.toolKinds).toEqual(local.toolKinds);
-    expect(local.toolKinds).toEqual(['diagnostics', 'config']);
+    expect(local.toolKinds).toEqual(['canvas', 'diagnostics', 'config']);
     expect(resolveAgentToolPolicy({
       skillContext: context,
       supportsVision: false,
@@ -113,5 +115,30 @@ describe('agent skill router', () => {
       'unknown or unsafe tool namespace',
       'skill contains forbidden capability or secret access',
     ]));
+  });
+
+  it('boosts relevant skills and injects multi-stage instructions for ad-tvc workflow', () => {
+    const text = '为全新智能电动SUV制作一段30秒广告TVC';
+    const context = buildSkillContext({
+      text,
+      taskRoute: {
+        version: 1,
+        kind: 'workflow',
+        workflow: 'ad-tvc',
+        requestedDeliverables: ['commercial-video'],
+        scope: { targetNodeIds: [] },
+        requiredCapabilities: ['generation:video', 'generation:image', 'media:postprocess'],
+        evidence: [{ source: 'user', referenceId: 'prompt', excerpt: text }],
+      },
+    });
+    const skillIds = context.selections.map((s) => s.skill.id);
+    expect(skillIds).toContain('minimax-design-profiles');
+    expect(skillIds).toContain('storyboard-planning');
+    expect(context.instructions).toContain('商业广告 TVC 全流程制作');
+    expect(context.instructions).toContain('需求简报');
+    expect(context.instructions).toContain('核心锚点');
+    expect(context.instructions).toContain('分镜脚本');
+    expect(context.instructions).toContain('视频生成');
+    expect(context.instructions).toContain('production_plan');
   });
 });

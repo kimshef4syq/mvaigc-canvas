@@ -392,6 +392,49 @@ describe('custom provider submission safety', () => {
     );
   });
 
+  it.each(['success', 'download-failure'] as const)(
+    'saves the video result and exposes downloading before a pending download (%s)',
+    async (outcome) => {
+      (globalThis as typeof globalThis & { isTauri?: boolean }).isTauri = true;
+      useCustomProvidersStore.getState().replaceAll([provider({
+        mediaType: 'video', endpointPath: '/videos', models: ['video-model'],
+        extraParams: { requestBodyMode: 'json' },
+      })]);
+      customHttpRequestMock.mockImplementationOnce(() => response(200, {
+        video_url: 'https://cdn.example/video.mp4',
+      }));
+      let finish!: (value: string) => void;
+      let fail!: (error: Error) => void;
+      persistVideoSourceMock.mockImplementationOnce(() => new Promise<string>((resolve, reject) => {
+        finish = resolve;
+        fail = reject;
+      }));
+      const jobId = await submitCustomVideoJob({
+        prompt: 'animate', model: 'custom:provider-1:video-model',
+        size: '1280x720', aspect_ratio: '16:9',
+      });
+      await vi.waitFor(() => expect(persistVideoSourceMock).toHaveBeenCalledTimes(1));
+      expect(getCustomProviderJob(jobId)).toMatchObject({
+        status: 'materializing', phase: 'materialize',
+        result_url: 'https://cdn.example/video.mp4', resumable: true,
+      });
+      expect(updateGenerationJobMock).toHaveBeenCalledWith(expect.objectContaining({
+        jobId, status: 'materializing', resultUrl: 'https://cdn.example/video.mp4',
+      }));
+      if (outcome === 'success') {
+        finish('/local/video.mp4');
+        await vi.waitFor(() => expect(getCustomProviderJob(jobId).status).toBe('succeeded'));
+      } else {
+        fail(new Error('idle read timeout'));
+        await vi.waitFor(() => expect(getCustomProviderJob(jobId)).toMatchObject({
+          status: 'recoverable_wait', phase: 'materialize', error_category: 'download',
+          result_url: 'https://cdn.example/video.mp4', resumable: true,
+        }));
+      }
+      expect(customHttpRequestMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('forwards query authentication only to a same-origin video result', async () => {
     useCustomProvidersStore.getState().replaceAll([provider({
       mediaType: 'video',

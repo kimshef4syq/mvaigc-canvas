@@ -1,0 +1,5123 @@
+{
+  "01-Agents-智能体人设与编排/README": {
+    "title": "Agents — Per-Agent System Prompts",
+    "kind": "index",
+    "runtimePolicy": "index-only",
+    "activation": {
+      "intents": [
+        "agent-orchestration"
+      ],
+      "stages": [],
+      "modalities": [],
+      "exclusions": [
+        "index-only"
+      ]
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_write_node",
+      "hub_list_capabilities",
+      "hub_plan_patch_stage",
+      "hub_plan_write",
+      "hub_read"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "01-Agents-智能体人设与编排/comfyui-agent": {
+    "title": "Input contract",
+    "kind": "role",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "agent-orchestration"
+      ],
+      "stages": [],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_add_comfyui_workflow",
+      "hub_canvas_list_nodes",
+      "hub_edit_comfyui_workflow",
+      "hub_get_comfyui_run_status",
+      "hub_get_comfyui_workflow",
+      "hub_list_comfyui_template",
+      "hub_list_comfyui_workflow",
+      "hub_open_comfyui",
+      "hub_plugin_agent_describe",
+      "hub_run_comfyui_workflow",
+      "hub_save_comfyui_run_as_workflow",
+      "hub_save_comfyui_workflow"
+    ],
+    "requiredCapabilities": [
+      "integration:comfyui"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "01-Agents-智能体人设与编排/executor": {
+    "title": "Input",
+    "kind": "role",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "agent-orchestration"
+      ],
+      "stages": [],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_analyse_media",
+      "hub_canvas_get_node",
+      "hub_canvas_write_node",
+      "hub_ffmpeg",
+      "hub_generate_audio_music",
+      "hub_generate_audio_speech",
+      "hub_generate_image",
+      "hub_generate_video",
+      "hub_image_enhance",
+      "hub_image_layer_decompose",
+      "hub_image_remove_background",
+      "hub_list_capabilities",
+      "hub_media_transcribe",
+      "hub_merge_videos",
+      "hub_plan_get_stage_detail",
+      "hub_plan_get_work_items",
+      "hub_subtitle_format",
+      "hub_voice_prepare"
+    ],
+    "requiredCapabilities": [
+      "generation:video",
+      "generation:image",
+      "generation:audio",
+      "media:postprocess"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "01-Agents-智能体人设与编排/media-agent": {
+    "title": "Role",
+    "kind": "role",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "agent-orchestration"
+      ],
+      "stages": [],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_browser",
+      "hub_canvas_list_nodes",
+      "hub_canvas_write_node",
+      "hub_capability_search",
+      "hub_ffmpeg",
+      "hub_generate_image",
+      "hub_generate_video",
+      "hub_image_enhance",
+      "hub_image_layer_decompose",
+      "hub_image_remove_background",
+      "hub_image_search",
+      "hub_list_capabilities",
+      "hub_media_transcribe",
+      "hub_merge_videos",
+      "hub_plan_get_stage_detail",
+      "hub_plan_get_stage_status",
+      "hub_plan_patch_stage",
+      "hub_plan_replan",
+      "hub_plan_update_stage_state",
+      "hub_plan_write",
+      "hub_select_image_recipe",
+      "hub_subtitle_format",
+      "hub_voice_prepare"
+    ],
+    "requiredCapabilities": [
+      "generation:video",
+      "generation:image",
+      "generation:audio",
+      "media:postprocess"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "01-Agents-智能体人设与编排/planner": {
+    "title": "Input",
+    "kind": "role",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "agent-orchestration"
+      ],
+      "stages": [],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_write_node",
+      "hub_plan_get_stage_detail",
+      "hub_plan_get_stage_status",
+      "hub_plan_get_work_items",
+      "hub_plan_patch_stage",
+      "hub_plan_replan",
+      "hub_plan_update_stage_state",
+      "hub_plan_write"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "01-Agents-智能体人设与编排/router": {
+    "title": "Input",
+    "kind": "role",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "agent-orchestration"
+      ],
+      "stages": [],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_get_node",
+      "hub_read"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "01-Agents-智能体人设与编排/v3/media-agent": {
+    "title": "身份与职责",
+    "kind": "role",
+    "runtimePolicy": "developer-only",
+    "activation": {
+      "intents": [
+        "agent-orchestration"
+      ],
+      "stages": [],
+      "modalities": [],
+      "exclusions": [
+        "index-only"
+      ]
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "01-Agents-智能体人设与编排/media-agent",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/banana": {
+    "title": "banana -- image 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/gpt-image": {
+    "title": "gpt-image -- image 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/image-recipes/poster": {
+    "title": "Poster Image Recipe",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_generate_image"
+    ],
+    "requiredCapabilities": [
+      "generation:image"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/kling-omni": {
+    "title": "kling -- video model card",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/midjourney": {
+    "title": "midjourney -- image 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/minimax": {
+    "title": "MiniMax H3 系列 -- video 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/moss": {
+    "title": "moss -- audio.tts 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_voice_prepare"
+    ],
+    "requiredCapabilities": [
+      "generation:audio"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/official-music": {
+    "title": "official-music -- audio.music 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_generate_audio_music"
+    ],
+    "requiredCapabilities": [
+      "generation:audio"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/seed-audio": {
+    "title": "seed-audio -- audio.tts 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_generate_audio_speech"
+    ],
+    "requiredCapabilities": [
+      "generation:audio"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/seedaudio"
+  },
+  "02-Vendors-模型生成提示词与参数/seedance": {
+    "title": "seedance -- video 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/seedaudio": {
+    "title": "seedaudio -- audio.tts 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_generate_audio_speech"
+    ],
+    "requiredCapabilities": [
+      "generation:audio"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/seedream": {
+    "title": "seedream -- image 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/v3/banana": {
+    "title": "banana -- image 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/banana",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/gpt-image": {
+    "title": "gpt-image -- image 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/gpt-image",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/image-search": {
+    "title": "image-search — query playbook for design_image_sea…",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "design_image_search"
+    ],
+    "requiredCapabilities": [
+      "generation:image"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/kling-omni": {
+    "title": "kling -- video model card",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/kling-omni",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/midjourney": {
+    "title": "midjourney -- image 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/midjourney",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/minimax": {
+    "title": "MiniMax H3 系列 -- video 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/minimax",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/moss": {
+    "title": "moss -- audio.tts 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/moss",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/official-music": {
+    "title": "official-music -- audio.music 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/official-music",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/seedance": {
+    "title": "seedance -- video 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/seedance",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/seedaudio": {
+    "title": "seedaudio -- audio.tts 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/seedaudio",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/seedream": {
+    "title": "seedream -- image 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/seedream",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/veo": {
+    "title": "veo -- video 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/veo",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/v3/wan": {
+    "title": "wan -- video 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    },
+    "canonicalId": "02-Vendors-模型生成提示词与参数/wan",
+    "versionGroup": "v3"
+  },
+  "02-Vendors-模型生成提示词与参数/veo": {
+    "title": "veo -- video 后端卡片",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "02-Vendors-模型生成提示词与参数/wan": {
+    "title": "Wan 3.0 — 模型使用指南",
+    "kind": "vendor",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "model-generation"
+      ],
+      "stages": [],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_list_capabilities"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "03-DramaSeries-短剧微电影完整流程/reference/assets-blocking": {
+    "title": "短剧资产与站位参考",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "drama-series"
+      ],
+      "stages": [
+        "script-to-screen"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "03-DramaSeries-短剧微电影完整流程/reference/assets": {
+    "title": "短剧资产编写参考",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "drama-series"
+      ],
+      "stages": [
+        "script-to-screen"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "03-DramaSeries-短剧微电影完整流程/reference/h3-video-prompt": {
+    "title": "MiniMax H3 视频片段 Prompt 参考",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "drama-series"
+      ],
+      "stages": [
+        "script-to-screen"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_generate_video"
+    ],
+    "requiredCapabilities": [
+      "generation:video"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "03-DramaSeries-短剧微电影完整流程/reference/post": {
+    "title": "短剧后期 / 精剪参考",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "drama-series"
+      ],
+      "stages": [
+        "script-to-screen"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "03-DramaSeries-短剧微电影完整流程/reference/production-plan": {
+    "title": "短剧制作计划参考",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "drama-series"
+      ],
+      "stages": [
+        "script-to-screen"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_list_capabilities"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "03-DramaSeries-短剧微电影完整流程/reference/scene-keyframes": {
+    "title": "场景关键帧宫格参考",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "drama-series"
+      ],
+      "stages": [
+        "script-to-screen"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "03-DramaSeries-短剧微电影完整流程/reference/script-craft": {
+    "title": "短剧剧本创作参考",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "drama-series"
+      ],
+      "stages": [
+        "script-to-screen"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "03-DramaSeries-短剧微电影完整流程/reference/storyboard": {
+    "title": "短剧分镜参考",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "drama-series"
+      ],
+      "stages": [
+        "script-to-screen"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "03-DramaSeries-短剧微电影完整流程/reference/video-prompt": {
+    "title": "视频片段 Prompt 参考",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "drama-series"
+      ],
+      "stages": [
+        "script-to-screen"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_generate_video"
+    ],
+    "requiredCapabilities": [
+      "generation:video"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "03-DramaSeries-短剧微电影完整流程/workflow": {
+    "title": "短剧流程",
+    "kind": "workflow",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "drama-series"
+      ],
+      "stages": [
+        "script-to-screen"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_plan_patch_stage"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/category/appliance": {
+    "title": "Category：家用电器",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/category/auto": {
+    "title": "Category：汽车",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/category/beauty/anchors-beauty": {
+    "title": "美妆品类：Anchors 增量",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_read"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/category/beauty/creative-route-beauty": {
+    "title": "美妆品类：Anchors Video Creative Route 增量",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/category/beauty": {
+    "title": "Category：美妆",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/category/fashion": {
+    "title": "Category：服装",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/category/food": {
+    "title": "Category：餐饮食品",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/category/index": {
+    "title": "TVC Category 索引",
+    "kind": "index",
+    "runtimePolicy": "index-only",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": [
+        "index-only"
+      ]
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/category/tech/casebook-tech-ads": {
+    "title": "3C数码广告案例库 — Casebook",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/category/tech": {
+    "title": "Category：3C 数码",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/direction/brand-ad": {
+    "title": "Direction：品牌广告",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/direction/index": {
+    "title": "TVC Direction 索引",
+    "kind": "index",
+    "runtimePolicy": "index-only",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": [
+        "index-only"
+      ]
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/direction/product-ad": {
+    "title": "Direction：产品广告",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/direction/story-ad": {
+    "title": "Direction：剧情广告",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/direction/viral-ad": {
+    "title": "Direction：病毒传播广告",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/_internal/brand-logo-guard": {
+    "title": "Brand Logo Guard — Anchors 品牌资产约束",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/audio-strategy": {
+    "title": "TVC 最小 BGM 策略",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_plan_get_stage_detail"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/casting-spec": {
+    "title": "Casting Spec — 品牌片选角规格",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/character-design-sheet": {
+    "title": "TVC 固定模特 5-PLATE 参考卡",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/creative-brainstorm": {
+    "title": "Anchors Creative Route（anchors）创意路线契约",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/creative-research": {
+    "title": "TVC Visual Research — 产品与风格视觉调研",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_analyse_media",
+      "hub_canvas_write_node",
+      "hub_plan_patch_stage",
+      "hub_plan_write"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/environment-anchors": {
+    "title": "TVC Environment Anchors — MJ 环境锚点卡",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_list_capabilities"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/intake-and-brief": {
+    "title": "TVC Intake 与意图确认",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/post-production": {
+    "title": "TVC Post 合成合同",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/product-research": {
+    "title": "Anchors 前置产品调研与证据协议",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/product-spec": {
+    "title": "Product Spec — Anchors 产品参考路由",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/prompt-templates": {
+    "title": "Anchors 图像 Prompt 模板",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/video-generation-execution": {
+    "title": "TVC Visual Gen 授权与执行",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/video-generation-strategy": {
+    "title": "TVC 分镜与视频生成规划",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-style-spec": {
+    "title": "Anchors 前置视觉参考与 Style Master 契约",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T01-glitch": {
+    "title": "T01 — Glitch 热成像转场",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T02-logo-sequence": {
+    "title": "T02 — Logo 多维叙事序列",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T03-color-temperature-arc": {
+    "title": "T03 — 冷暖色温弧线叙事",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T04-flash-black-opening": {
+    "title": "T04 — 闪黑碎片序章",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T05-hud-overlay": {
+    "title": "T05 — HUD 技术叠层",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T06-typography-composition": {
+    "title": "T06 — 文案图形化排版",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T07-iconic-light-hero": {
+    "title": "T07 — 圣像光产品英雄镜头",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T08-monochrome-color-puncture": {
+    "title": "T08 — 黑白画面中的单点色彩",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T09-spotlight-isolation": {
+    "title": "T09 — 聚光灯孤立俯拍",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T10-macro-texture-montage": {
+    "title": "T10 — 微距质感蒙太奇",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T11-logo-self-luminance": {
+    "title": "T11 — Logo 自发光激活",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T12-high-key-impact-flash": {
+    "title": "T12 — 高反差过曝冲击帧",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T13-manifesto-end-card": {
+    "title": "T13 — 碑文式宣言终帧",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T14-industrial-manual-layout": {
+    "title": "T14 — 工业说明书式参数版面",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T15-abstract-to-product-morph": {
+    "title": "T15 — 抽象几何到产品形态蜕变",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T16-acoustic-ripple": {
+    "title": "T16 — 液体声波与悬浮声学隐喻",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T17-inside-out-tech-chain": {
+    "title": "T17 — 表里透视科技链",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T18-physics-beat-matching": {
+    "title": "T18 — 物理动力学卡点",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T19-speed-driven-driving": {
+    "title": "T19 — 高速推进与速度感驾驶",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques/T20-sensory-motif-translation": {
+    "title": "T20 — 感官母题互译链",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/reference/visual-techniques-library": {
+    "title": "TVC Visual Technique 索引",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "04-AdTVC-商业广告与品牌大片流程/workflow": {
+    "title": "Ad TVC — 视觉广告工作流",
+    "kind": "workflow",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "ad-tvc"
+      ],
+      "stages": [
+        "commercial-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_plan_patch_stage"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "05-MV-音乐卡点与歌词视频流程/reference/assets": {
+    "title": "MV Stage 4 — 角色与场景锚点（可选风格 Research）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "music-video"
+      ],
+      "stages": [
+        "beat-sync-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_analyse_media",
+      "hub_canvas_write_node",
+      "hub_image_search",
+      "hub_read"
+    ],
+    "requiredCapabilities": [
+      "generation:image"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "05-MV-音乐卡点与歌词视频流程/reference/creative-and-plan": {
+    "title": "MV Stage 1 / 3 — 创意方向与制作计划",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "music-video"
+      ],
+      "stages": [
+        "beat-sync-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_analyse_media",
+      "hub_plan_get_work_items",
+      "hub_read"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "05-MV-音乐卡点与歌词视频流程/reference/music": {
+    "title": "MV 音乐生成与实际成歌时间轴",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "music-video"
+      ],
+      "stages": [
+        "beat-sync-production"
+      ],
+      "modalities": [
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_analyse_media",
+      "hub_audio_analyze_music",
+      "hub_ffmpeg",
+      "hub_plan_create",
+      "hub_plan_get_stage_status",
+      "hub_plan_patch_stage",
+      "hub_read"
+    ],
+    "requiredCapabilities": [
+      "generation:audio",
+      "media:postprocess"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "05-MV-音乐卡点与歌词视频流程/reference/post": {
+    "title": "MV Stage 7 — 后期合成",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "music-video"
+      ],
+      "stages": [
+        "beat-sync-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_write_node"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "05-MV-音乐卡点与歌词视频流程/reference/script-writing": {
+    "title": "Script Writing — 故事与剧本写作",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "music-video"
+      ],
+      "stages": [
+        "beat-sync-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "05-MV-音乐卡点与歌词视频流程/reference/storyboard": {
+    "title": "MV Stage 5 — 导演分镜与镜头组规划",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "music-video"
+      ],
+      "stages": [
+        "beat-sync-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_read_text"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "05-MV-音乐卡点与歌词视频流程/reference/style-system": {
+    "title": "MV 五种视觉风格系统",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "music-video"
+      ],
+      "stages": [
+        "beat-sync-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_read"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "05-MV-音乐卡点与歌词视频流程/reference/typography-packaging": {
+    "title": "MV 动态字体与包装系统",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "music-video"
+      ],
+      "stages": [
+        "beat-sync-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "design_score",
+      "hub_read"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "05-MV-音乐卡点与歌词视频流程/reference/video-generation": {
+    "title": "MV Stage 6 — H3 最终 Prompt 编译、确认与派单",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "music-video"
+      ],
+      "stages": [
+        "beat-sync-production"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_read_text",
+      "hub_ffmpeg",
+      "hub_generate_video",
+      "hub_plan_get_stage_detail",
+      "hub_plan_get_work_items",
+      "hub_plan_patch_stage"
+    ],
+    "requiredCapabilities": [
+      "generation:video",
+      "media:postprocess"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "05-MV-音乐卡点与歌词视频流程/workflow": {
+    "title": "MV — music-led video workflow",
+    "kind": "workflow",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "music-video"
+      ],
+      "stages": [
+        "beat-sync-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_read_text",
+      "hub_plan_get_work_items",
+      "hub_read"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/audio-production/workflow": {
+    "title": "Audio Production — standalone speech / music / aud…",
+    "kind": "workflow",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video",
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_write_node",
+      "hub_voice_prepare"
+    ],
+    "requiredCapabilities": [
+      "generation:audio"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/profiles/narrative": {
+    "title": "故事驱动 profile（N）",
+    "kind": "workflow",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/profiles/on-camera": {
+    "title": "出镜驱动 profile（C）",
+    "kind": "workflow",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/profiles/speech": {
+    "title": "语音驱动 profile（S）",
+    "kind": "workflow",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/assets/asset-extraction": {
+    "title": "Visual Asset Extraction — 最小可复用资产判定",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/assets/casting-spec": {
+    "title": "Casting Spec — 出镜主体与角色选定",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/assets/character-consistency": {
+    "title": "Character Consistency — 人物连续性",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/assets/character-features": {
+    "title": "Character Features — 多参考人物贡献隔离",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/assets/character-guard": {
+    "title": "Character Guard — 人物参考图守卫",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/assets/character-sheet": {
+    "title": "Character Sheet — general-video 角色锚点",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/assets/era-identity-guard": {
+    "title": "Era & Identity Guard — 时代、地域与身份连续性",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/assets/prop-sheet": {
+    "title": "Prop Sheet — 关键道具辅助参考",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/assets/scene-sheet": {
+    "title": "Scene Sheet — 可复用场景身份",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/assets/style-consistency": {
+    "title": "Style Consistency — 跨镜视觉系统",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/digital-presenter": {
+    "title": "Digital Presenter — 数字讲者",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/film-language-handbook": {
+    "title": "Film Language Toolkit — 视听语言工具箱",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/intercut-overlay-spec": {
+    "title": "Intercut and Overlay — 辅助画面编排",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/live-action-shooting": {
+    "title": "Live-action Direction — 真人出镜",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/minimax-h3-shortgroup": {
+    "title": "Continuity-first Clip Groups — 连续镜头组",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/montage-theory": {
+    "title": "Montage — 蒙太奇设计",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/n-grid": {
+    "title": "N-grid — 多格视觉预览",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/photoreal-skin": {
+    "title": "Photoreal Human Texture — 真人写实质感",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/scene-description-layers": {
+    "title": "Scene Description Layers — 画面描述分层",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/storyboard-discipline": {
+    "title": "Storyboard Discipline — 分镜与 Shot Plan",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/storyboard-format": {
+    "title": "Storyboard Format — 视频执行表与可选逐镜格式",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/storyboard-image-strategy": {
+    "title": "Storyboard Image Strategy — 分镜图与稳定状态参考",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video",
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/video-generation-spec": {
+    "title": "Video Generation Strategy — 视频生成策略",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/directing/video-generation-strategy": {
+    "title": "Video Generation Strategy — 分组与生成策略",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/editing/dramatic-pause": {
+    "title": "戏剧性停顿（Dramatic Pause）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/editing/duration-reconciliation": {
+    "title": "时长对齐（Duration Reconciliation）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/editing/editing-principles": {
+    "title": "剪辑原则（Editing Principles）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/editing/ffmpeg-templates": {
+    "title": "确定性后期操作选择（Deterministic Post Operations）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/editing/transition-decision-tree": {
+    "title": "转场判断（Transition Decision Tree）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/editing/trim-strategy": {
+    "title": "裁切策略（Trim Strategy）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/model-routing/minimax-h3-multi-ref": {
+    "title": "MiniMax H3 Multi-Ref — 条件性多参考绑定",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/model-routing/models": {
+    "title": "Model Routing — plan capability requirements",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_list_capabilities"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/orchestration/canvas-workflow": {
+    "title": "Canvas Workflow — general-video 产物谱系",
+    "kind": "workflow",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/orchestration/cross-modal-coordination": {
+    "title": "Cross-Modal Coordination — 声画与时间协同",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/quality-control/iterate": {
+    "title": "Iterate — 局部修复与安全续跑",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/screenwriting/explainer-narrative": {
+    "title": "Explainer Narrative — 讲解叙事",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/screenwriting/script-writing": {
+    "title": "Script Writing — 故事与剧本写作",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/screenwriting/vo-natural-writing": {
+    "title": "Natural Voiceover — 自然旁白",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/sound/audio-engineering": {
+    "title": "音频工程判断（Audio Engineering）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video",
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/sound/audio-mix-hierarchy": {
+    "title": "混音层级（Audio Mix Hierarchy）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video",
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/sound/audio-strategy": {
+    "title": "Audio Strategy — 旁白与音乐策略",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video",
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/sound/batching": {
+    "title": "语音批次组织（Speech Batching）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video",
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/sound/pronunciation": {
+    "title": "发音与读法（Pronunciation）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video",
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/sound/seedaudio-prompting": {
+    "title": "场景化音频提示（Scene-based Audio Prompting）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video",
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/sound/source-separation": {
+    "title": "声源分离与重建（Source Separation）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video",
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/sound/voice-control": {
+    "title": "声音控制（Voice Control）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video",
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/color": {
+    "title": "色彩（Color）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/composition-depth": {
+    "title": "构图与空间（Composition and Depth）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/lighting": {
+    "title": "光线（Lighting）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/materials": {
+    "title": "材质与质感（Materials）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/movie-poster": {
+    "title": "配套海报与标题卡（Poster and Title Card）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video",
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/style-migration": {
+    "title": "风格迁移（Style Migration）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/typography": {
+    "title": "文字与排版（Typography）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/video-reference-analysis": {
+    "title": "Video Reference Analysis — 参考视频与节奏拆解",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/vision-decomposer": {
+    "title": "视觉参考拆解（Vision Decomposer）",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/reference/visual-aesthetics/visual-style-presets": {
+    "title": "Visual Style Presets — 可选视觉方向样本",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-GeneralVideo-通用视频制作流程/workflow": {
+    "title": "General Video — open-ended dependency workflow",
+    "kind": "workflow",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "general-video"
+      ],
+      "stages": [
+        "video-craft"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_plan_patch_stage",
+      "hub_plan_write"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-KOC-带货与口播种草流程/reference/creative-route": {
+    "title": "KOC Creative Route Reference — 卖点 / 钩子 / 人设 / CTA",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "koc-video"
+      ],
+      "stages": [
+        "influencer-content"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-KOC-带货与口播种草流程/reference/product-grounding": {
+    "title": "KOC Product Grounding Reference — 素材判定 / 人物锚 / 产品保…",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "koc-video"
+      ],
+      "stages": [
+        "influencer-content"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_analyse_media"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-KOC-带货与口播种草流程/reference/shot-vo-craft": {
+    "title": "KOC Shot & VO Craft Reference — 真人感 / 分镜节奏 / 口播文案",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "koc-video"
+      ],
+      "stages": [
+        "influencer-content"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "06-KOC-带货与口播种草流程/workflow": {
+    "title": "KOC Video — UGC product seeding workflow",
+    "kind": "workflow",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "koc-video"
+      ],
+      "stages": [
+        "influencer-content"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_analyse_media",
+      "hub_generate_video",
+      "hub_plan_patch_stage"
+    ],
+    "requiredCapabilities": [
+      "generation:video"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "07-SharedPipelines-共享资产与后期管线/AUTHORING": {
+    "title": "Workflow 编写规范",
+    "kind": "authoring",
+    "runtimePolicy": "developer-only",
+    "activation": {
+      "intents": [
+        "shared-pipeline"
+      ],
+      "stages": [
+        "post-production"
+      ],
+      "modalities": [],
+      "exclusions": [
+        "index-only"
+      ]
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "07-SharedPipelines-共享资产与后期管线/README-Workflows": {
+    "title": "Workflows — authoring and directory guide",
+    "kind": "index",
+    "runtimePolicy": "index-only",
+    "activation": {
+      "intents": [
+        "shared-pipeline"
+      ],
+      "stages": [
+        "post-production"
+      ],
+      "modalities": [],
+      "exclusions": [
+        "index-only"
+      ]
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "07-SharedPipelines-共享资产与后期管线/asset-pipeline": {
+    "title": "Asset Pipeline — reusable core anchors",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "shared-pipeline"
+      ],
+      "stages": [
+        "post-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_write_node",
+      "hub_generate_audio_speech",
+      "hub_voice_prepare"
+    ],
+    "requiredCapabilities": [
+      "generation:audio"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "07-SharedPipelines-共享资产与后期管线/audio-pipeline": {
+    "title": "Audio Pipeline — voice, music, stems, and mix deci…",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "shared-pipeline"
+      ],
+      "stages": [
+        "post-production"
+      ],
+      "modalities": [
+        "audio"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "07-SharedPipelines-共享资产与后期管线/stage-execution-plan": {
+    "title": "Stage Execution Plan — complete execution workflow",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "shared-pipeline"
+      ],
+      "stages": [
+        "post-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_get_node",
+      "hub_canvas_list_nodes",
+      "hub_canvas_write_node",
+      "hub_ffmpeg",
+      "hub_generate_audio_speech",
+      "hub_media_transcribe",
+      "hub_merge_videos",
+      "hub_plan_get_stage_detail",
+      "hub_plan_patch_stage",
+      "hub_plan_replan",
+      "hub_plan_write",
+      "hub_subtitle_format"
+    ],
+    "requiredCapabilities": [
+      "generation:video",
+      "generation:audio",
+      "media:postprocess"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "07-SharedPipelines-共享资产与后期管线/subtitle-pipeline": {
+    "title": "Subtitle Pipeline — ASS timed-text postprocess",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "shared-pipeline"
+      ],
+      "stages": [
+        "post-production"
+      ],
+      "modalities": [
+        "text"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_write_node",
+      "hub_ffmpeg",
+      "hub_media_transcribe",
+      "hub_subtitle_format"
+    ],
+    "requiredCapabilities": [
+      "media:postprocess"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "07-SharedPipelines-共享资产与后期管线/video-merge": {
+    "title": "Video Merge — final media assembly",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "shared-pipeline"
+      ],
+      "stages": [
+        "post-production"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_write_node",
+      "hub_ffmpeg",
+      "hub_media_transcribe",
+      "hub_merge_videos",
+      "hub_subtitle_format"
+    ],
+    "requiredCapabilities": [
+      "generation:video",
+      "media:postprocess"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "07-SharedPipelines-共享资产与后期管线/workflow-routing-index": {
+    "title": "Workflows — runtime routing index",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "shared-pipeline"
+      ],
+      "stages": [
+        "post-production"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v2": {
+    "title": "Knowledge — 按需 Read 的领域知识",
+    "kind": "index",
+    "runtimePolicy": "index-only",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": [
+        "index-only"
+      ]
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_list_capabilities",
+      "hub_select_image_recipe"
+    ],
+    "requiredCapabilities": [
+      "generation:image"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    },
+    "canonicalId": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3",
+    "versionGroup": "v2"
+  },
+  "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3": {
+    "title": "Knowledge — 按需 Read 的领域知识",
+    "kind": "index",
+    "runtimePolicy": "index-only",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": [
+        "index-only"
+      ]
+    },
+    "dependencies": [],
+    "originalTools": [
+      "design_capability_get",
+      "design_capability_list",
+      "design_read",
+      "design_search_knowledge"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/anatomy-traps": {
+    "title": "anatomy-traps -- semantic anatomy risk",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/brand-injection": {
+    "title": "brand-injection -- semantic brand asset risk",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/character-refs": {
+    "title": "character-refs -- semantic reference binding risk",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/constraint-negation": {
+    "title": "constraint-negation -- semantic absence risk",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/cultural-stereotypes": {
+    "title": "cultural-stereotypes -- semantic culture specifici…",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/era-disambiguation": {
+    "title": "era-disambiguation -- semantic era anchoring risk",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/intent-overreach": {
+    "title": "intent-overreach -- prompt expansion drift",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/medium-drift": {
+    "title": "medium-drift -- semantic medium locking risk",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/mood-vocabulary": {
+    "title": "mood-vocabulary -- semantic mood ambiguity risk",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/on-image-text": {
+    "title": "on-image-text -- semantic typography rendering ris…",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [
+        "image"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/plastic-skin": {
+    "title": "plastic-skin -- semantic photoreal portrait textur…",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/spoken-video": {
+    "title": "spoken-video -- native audio video routing",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [
+        "video"
+      ],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_ffmpeg"
+    ],
+    "requiredCapabilities": [
+      "media:postprocess"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "08-Failures-防翻车与负向避坑知识库/webtoon-proportions": {
+    "title": "webtoon-proportions -- semantic stylized body-scal…",
+    "kind": "reference",
+    "runtimePolicy": "on-demand",
+    "activation": {
+      "intents": [
+        "negative-prompting"
+      ],
+      "stages": [
+        "preflight-lint"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "pending",
+      "evidenceIds": []
+    }
+  },
+  "09-Contracts-画布纪律与语义契约/README-Plugins-v2": {
+    "title": "Plugins — OpenCode 运行时插件",
+    "kind": "authoring",
+    "runtimePolicy": "developer-only",
+    "activation": {
+      "intents": [
+        "contracts"
+      ],
+      "stages": [
+        "runtime-discipline"
+      ],
+      "modalities": [],
+      "exclusions": [
+        "index-only"
+      ]
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    },
+    "canonicalId": "09-Contracts-画布纪律与语义契约/README-Plugins-v3",
+    "versionGroup": "v2"
+  },
+  "09-Contracts-画布纪律与语义契约/README-Plugins-v3": {
+    "title": "Plugins — OpenCode 运行时插件",
+    "kind": "authoring",
+    "runtimePolicy": "developer-only",
+    "activation": {
+      "intents": [
+        "contracts"
+      ],
+      "stages": [
+        "runtime-discipline"
+      ],
+      "modalities": [],
+      "exclusions": [
+        "index-only"
+      ]
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "09-Contracts-画布纪律与语义契约/README": {
+    "title": "Contracts — Always-On Behavior Rules",
+    "kind": "index",
+    "runtimePolicy": "index-only",
+    "activation": {
+      "intents": [
+        "contracts"
+      ],
+      "stages": [
+        "runtime-discipline"
+      ],
+      "modalities": [],
+      "exclusions": [
+        "index-only"
+      ]
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "09-Contracts-画布纪律与语义契约/anti-loop": {
+    "title": "Anti-Loop",
+    "kind": "contract",
+    "runtimePolicy": "always-on",
+    "activation": {
+      "intents": [
+        "contracts"
+      ],
+      "stages": [
+        "runtime-discipline"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "09-Contracts-画布纪律与语义契约/baseline": {
+    "title": "Baseline Contract",
+    "kind": "contract",
+    "runtimePolicy": "always-on",
+    "activation": {
+      "intents": [
+        "contracts"
+      ],
+      "stages": [
+        "runtime-discipline"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "09-Contracts-画布纪律与语义契约/canvas-discipline": {
+    "title": "Canvas Discipline",
+    "kind": "contract",
+    "runtimePolicy": "always-on",
+    "activation": {
+      "intents": [
+        "contracts"
+      ],
+      "stages": [
+        "runtime-discipline"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_apply_text_edits",
+      "hub_canvas_get_node",
+      "hub_canvas_grep_text",
+      "hub_canvas_list_nodes",
+      "hub_canvas_write_node",
+      "hub_image_enhance",
+      "hub_image_layer_decompose",
+      "hub_image_remove_background",
+      "hub_plan_get_stage_detail",
+      "hub_plan_get_stage_status",
+      "hub_plan_update_stage_state"
+    ],
+    "requiredCapabilities": [
+      "generation:image"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "09-Contracts-画布纪律与语义契约/canvas-grouping": {
+    "title": "Canvas Grouping",
+    "kind": "contract",
+    "runtimePolicy": "always-on",
+    "activation": {
+      "intents": [
+        "contracts"
+      ],
+      "stages": [
+        "runtime-discipline"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_canvas_group_nodes",
+      "hub_canvas_group_recent_outputs",
+      "hub_canvas_list_nodes",
+      "hub_canvas_ungroup_node",
+      "hub_plan_update_stage_state",
+      "hub_run_comfyui_workflow"
+    ],
+    "requiredCapabilities": [
+      "integration:comfyui"
+    ],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  },
+  "09-Contracts-画布纪律与语义契约/semantic-judgment": {
+    "title": "Semantic Judgment Contract",
+    "kind": "contract",
+    "runtimePolicy": "always-on",
+    "activation": {
+      "intents": [
+        "contracts"
+      ],
+      "stages": [
+        "runtime-discipline"
+      ],
+      "modalities": [],
+      "exclusions": []
+    },
+    "dependencies": [],
+    "originalTools": [
+      "hub_analyse_media"
+    ],
+    "requiredCapabilities": [],
+    "coverage": {
+      "knowledge": "pending",
+      "execution": "not-applicable",
+      "evidenceIds": []
+    }
+  }
+}

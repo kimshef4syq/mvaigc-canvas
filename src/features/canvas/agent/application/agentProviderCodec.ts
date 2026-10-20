@@ -14,7 +14,7 @@ import {
   getPath,
   jsonString,
   numberValue,
-  parseToolArguments,
+  normalizeProviderToolArguments,
   safeResponseId,
   stringValue,
   wireToolName,
@@ -56,12 +56,12 @@ function usageFromPayload(protocol: AgentModelProtocol, payload: unknown): Agent
   };
 }
 
-function validateToolCall(call: AgentModelToolCall): AgentModelToolCall {
+function validateToolCall(call: AgentModelToolCall, tools: readonly AgentModelToolDefinition[]): AgentModelToolCall {
   if (!call.callId.trim() || !call.name.trim()) {
     throw new AgentModelProtocolError('Provider returned a tool call without call id or name.');
   }
-  parseToolArguments(call.arguments || '{}');
-  return { ...call, arguments: call.arguments || '{}' };
+  const tool = tools.find((candidate) => candidate.name === call.name && candidate.namespace === call.namespace);
+  return { ...call, arguments: normalizeProviderToolArguments(call.arguments || '{}', tool) };
 }
 
 function escapeRegExp(value: string): string {
@@ -104,7 +104,7 @@ function parseResponsesOutput(
         callId: stringValue(record.call_id) ?? stringValue(record.id) ?? '',
         ...(namespace ? { name: wireName, namespace } : decodeToolName(wireName, tools)),
         arguments: stringValue(record.arguments) ?? '{}',
-      }));
+      }, tools));
       continue;
     }
     const content = Array.isArray(record.content) ? record.content : [];
@@ -142,7 +142,7 @@ function parseChatOutput(
         callId: stringValue(getPath(rawCall, ['id'])) ?? '',
         ...decodeToolName(wireName, tools),
         arguments: stringValue(getPath(rawCall, ['function', 'arguments'])) ?? '{}',
-      }));
+      }, tools));
     }
   }
   return { text, toolCalls };
@@ -171,7 +171,7 @@ function parseAnthropicOutput(
           callId: stringValue(record.id) ?? '',
           ...decodeToolName(wireName, tools),
           arguments: jsonString(record.input),
-        }));
+        }, tools));
       }
     }
   }
@@ -198,7 +198,7 @@ function parseGeminiOutput(
           callId: stringValue(functionCall.id) ?? safeResponseId(undefined),
           ...decodeToolName(wireName, tools),
           arguments: jsonString(functionCall.args),
-        }));
+        }, tools));
       }
     }
   }
@@ -290,7 +290,7 @@ export class AgentProviderStreamAccumulator {
         callId: call.callId,
         ...decoded,
         arguments: call.arguments || '{}',
-      });
+      }, this.request.tools);
     });
     assertStructuredToolCalling(this.request, this.text, toolCalls);
     return {
@@ -370,7 +370,8 @@ export class AgentProviderStreamAccumulator {
         const current = this.toolCalls.get(key) ?? { callId: key, name: '', arguments: '' };
         current.callId = stringValue(getPath(rawCall, ['id'])) ?? current.callId;
         current.name += stringValue(getPath(rawCall, ['function', 'name'])) ?? '';
-        current.arguments += stringValue(getPath(rawCall, ['function', 'arguments'])) ?? '';
+        const argumentDelta = getPath(rawCall, ['function', 'arguments']);
+        current.arguments += typeof argumentDelta === 'string' ? argumentDelta : '';
         this.toolCalls.set(key, current);
       }
     }

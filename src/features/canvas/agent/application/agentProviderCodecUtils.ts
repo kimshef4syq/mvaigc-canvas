@@ -80,3 +80,25 @@ export function parseToolArguments(value: string): JsonRecord {
     throw new AgentModelProtocolError('Tool arguments must be a JSON object.');
   }
 }
+
+/** A few compatible providers double-encode objects, or emit null/[] for
+ * truly argument-free tools. Do not invent parameters for other schemas. */
+export function normalizeProviderToolArguments(value: string, tool?: AgentModelToolDefinition): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value.trim() || '{}') as unknown;
+    if (typeof parsed === 'string') parsed = JSON.parse(parsed) as unknown;
+  } catch {
+    throw new AgentModelProtocolError(`Tool arguments must be a JSON object (${tool?.name ?? 'unknown tool'}); invalid JSON, tool was not executed.`);
+  }
+  const schema = asRecord(tool?.parameters);
+  const properties = asRecord(schema?.properties);
+  const argumentFree = schema?.type === 'object' && properties !== null
+    && Object.keys(properties).length === 0
+    && (!Array.isArray(schema.required) || schema.required.length === 0);
+  if (argumentFree && (parsed === null || Array.isArray(parsed) && parsed.length === 0)) parsed = {};
+  if (!asRecord(parsed)) {
+    throw new AgentModelProtocolError(`Tool arguments must be a JSON object (${tool?.name ?? 'unknown tool'}); received ${parsed === null ? 'null' : Array.isArray(parsed) ? 'array' : typeof parsed}, tool was not executed.`);
+  }
+  return JSON.stringify(parsed);
+}

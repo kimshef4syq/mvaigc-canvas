@@ -1,0 +1,164 @@
+{
+  "decisions": [
+    {
+      "topic": "orchestrator-role",
+      "group": "01-Agents",
+      "canonicalId": "01-Agents-智能体人设与编排/media-agent",
+      "alternateIds": [
+        "01-Agents-智能体人设与编排/v3/media-agent"
+      ],
+      "decisionType": "canonical-with-alternate",
+      "reason": "根版使用阶段计划（Stage Plan），与 mvaigc 画布制作流程契约匹配；v3 版本强调 Composition/Resource/Version，作为版本追踪与资产引用设计的补充参考，不作为独立调度器启动。"
+    },
+    {
+      "topic": "vendor-audio-alias",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/seedaudio",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/seed-audio"
+      ],
+      "decisionType": "alias",
+      "reason": "seed-audio 与 seedaudio 描述同一语音模型后端；以 seedaudio 为规范名，seed-audio 保留作为别名映射。"
+    },
+    {
+      "topic": "failure-knowledge-readme",
+      "group": "08-Failures",
+      "canonicalId": "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v3",
+      "alternateIds": [
+        "08-Failures-防翻车与负向避坑知识库/README-Knowledge-v2"
+      ],
+      "decisionType": "authoring-only",
+      "reason": "两者均为知识库阅读与编写说明，v3 包含能力发现接口说明；两者均设为 index-only/authoring 策略，不作为任务激活文档。"
+    },
+    {
+      "topic": "contract-plugins-readme",
+      "group": "09-Contracts",
+      "canonicalId": "09-Contracts-画布纪律与语义契约/README-Plugins-v3",
+      "alternateIds": [
+        "09-Contracts-画布纪律与语义契约/README-Plugins-v2"
+      ],
+      "decisionType": "authoring-only",
+      "reason": "两者均为 OpenCode 运行时插件规约说明，设为 developer-only 策略。"
+    },
+    {
+      "topic": "vendor-model-banana",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/banana",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/banana"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 banana 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    },
+    {
+      "topic": "vendor-model-gpt-image",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/gpt-image",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/gpt-image"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 gpt-image 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    },
+    {
+      "topic": "vendor-model-kling-omni",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/kling-omni",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/kling-omni"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 kling-omni 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    },
+    {
+      "topic": "vendor-model-midjourney",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/midjourney",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/midjourney"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 midjourney 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    },
+    {
+      "topic": "vendor-model-minimax",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/minimax",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/minimax"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 minimax 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    },
+    {
+      "topic": "vendor-model-moss",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/moss",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/moss"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 moss 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    },
+    {
+      "topic": "vendor-model-official-music",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/official-music",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/official-music"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 official-music 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    },
+    {
+      "topic": "vendor-model-seedance",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/seedance",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/seedance"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 seedance 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    },
+    {
+      "topic": "vendor-model-seedaudio",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/seedaudio",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/seedaudio"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 seedaudio 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    },
+    {
+      "topic": "vendor-model-seedream",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/seedream",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/seedream"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 seedream 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    },
+    {
+      "topic": "vendor-model-veo",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/veo",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/veo"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 veo 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    },
+    {
+      "topic": "vendor-model-wan",
+      "group": "02-Vendors",
+      "canonicalId": "02-Vendors-模型生成提示词与参数/wan",
+      "alternateIds": [
+        "02-Vendors-模型生成提示词与参数/v3/wan"
+      ],
+      "decisionType": "canonical-detailed-vs-compact",
+      "reason": "根版为 wan 详细提示词与全参数模型卡；v3 为精简参数卡。运行时以根版为主知识卡，v3 作为参数更新参考。"
+    }
+  ]
+}

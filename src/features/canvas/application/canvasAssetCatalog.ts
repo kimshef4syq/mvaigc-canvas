@@ -4,6 +4,7 @@ import {
 } from '../domain/canvasNodes';
 
 export type CanvasAssetCatalogKind = 'image' | 'video' | 'audio';
+export type CanvasAssetPurpose = 'generated-result' | 'intermediate' | 'reference';
 
 export interface CanvasAssetCatalogItem {
   id: string;
@@ -15,6 +16,20 @@ export interface CanvasAssetCatalogItem {
   aspectRatio?: string;
   url: string;
   previewUrl?: string | null;
+  purpose?: CanvasAssetPurpose;
+}
+
+function primaryImagePurpose(node: CanvasNode): CanvasAssetPurpose {
+  const data = node.data as Record<string, unknown>;
+  if (data.assetPurpose === 'intermediate') return 'intermediate';
+  if (node.type === CANVAS_NODE_TYPES.imageEdit) return 'generated-result';
+  if (node.type === CANVAS_NODE_TYPES.exportImage) {
+    // Legacy generated outputs already carry provenance; screenshots do not.
+    if (readString(data.generatedFileName) || readString(data.generationLastJobId) || readString(data.sourcePrompt)
+      || data.resultKind === 'storyboardGenOutput' || data.resultKind === 'storyboardFrameEdit') return 'generated-result';
+    return 'intermediate';
+  }
+  return 'reference';
 }
 
 function readString(value: unknown): string | null {
@@ -42,7 +57,7 @@ function getNodeSourceLabel(node: CanvasNode): string {
     case CANVAS_NODE_TYPES.imageEdit:
       return 'AI 图片';
     case CANVAS_NODE_TYPES.exportImage:
-      return '结果图';
+      return primaryImagePurpose(node) === 'generated-result' ? '成品图' : '中间图片';
     case CANVAS_NODE_TYPES.panorama:
       return '全景图';
     case CANVAS_NODE_TYPES.storyboardSplit:
@@ -268,6 +283,7 @@ export function buildCanvasAssetCatalog(nodes: CanvasNode[]): CanvasAssetCatalog
         aspectRatio,
         url: imageUrl,
         previewUrl: readString(data.previewImageUrl),
+        purpose: primaryImagePurpose(node),
       });
     }
 
@@ -291,6 +307,9 @@ export function buildCanvasAssetCatalog(nodes: CanvasNode[]): CanvasAssetCatalog
         id: `${node.id}:video`,
         nodeId: node.id,
         kind: 'video',
+        purpose: data.assetPurpose === 'intermediate' ? 'intermediate'
+          : data.assetPurpose === 'reference' ? 'reference'
+          : readString(data.generatedFileName) || readString(data.generationLastJobId) || readString(data.sourcePrompt) ? 'generated-result' : 'reference',
         title,
         sourceLabel,
         order: baseOrder,
@@ -348,7 +367,8 @@ export function projectCanvasAssetCatalogItem(item: CanvasAssetCatalogItem): {
   kind: CanvasAssetCatalogKind;
   title: string;
   sourceLabel: string;
-  available: true;
+  availability: 'unchecked';
+  purpose: CanvasAssetPurpose;
   aspectRatio?: string;
 } {
   return {
@@ -357,7 +377,8 @@ export function projectCanvasAssetCatalogItem(item: CanvasAssetCatalogItem): {
     kind: item.kind,
     title: item.title,
     sourceLabel: item.sourceLabel,
-    available: true,
+    availability: 'unchecked',
+    purpose: item.purpose ?? 'reference',
     aspectRatio: item.aspectRatio,
   };
 }

@@ -4700,6 +4700,24 @@ async function pollGeneratedVideoTask(
   );
 }
 
+async function markVideoMaterializing(jobId: string, videoSource: string): Promise<boolean> {
+  const resultUrl = asLightweightRetryResultSource(videoSource);
+  if (!(await persistCriticalCustomJobUpdate(jobId, {
+    status: 'materializing',
+    phase: 'materialize',
+    resultUrl: resultUrl ?? undefined,
+    resumable: Boolean(resultUrl || cache.get(jobId)?.external_task_id),
+  }))) return false;
+  updateCachedJob(jobId, {
+    status: 'materializing',
+    phase: 'materialize',
+    result_url: resultUrl,
+    error: null,
+    resumable: Boolean(resultUrl || cache.get(jobId)?.external_task_id),
+  });
+  return true;
+}
+
 async function materializeGeneratedVideoSource(
   cfg: CustomProviderConfig,
   videoSource: string,
@@ -4734,6 +4752,62 @@ async function materializeGeneratedVideoSource(
   }
 }
 
+const h3QueuedRequests = new Set<string>();
+const H3_QUEUE_REQUEST_PREFIX = 'minimax-h3-queued-request:';
+
+function saveH3QueuedRequest(jobId: string, request: GenerateRequest): void {
+  try {
+    const allowedParams = new Set([
+      'seconds', 'duration', 'resolutionType', 'resolution', 'size',
+      'imageMode', 'aspectRatio', 'aspect_ratio', 'frames', 'videoInputSchema',
+    ]);
+    const params = request.extra_params ?? {};
+    if (Object.keys(params).some((key) => !allowedParams.has(key))) return;
+    const serialized = JSON.stringify({
+      prompt: request.prompt, model: request.model, size: request.size,
+      aspect_ratio: request.aspect_ratio,
+      reference_images: request.reference_images,
+      reference_videos: request.reference_videos,
+      reference_audios: request.reference_audios,
+      extra_params: params,
+    } satisfies GenerateRequest);
+    // WebView local storage is small. Oversized media requests still run in the
+    // current session, but cannot be restored from a local queued record.
+    if (serialized.length <= 2_000_000) window.localStorage.setItem(`${H3_QUEUE_REQUEST_PREFIX}${jobId}`, serialized);
+  } catch { /* A private WebView may not expose persistent storage. */ }
+}
+
+function readH3QueuedRequest(jobId: string): GenerateRequest | null {
+  try {
+    const serialized = window.localStorage.getItem(`${H3_QUEUE_REQUEST_PREFIX}${jobId}`);
+    if (!serialized) return null;
+    const value: unknown = JSON.parse(serialized);
+    if (!value || typeof value !== 'object') return null;
+    const request = value as GenerateRequest;
+    return typeof request.prompt === 'string' && typeof request.model === 'string'
+      && typeof request.size === 'string' && typeof request.aspect_ratio === 'string' ? request : null;
+  } catch { return null; }
+}
+
+function clearH3QueuedRequest(jobId: string): void {
+  try { window.localStorage.removeItem(`${H3_QUEUE_REQUEST_PREFIX}${jobId}`); } catch { /* Storage may be unavailable. */ }
+}
+
+function enqueueH3VideoJob(jobId: string, cfg: CustomProviderConfig, model: string, request: GenerateRequest, network: Readonly<GenerationNetworkSettings>): void {
+  if (h3QueuedRequests.has(jobId)) return;
+  h3QueuedRequests.add(jobId);
+  minimaxH3ExecutorQueue.enqueue(
+    async () => {
+      try { await runCustomVideoJob(jobId, cfg, model, request, network, true); }
+      finally { h3QueuedRequests.delete(jobId); }
+    },
+    (error) => {
+      h3QueuedRequests.delete(jobId);
+      updateCachedJob(jobId, { status: 'failed', phase: 'submit', error: formatUnknownError(error), error_category: classifyGenerationError(error) });
+    },
+  );
+}
+
 export async function submitCustomVideoJob(request: GenerateRequest): Promise<string> {
   const resolved = resolveProviderAndModel(request.model);
   const jobId = `custom-local-video-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -4755,8 +4829,6 @@ export async function submitCustomVideoJob(request: GenerateRequest): Promise<st
   });
   if (cfg.id === 'mvaigc-video' && /minimax[-_]h3/i.test(model)) {
     try {
-      // Persist before entering the queue so a pending job can fail explicitly
-      // after a restart instead of being silently lost or submitted twice.
       await persistCustomJobCreate(jobId, cfg, model, 'video', network);
     } catch (error) {
       updateCachedJob(jobId, {
@@ -4767,17 +4839,8 @@ export async function submitCustomVideoJob(request: GenerateRequest): Promise<st
       });
       return jobId;
     }
-    minimaxH3ExecutorQueue.enqueue(
-      () => runCustomVideoJob(jobId, cfg, model, request, network, true),
-      (error) => {
-        updateCachedJob(jobId, {
-          status: 'failed',
-          phase: 'submit',
-          error: formatUnknownError(error),
-          error_category: classifyGenerationError(error),
-        });
-      },
-    );
+    saveH3QueuedRequest(jobId, request);
+    enqueueH3VideoJob(jobId, cfg, model, request, network);
   } else {
     void runCustomVideoJob(jobId, cfg, model, request, network);
   }
@@ -4815,6 +4878,7 @@ async function runCustomVideoJob(
       error: null,
     });
     await persistCustomJobUpdateRequired(jobId, { status: 'submitting', phase: 'submit' });
+    clearH3QueuedRequest(jobId);
     const parsed = await sendVideoGenerationRequest(cfg, model, request, network);
     const externalTaskId = extractTaskId(parsed);
     updateCachedJob(jobId, {
@@ -4854,6 +4918,7 @@ async function runCustomVideoJob(
       });
       return;
     }
+    if (!(await markVideoMaterializing(jobId, videoSource))) return;
     let preparedVideoSource: string;
     try {
       preparedVideoSource = await materializeGeneratedVideoSource(cfg, videoSource, network);
@@ -4955,6 +5020,7 @@ async function retryCustomVideoPoll(jobId: string, retryContext: VideoPollRetryC
       retryContext.taskId,
       retryContext.network,
     );
+    if (!(await markVideoMaterializing(jobId, videoSource))) return;
     let preparedVideoSource: string;
     try {
       preparedVideoSource = await materializeGeneratedVideoSource(
@@ -5846,6 +5912,11 @@ export async function recoverCustomProviderJob(jobId: string): Promise<Generatio
   if (loading) return await loading;
   const pending = (async () => {
     const persisted = await getGenerationJobRecord(normalizedJobId);
+    if (persisted.status === 'queued'
+      && persisted.provider_id === 'mvaigc-video'
+      && /minimax[-_]h3/i.test(persisted.model_id ?? '')) {
+      return await getCustomProviderJobAsync(normalizedJobId);
+    }
     if (persisted.status === 'succeeded' && persisted.result) {
       cache.set(normalizedJobId, { ...persisted });
       return getCustomProviderJob(normalizedJobId);
@@ -5888,13 +5959,38 @@ function startPersistedRecovery(persisted: GenerationJobStatus): Promise<Generat
 
 export async function getCustomProviderJobAsync(jobId: string): Promise<GenerationJobStatus> {
   const cached = cache.get(jobId);
-  if (cached?.provider_id && cached.network_route) return getCustomProviderJob(jobId);
+  const queuedH3WithoutExecutor = cached?.status === 'queued'
+    && cached.provider_id === 'mvaigc-video'
+    && /minimax[-_]h3/i.test(cached.model_id ?? '')
+    && !h3QueuedRequests.has(jobId);
+  if (cached?.provider_id && cached.network_route && !queuedH3WithoutExecutor) return getCustomProviderJob(jobId);
   try {
     const persisted = await getGenerationJobRecord(jobId);
-    if (!cached && persisted.status === 'queued') {
-      const error = '应用重启时任务仍在本机队列中，生成请求未发送；请重新提交。';
+    if (persisted.status === 'queued'
+      && persisted.provider_id === 'mvaigc-video'
+      && /minimax[-_]h3/i.test(persisted.model_id ?? '')) {
+      const request = readH3QueuedRequest(jobId);
+      const cfg = useCustomProvidersStore.getState().providers.find((provider) => provider.id === persisted.provider_id);
+      const model = persisted.model_id ?? '';
+      const network = useSettingsStore.getState().generationNetworkSettings;
+      if (request && cfg && hasCustomProviderCredential(cfg)
+        && request.model === `custom:${cfg.id}:${model}`
+        && persisted.config_fingerprint === generationConfigFingerprint(cfg, model)
+        && persisted.network_route === network.route) {
+        cache.set(jobId, { ...persisted });
+        enqueueH3VideoJob(jobId, cfg, model, request, { ...network });
+        return getCustomProviderJob(jobId);
+      }
+      if (request && (!cfg || !hasCustomProviderCredential(cfg)
+        || persisted.config_fingerprint !== generationConfigFingerprint(cfg, model)
+        || persisted.network_route !== network.route)) {
+        cache.set(jobId, { ...persisted, error: '等待原供应商配置和网络路线恢复后继续本机队列。' });
+        return getCustomProviderJob(jobId);
+      }
+      const error = '应用重启时任务仍在本机队列中，但本机未保留请求；生成请求未发送，请重新提交。';
       updateCachedJob(jobId, { ...persisted, status: 'failed', error, error_category: 'queue-interrupted' });
       persistCustomJobUpdate(jobId, { status: 'failed', error, errorCategory: 'queue-interrupted' });
+      clearH3QueuedRequest(jobId);
       return getCustomProviderJob(jobId);
     }
     cache.set(jobId, cached ? { ...persisted, ...cached } : { ...persisted });

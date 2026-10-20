@@ -8,6 +8,7 @@ import {
   EXTERNAL_AGENT_EVENT_VERSION,
   type ExternalAgentEventV1,
   type ExternalAgentRuntimeDiagnostic,
+  type ExternalAgentToolName,
 } from '../domain/agentModel';
 
 export function projectExternalAgentRuntimeDiagnostic(
@@ -87,7 +88,19 @@ export function normalizeExternalAgentEvent(
       return { version: 1, kind: 'diagnostic', runtime, sessionId, turnId, message: message || undefined, data };
     case 'toolRequested': {
       if (!turnId || !raw.toolCall) throw new Error('External Agent toolRequested event is incomplete.');
-      if (!['canvas_command', 'diagnostics', 'config_patch', 'asset_read'].includes(raw.toolCall.name)) {
+      const allowedTools: ExternalAgentToolName[] = [
+        'canvas_command',
+        'diagnostics',
+        'config_patch',
+        'asset_read',
+        'profile_search',
+        'profile_read',
+        'source_read',
+        'source_inspect',
+        'production_plan',
+        'media_postprocess',
+      ];
+      if (!allowedTools.includes(raw.toolCall.name as ExternalAgentToolName)) {
         throw new Error(`External Agent requested unknown tool ${raw.toolCall.name}.`);
       }
       return {
@@ -102,7 +115,7 @@ export function normalizeExternalAgentEvent(
           sessionId,
           turnId,
           callId: raw.toolCall.callId,
-          toolName: raw.toolCall.name as 'canvas_command' | 'diagnostics' | 'config_patch' | 'asset_read',
+          toolName: raw.toolCall.name as ExternalAgentToolName,
           arguments: redactSensitiveValue(raw.toolCall.input),
         },
       };
