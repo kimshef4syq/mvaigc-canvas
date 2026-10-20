@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react';
-import { NodeToolbar as ReactFlowNodeToolbar } from '@xyflow/react';
+import { SingleNodeToolbar as ReactFlowNodeToolbar } from './SingleNodeToolbar';
 import { Eye, Frame, Power, RectangleHorizontal, Scan, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

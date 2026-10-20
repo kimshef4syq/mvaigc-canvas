@@ -1,3 +1,4 @@
+import { SingleNodeToolbar as NodeToolbar } from '@/features/canvas/ui/SingleNodeToolbar';
 import {
   memo,
   useCallback,
@@ -8,7 +9,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { NodeToolbar, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
+import { Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
 import { AlertTriangle, Bug, Camera, Check, ChevronDown, ChevronRight, Copy, History, Loader2, Maximize2, Sparkles, Type, Video, X } from 'lucide-react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';

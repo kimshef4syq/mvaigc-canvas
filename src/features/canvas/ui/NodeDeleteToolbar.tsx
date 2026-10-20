@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { NodeToolbar as ReactFlowNodeToolbar } from '@xyflow/react';
+import { SingleNodeToolbar as ReactFlowNodeToolbar } from './SingleNodeToolbar';
 import { RotateCcw, Trash2, Ungroup } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

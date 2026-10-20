@@ -1,3 +1,4 @@
+import { useIsMultiNodeSelection } from './SingleNodeToolbar';
 import { memo } from 'react';
 import { Maximize2, Scissors } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +24,10 @@ export const VideoNodeToolbar = memo(({
   frameMenuOpen = false,
 }: VideoNodeToolbarProps) => {
   const { t } = useTranslation();
+  const multiSelected = useIsMultiNodeSelection();
   const chipClass = 'nodrag flex h-7 items-center gap-1 rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)]/80 px-2 text-[11px] text-text-dark shadow-sm backdrop-blur-sm transition-colors hover:bg-[var(--canvas-node-menu-hover)]';
+
+  if (multiSelected) return null;
 
   return (
     <div className="pointer-events-auto flex items-center gap-1" data-testid="video-node-toolbar">

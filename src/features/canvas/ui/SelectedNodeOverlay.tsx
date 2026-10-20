@@ -1,5 +1,5 @@
 import { lazy, memo, Suspense, useEffect, useMemo, useCallback, useState } from 'react';
-import { NodeToolbar as ReactFlowNodeToolbar } from '@xyflow/react';
+import { SingleNodeToolbar as ReactFlowNodeToolbar, useIsMultiNodeSelection } from './SingleNodeToolbar';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -151,13 +151,15 @@ export const SelectedNodeOverlay = memo(() => {
     return () => { if (rafId != null) window.cancelAnimationFrame(rafId); };
   }, [panelState.isOpen, panelState.anchor]);
 
+  const multiSelected = useIsMultiNodeSelection();
+
   const selectedNode = useMemo(() => {
-    if (!selectedNodeId) {
+    if (!selectedNodeId || multiSelected) {
       return null;
     }
 
     return nodes.find((node) => node.id === selectedNodeId) ?? null;
-  }, [nodes, selectedNodeId]);
+  }, [nodes, selectedNodeId, multiSelected]);
 
   const selectedNodeToolbarMode = selectedNode
     ? getNodeSelectionToolbarMode(selectedNode.type)
@@ -231,10 +233,10 @@ export const SelectedNodeOverlay = memo(() => {
       return;
     }
     const anchorNode = nodes.find((node) => node.id === panelState.anchor?.nodeId);
-    if (!anchorNode || getNodeSelectionToolbarMode(anchorNode.type) !== 'full') {
+    if (multiSelected || !anchorNode || getNodeSelectionToolbarMode(anchorNode.type) !== 'full') {
       closePanel();
     }
-  }, [closePanel, nodes, panelState.anchor, panelState.isOpen]);
+  }, [closePanel, nodes, panelState.anchor, panelState.isOpen, multiSelected]);
 
   const selectedNodeImageData = useMemo(() => {
     const data = selectedNode?.data as { imageUrl?: string | null; previewImageUrl?: string | null; aspectRatio?: string } | undefined;

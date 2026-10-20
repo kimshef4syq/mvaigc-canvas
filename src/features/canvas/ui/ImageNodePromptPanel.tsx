@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { NodeToolbar, Position } from '@xyflow/react';
+import { Position } from '@xyflow/react';
+import { SingleNodeToolbar as NodeToolbar } from './SingleNodeToolbar';
 import { Camera, Maximize2, Send, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
