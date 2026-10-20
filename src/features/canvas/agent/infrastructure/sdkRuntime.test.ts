@@ -21,6 +21,7 @@ import {
   conservativeModelRetryPolicy,
   createCanvasAgent,
   normalizeStoryboardAgentToolCalls,
+  normalizeCanvasCommandToolArguments,
   createStoryboardAgentRuntime,
   restoreStoryboardRunState,
   serializeStoryboardRunState,
@@ -839,8 +840,8 @@ describe('OpenAI Agents SDK runtime adapter', () => {
     canvasAgentApprovalStore.deleteRun(runId);
   });
 
-  it('stops bounded follow-through at a recoverable unknown boundary without replaying submit', async () => {
-    const runId = 'sdk-generation-recoverable-boundary-run';
+  it.each(['recoverable_wait', 'idle', 'missing'] as const)('handles %s without reporting false success or replaying submit', async (statusState) => {
+    const runId = `sdk-generation-recoverable-boundary-run-${statusState}`;
     const submitCallId = 'sdk-generation-recoverable-submit';
     canvasAgentApprovalStore.deleteRun(runId);
     let modelCalls = 0;
@@ -891,7 +892,7 @@ describe('OpenAI Agents SDK runtime adapter', () => {
           revisionBefore: 3,
           revisionAfter: 3,
           impact: { effect: 'read' as const, summary: 'status', affectedNodeIds: ['node-1'], affectedEdgeIds: [], creates: { nodes: 0, edges: 0, groups: 0 }, deletes: { nodes: 0, edges: 0, groups: 0 }, requiresExternalSideEffect: false },
-          output: { references: { nodeId: 'node-1', jobId: 'job-1' }, value: { status: 'recoverable_wait', error: 'result lookup delayed' } },
+          output: { references: { nodeId: 'node-1' }, value: statusState === 'missing' ? {} : { status: statusState, error: statusState === 'recoverable_wait' ? 'result lookup delayed' : null } },
         };
       },
     };
@@ -916,7 +917,7 @@ describe('OpenAI Agents SDK runtime adapter', () => {
     expect(submitCalls).toBe(1);
     expect(toolEvents[toolEvents.length - 1]).toMatchObject({
       status: 'unknown',
-      error: expect.stringContaining('没有重复提交生成请求'),
+      error: expect.stringContaining(statusState === 'idle' ? '尚未确认任务启动' : '没有重复提交生成请求'),
     });
     expect(canvasAgentApprovalStore.getReceipt(createIdempotencyKey(runId, 'canvas_command', submitCallId)))
       .toMatchObject({ status: 'accepted' });
@@ -1382,3 +1383,10 @@ describe('OpenAI Agents SDK runtime adapter', () => {
 });
 
 
+
+it('normalizes read and create field mistakes without inventing generation submissions', () => {
+  expect(JSON.parse(normalizeCanvasCommandToolArguments(JSON.stringify({ type: 'canvas.query', input: {} })))).toMatchObject({ input: { scope: 'graph' } });
+  expect(JSON.parse(normalizeCanvasCommandToolArguments(JSON.stringify({ type: 'node.create', input: { type: 'imageNode' } })))).toMatchObject({ input: { nodeType: 'imageNode', position: { x: 0, y: 0 } } });
+  expect(JSON.parse(normalizeCanvasCommandToolArguments(JSON.stringify({ type: 'generation.status', input: { nodeIds: ['actual-node'] } })))).toMatchObject({ input: { nodeId: 'actual-node' } });
+  expect(normalizeCanvasCommandToolArguments('not-json')).toBe('not-json');
+});

@@ -69,6 +69,7 @@ export interface CanvasCommandBase<TType extends CanvasCommandType, TInput> {
 }
 
 export interface CanvasNodeCreateConfiguration {
+  shotNumber?: number;
   displayName?: string;
   prompt?: string;
   content?: string;
@@ -98,6 +99,7 @@ export type CreateNodeCommand = CanvasCommandBase<'node.create', {
   position: XYPosition;
   nodeId?: string;
   dimensions?: { width: number; height: number };
+  referenceNodeIds?: string[];
   configuration?: CanvasNodeCreateConfiguration;
 }>;
 

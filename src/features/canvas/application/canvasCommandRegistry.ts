@@ -108,7 +108,8 @@ const finitePositionField = objectField('Finite canvas position hint; the applic
 }, ['x', 'y'], false);
 
 const createConfigurationField = objectField('Allowed create-time configuration. Use aspectRatio (not ratio) and resolution (not size).', {
-  displayName: stringField('Optional visible node title.'),
+  shotNumber: numberField('Positive shot order in the storyboard, independent of generation order.'),
+  displayName: stringField('Optional visible node title; for shots include their action or subject.'),
   prompt: stringField('Generation prompt.'),
   content: stringField('Text annotation content.'),
   modelId: stringField('Exact configured catalog model id.'),
@@ -177,6 +178,7 @@ const INPUT_SCHEMAS: Record<CanvasCommandType, CanvasJsonSchema> = {
       width: numberField('Positive width.'),
       height: numberField('Positive height.'),
     }, ['width', 'height'], false),
+    referenceNodeIds: arrayField('Existing reference asset node ids to connect atomically to this node.'),
     configuration: createConfigurationField,
   }),
   'node.delete': objectSchema(['nodeIds'], { nodeIds: arrayField('Node ids to delete with descendants.') }),
@@ -493,7 +495,7 @@ function validateJsonConfiguration(
 }
 
 function allowedCreateConfigurationKeys(nodeType: CanvasNodeType): Set<string> {
-  const common = ['displayName'];
+  const common = ['displayName', 'shotNumber'];
   switch (nodeType) {
     case CANVAS_NODE_TYPES.imageEdit:
     case CANVAS_NODE_TYPES.storyboardGen:
@@ -534,6 +536,7 @@ function validateCreateConfiguration(
   if (unknownConfigurationKey) {
     errors.push(`Unknown or unsupported ${nodeType} create configuration field: ${unknownConfigurationKey}.`);
   }
+  if ('shotNumber' in value && (!Number.isSafeInteger(value.shotNumber) || Number(value.shotNumber) <= 0)) errors.push('configuration.shotNumber must be a positive integer.');
   if ('displayName' in value) {
     validateString(value.displayName, 'configuration.displayName', errors);
     if (typeof value.displayName === 'string' && value.displayName.length > 200) {
@@ -777,6 +780,7 @@ function validateCommandInput(
             ?? 'nodeType requires a dedicated creation workflow.',
         );
       }
+      if (command.input.referenceNodeIds !== undefined) validateStringArray(command.input.referenceNodeIds, 'referenceNodeIds', errors, true);
       validateFinitePosition(command.input.position, 'position', errors);
       if (command.input.nodeId !== undefined) validateString(command.input.nodeId, 'nodeId', errors);
       if (command.input.dimensions !== undefined) {
@@ -1317,12 +1321,15 @@ export class CanvasCommandRegistry {
     draft: CanvasGraphDraft,
     origin: CanvasCommandOrigin,
   ): string | null {
-    if (origin === 'ui' || command.type === 'node.create') {
+    if (origin === 'ui') {
       return null;
     }
 
     const seedIds = new Set<string>();
     switch (command.type) {
+      case 'node.create':
+        (command.input.referenceNodeIds ?? []).forEach((nodeId) => seedIds.add(nodeId));
+        break;
       case 'node.delete':
       case 'node.layout':
       case 'group.create':

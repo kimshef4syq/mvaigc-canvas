@@ -12,6 +12,7 @@ import {
   type StageStatus,
   type WorkItemStatus,
   propagateStaleStages,
+  productionStageSchema,
 } from '../domain/productionPlan';
 
 export interface CreatePlanInput {
@@ -122,6 +123,11 @@ export class ProductionPlanService {
   }
 
   authorStage(input: AuthorStageInput): ProductionPlanV1 {
+    const validatedStage = productionStageSchema.safeParse(input.stage);
+    if (!validatedStage.success) {
+      throw new Error(`author_stage 需要 authorStageInput.stage 对象（必填 id、order、name）：${validatedStage.error.message}`);
+    }
+    input = { ...input, stage: validatedStage.data };
     const plan = productionPlanRepository.getPlan(input.projectId, input.planId);
     if (!plan) {
       throw new Error(`未找到制作计划：${input.planId}`);

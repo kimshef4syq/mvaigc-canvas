@@ -1,5 +1,7 @@
+import { getPendingGenerationTriggerCount, subscribePendingGenerationTriggers } from './application/canvasGenerationTriggers';
 import {
   useState,
+  useSyncExternalStore,
   useCallback,
   useEffect,
   useMemo,
@@ -1003,6 +1005,7 @@ export function Canvas() {
   }, []);
 
   const nodes = useCanvasStore((state) => state.nodes);
+  const pendingGenerationTriggers = useSyncExternalStore(subscribePendingGenerationTriggers, getPendingGenerationTriggerCount);
   const edges = useCanvasStore((state) => state.edges);
   const applyNodesChange = useCanvasStore((state) => state.onNodesChange);
   const applyEdgesChange = useCanvasStore((state) => state.onEdgesChange);
@@ -4185,7 +4188,7 @@ export function Canvas() {
         multiSelectionKeyCode={['Control', 'Meta']}
         selectionKeyCode={['Control', 'Meta']}
         deleteKeyCode={null}
-        onlyRenderVisibleElements={!activeDirectorStudioNodeId}
+        onlyRenderVisibleElements={!activeDirectorStudioNodeId && pendingGenerationTriggers === 0 && !nodes.some((node) => node.data.isGenerating)}
         zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
         snapToGrid={isSnapEnabled}

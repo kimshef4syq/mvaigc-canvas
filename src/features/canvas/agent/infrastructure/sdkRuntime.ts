@@ -440,6 +440,21 @@ export function normalizeCanvasCommandToolArguments(argumentsJson: string): stri
       argumentsJson = JSON.stringify(command);
     }
   }
+  if (command.input && typeof command.input === 'object' && !Array.isArray(command.input)) {
+    const input = { ...(command.input as Record<string, unknown>) };
+    if (command.type === 'canvas.query' && input.scope === undefined) {
+      input.scope = 'graph';
+      command.input = input;
+      argumentsJson = JSON.stringify(command);
+    }
+    if (command.type === 'generation.status' && input.nodeId === undefined
+      && Array.isArray(input.nodeIds) && input.nodeIds.length === 1 && typeof input.nodeIds[0] === 'string') {
+      input.nodeId = input.nodeIds[0];
+      delete input.nodeIds;
+      command.input = input;
+      argumentsJson = JSON.stringify(command);
+    }
+  }
   if (command.type === 'asset.locate' && command.input && typeof command.input === 'object' && !Array.isArray(command.input)) {
     const input = { ...(command.input as Record<string, unknown>) };
     // Locate already focuses the asset in the canvas. A boolean `reveal` adds
@@ -482,6 +497,10 @@ export function normalizeCanvasCommandToolArguments(argumentsJson: string): stri
     return argumentsJson;
   }
   const input = { ...(command.input as Record<string, unknown>) };
+  if (input.nodeType === undefined && typeof input.type === 'string') {
+    input.nodeType = input.type;
+    delete input.type;
+  }
   if (input.position === undefined) {
     input.position = { x: 0, y: 0 };
   }
@@ -883,6 +902,7 @@ async function followAcceptedGeneration(input: {
   const wait = input.context.generationFollowThrough?.wait
     ?? ((delayMs: number) => new Promise<void>((resolve) => globalThis.setTimeout(resolve, delayMs)));
   let lastStatus: CanvasCommandExecutionResult | null = null;
+  let unstartedNodeIds: string[] = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     if (attempt > 1 || initialDelayMs > 0) {
@@ -919,7 +939,7 @@ async function followAcceptedGeneration(input: {
     }
     const recoverable = statuses.find((status) => {
       const state = generationStatusValue(status)?.status;
-      return state === 'recoverable_wait' || state === 'unknown';
+      return !state || state === 'recoverable_wait' || state === 'unknown';
     });
     if (recoverable) {
       return {
@@ -931,6 +951,7 @@ async function followAcceptedGeneration(input: {
         message: '生成结果当前处于可恢复的未知状态。可以继续查询或重新获取已有任务结果；没有重复提交生成请求。',
       };
     }
+    unstartedNodeIds = statuses.flatMap((status, index) => generationStatusValue(status)?.status === 'idle' ? [input.inputNodeIds[index]] : []);
     const pending = statuses.filter((status) => {
       const state = generationStatusValue(status)?.status;
       return state === 'idle' || state === 'queued' || state === 'submitting'
@@ -977,7 +998,9 @@ async function followAcceptedGeneration(input: {
       revisionAfter: input.context.getCanvasRevision?.() ?? canvasCommandRegistry.getRevision(),
       error: { code: 'execution_failed', message: '生成状态查询已达到本轮上限。' },
     },
-    message: `已完成 ${maxAttempts} 次有上限的状态查询，任务仍在处理中。已保留原任务，可稍后安全继续查询；没有重复提交生成请求。`,
+    message: unstartedNodeIds.length > 0
+      ? `以下节点仍为 idle，尚未确认任务启动：${unstartedNodeIds.join(', ')}。不能报告为处理中或成功；请检查节点配置与触发接收情况，没有自动重复提交。`
+      : `已完成 ${maxAttempts} 次有上限的状态查询，任务仍在处理中。已保留原任务，可稍后安全继续查询；没有重复提交生成请求。`,
   };
 }
 
@@ -1078,7 +1101,11 @@ export function createCanvasAgent(options: {
       return !approvedGenerationPollGrant(context, command);
     },
     execute: async (rawInput, _runContext, details) => {
-      const input = canvasCommandInputParser.parse(rawInput);
+      const parsedInput = canvasCommandInputParser.safeParse(rawInput);
+      if (!parsedInput.success) {
+        return { ok: false, code: 'invalid_tool_arguments', error: `canvas_command 需要结构化 JSON 对象 { type, input }。${parsedInput.error.message}`, advice: '请调用 canvas_command_schema 获取精确字段；本次工具未执行，不要假定生成已提交。' };
+      }
+      const input = parsedInput.data;
       const command = { type: input.type, version: CANVAS_COMMAND_VERSION, input: input.input } as CanvasCommand;
       const callId = requiredToolCallId(details);
 
@@ -1716,7 +1743,9 @@ export function createCanvasAgent(options: {
         },
         authorStageInput: {
           type: 'object',
-          description: '编写阶段参数（action = author_stage 时使用）',
+          description: '编写阶段参数。必须是 { stage: { id, order, name, ... }, changeReason? }，不要将 stage 字段展开到 authorStageInput 根级。',
+          properties: { stage: { type: 'object', properties: { id: { type: 'string' }, order: { type: 'integer', minimum: 0 }, name: { type: 'string' } }, required: ['id', 'order', 'name'], additionalProperties: true }, changeReason: { type: 'string' } },
+          required: ['stage'],
         },
         replanInput: {
           type: 'object',
@@ -1930,6 +1959,7 @@ export function createCanvasAgent(options: {
     : selectedTools;
   agent = new Agent<CanvasAgentContext>({
     name: 'Storyboard Canvas Agent',
+    modelSettings: { parallelToolCalls: false },
     model: runtime.modelProvider.getModel(options.modelName),
     instructions: [
       '你是 Storyboard Copilot 的全能画布助手。你可以理解文本和获批的图片引用，使用类型化工具完成画布工作。',
@@ -1941,6 +1971,8 @@ export function createCanvasAgent(options: {
         : '当前是手动模式：需要操作时直接发起结构化工具调用，由应用显示确认卡；不要在正文里要求用户另行回复“继续”，也不要把“我会做”当成已执行。',
       '结果必须引用真实 nodeId/assetId/jobId；成功后告诉用户如何定位。错误要分类并保留未知状态。',
       '用户可见正文必须简洁自然。禁止在正文输出 Reasoning Summary、Context Analysis、Constraint Check、Action Strategy、Node Creation、Generation Submission 等内部分析标题或英文工作记录；应用已有独立的 reasoning summary 展开区。状态查询和生成结果通常用一至三段中文说明状态、关键结果与下一步，不重复罗列 nodeId、jobId、坐标或“如何定位”，除非用户正在排错或明确要求详情。',
+      '多镜头任务：按分镜顺序设置 node.create.configuration.shotNumber（从1开始）和唯一 displayName（如第01镜 · 旋钮锁合）。有锚点/参考素材时，用 node.create.input.referenceNodeIds 传入已成功产出的真实素材节点ID，应用会原子创建连线；不要只把参考写在提示词里。无连线就不能声称已使用锚点。并发读取可以；画布写操作必须逐个等待完成，避免审批快照冲突。',
+      '任务验收必须逐项对照制作计划：包括所有锚点图和视频。idle 且无 jobId 表示未启动，不能称为排队、处理中或已完成。必须说明缺失项；视频片段齐备不等于已剪辑输出成片，不要推断未计费或无费用风险。',
       'generation.submit 被接受后，应用会在本次工具调用内执行有上限的安全状态跟进。必须根据 followThrough.outcome 总结实际结果；不要承诺“稍后检查”，不要再重复提交同一付费生成请求。followThrough 为 failed 时先解释明确失败并安全诊断，recoverable 时说明可继续查询/恢复，succeeded 时定位结果。',
       toolPolicy.toolKinds.includes('canvas')
         ? '不要猜测画布命令字段。canvas.query 只使用 scope/nodeIds/limit。从零生图时直接调用已注册的 canvas_command 工具：先用 node.create 创建 imageNode，configuration 写入 prompt、当前所选 modelId、aspectRatio、resolution，position 只作为空白位置提示且不要自造 nodeId；创建返回 ok=true 后，再把 output.references.nodeId 原样用于 generation.submit.input.nodeIds。generation.submit 不接收 prompt、modelId、ratio 或 resolution。必须使用结构化工具调用，绝不能把工具名、参数 JSON 或代码块写进正文。参数错误时只按精确契约纠正一次。'

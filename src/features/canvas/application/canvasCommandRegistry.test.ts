@@ -1220,3 +1220,27 @@ describe('CanvasCommandRegistry read and generation facades', () => {
     });
   });
 });
+
+describe('atomic reference graph creation', () => {
+  beforeEach(resetCanvas);
+  it('creates a named ordered shot and its reference connection in a single transaction', async () => {
+    const sourceId = useCanvasStore.getState().addNode(CANVAS_NODE_TYPES.upload, { x: 0, y: 0 }, { imageUrl: 'anchor.png' });
+    const result = await canvasCommandRegistry.execute({
+      type: 'node.create', version: CANVAS_COMMAND_VERSION,
+      input: { nodeType: CANVAS_NODE_TYPES.aiVideo, position: { x: 500, y: 0 }, referenceNodeIds: [sourceId], configuration: { displayName: '旋钮锁合', shotNumber: 1 } },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
+    expect(useCanvasStore.getState().nodes.find((node) => node.id === result.output.references.nodeId)?.data).toMatchObject({ displayName: '旋钮锁合', shotNumber: 1 });
+    expect(useCanvasStore.getState().edges).toEqual([expect.objectContaining({ source: sourceId, target: result.output.references.nodeId })]);
+  });
+  it('rejects missing references without leaving an orphan shot node', async () => {
+    const result = await canvasCommandRegistry.execute({
+      type: 'node.create', version: CANVAS_COMMAND_VERSION,
+      input: { nodeType: CANVAS_NODE_TYPES.aiVideo, position: { x: 0, y: 0 }, referenceNodeIds: ['missing'] },
+    });
+    expect(result.ok).toBe(false);
+    expect(useCanvasStore.getState().nodes).toHaveLength(0);
+    expect(useCanvasStore.getState().edges).toHaveLength(0);
+  });
+});

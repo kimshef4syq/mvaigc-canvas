@@ -4,7 +4,7 @@ import {
   type CanvasNode,
 } from '../domain/canvasNodes';
 import type { CanvasEventBus } from './ports';
-import { supportsCanvasGenerationTrigger } from './canvasGenerationTriggers';
+import { requestCanvasGenerationTrigger, supportsCanvasGenerationTrigger } from './canvasGenerationTriggers';
 import { recoverPersistedGenerationResult, type GenerationRecoveryResult } from './generationRecovery';
 
 export type CanvasGenerationStatus =
@@ -206,7 +206,12 @@ function aggregateSourceStatus(
   };
 }
 
+function generationFingerprint(node: CanvasNode): string {
+  return JSON.stringify([projectNodeStatus(node), (node.data as GenerationData).generationStartedAt]);
+}
+
 export class CanvasGenerationFacade {
+  private readonly submissionBaselines = new Map<string, Map<string, string>>();
   constructor(private readonly eventBus: CanvasEventBus) {}
 
   supportsNode(node: CanvasNode): boolean {
@@ -222,7 +227,8 @@ export class CanvasGenerationFacade {
       if (!node || !this.supportsNode(node)) {
         continue;
       }
-      this.eventBus.publish('generation-node/trigger', { nodeId });
+      this.submissionBaselines.set(nodeId, new Map(nodes.map((candidate) => [candidate.id, generationFingerprint(candidate)])));
+      requestCanvasGenerationTrigger(this.eventBus, nodeId);
       acceptedNodeIds.push(nodeId);
     }
 
@@ -250,7 +256,12 @@ export class CanvasGenerationFacade {
     }
 
     if (this.supportsNode(node)) {
-      const resultNodes = findGenerationResultNodes(nodes, edges, node);
+      const baseline = input.jobId ? undefined : this.submissionBaselines.get(node.id);
+      const resultNodes = findGenerationResultNodes(nodes, edges, node)
+        .filter((candidate) => !baseline || baseline.get(candidate.id) !== generationFingerprint(candidate));
+      if (baseline && resultNodes.length === 0 && baseline.get(node.id) === generationFingerprint(node)) {
+        return { nodeId: node.id, jobId: null, jobIds: [], status: 'idle', resultNodeId: null, resultNodeIds: [], hasResult: false, error: null };
+      }
       if (input.jobId && ![node, ...resultNodes].some((candidate) => {
         const data = candidate.data as GenerationData;
         return readString(data.generationJobId) === input.jobId

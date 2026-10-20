@@ -98,6 +98,7 @@ import {
 import {
   getLocalDateStamp,
   resolveDefaultGeneratedVideoDisplayName,
+  resolveGeneratedShotTitle,
   resolveDefaultGeneratedVideoFileStem,
   resolveNextGeneratedMediaSequence,
 } from '@/features/canvas/application/generatedMediaNaming';
@@ -1009,7 +1010,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         isGenerating: true,
         generationStartedAt,
         generationDurationMs,
-        displayName: resolveDefaultGeneratedVideoDisplayName(generatedSequence, prompt),
+        displayName: resolveGeneratedShotTitle(useCanvasStore.getState().nodes.find((node) => node.id === id)?.data.displayName, data.shotNumber, resolveDefaultGeneratedVideoDisplayName(generatedSequence, prompt)),
         generatedNamingMode: 'default' as const,
         generatedSequence,
         generatedDateStamp,

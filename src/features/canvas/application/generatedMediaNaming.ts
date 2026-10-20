@@ -159,7 +159,7 @@ export function resolveNextGeneratedMediaSequence(
   const nodeType = mediaKind === 'image' ? CANVAS_NODE_TYPES.exportImage : CANVAS_NODE_TYPES.video;
   let maxSequence = 0;
   for (const node of nodes) {
-    if (excludedIds.has(node.id) || node.type !== nodeType) {
+    if (excludedIds.has(node.id) || (node.type !== nodeType && !(mediaKind === 'video' && node.type === CANVAS_NODE_TYPES.aiVideo))) {
       continue;
     }
     const value = (node.data as Record<string, unknown>).generatedSequence;
@@ -220,4 +220,15 @@ export function resolveSuggestedImageStem(data: Partial<ExportImageNodeData>): s
 
 export function resolveSuggestedVideoStem(data: Partial<VideoNodeData>): string {
   return stripFileExtension(resolveGeneratedVideoSaveFileName(data));
+}
+
+/** Keep authored shot order independent of generation completion order. */
+export function resolveGeneratedShotTitle(sourceTitle: unknown, shotNumber: unknown, fallback: string): string {
+  const title = typeof sourceTitle === 'string' ? sourceTitle.trim() : '';
+  const authored = title && !['AI 视频', '生成视频', 'AI Video', '视频生成'].includes(title)
+    && !/^video_\d+_/.test(title) ? title : '';
+  if (typeof shotNumber === 'number' && Number.isSafeInteger(shotNumber) && shotNumber > 0) {
+    return `第${String(shotNumber).padStart(2, '0')}镜 · ${authored.replace(/^第\d+镜\s*[·:：-]?\s*/, '') || '视频'}`;
+  }
+  return authored || fallback;
 }

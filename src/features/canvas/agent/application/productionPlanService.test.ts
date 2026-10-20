@@ -187,3 +187,9 @@ describe('ProductionPlanService', () => {
     expect(stage.status).toBe('ready');
   });
 });
+
+it('rejects missing author_stage stage with actionable validation rather than an undefined.id exception', () => {
+  expect(() => productionPlanService.authorStage({
+    projectId: 'missing', planId: 'missing', expectedRevision: 1,
+  } as Parameters<typeof productionPlanService.authorStage>[0])).toThrow('authorStageInput.stage');
+});

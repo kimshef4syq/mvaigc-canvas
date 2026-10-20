@@ -138,3 +138,18 @@ describe('CanvasGenerationFacade job states', () => {
     });
   });
 });
+
+it('does not mistake historical successful outputs for a newly requested generation', async () => {
+  const { InMemoryCanvasEventBus } = await import('./eventBus');
+  const { subscribeCanvasGenerationTrigger } = await import('./canvasGenerationTriggers');
+  const bus = new InMemoryCanvasEventBus();
+  const service = new CanvasGenerationFacade(bus);
+  const source = { id: 'reused-source', type: CANVAS_NODE_TYPES.imageEdit, position: { x: 0, y: 0 }, data: {} } as CanvasNode;
+  const oldResult = { id: 'old-result', type: CANVAS_NODE_TYPES.exportImage, position: { x: 400, y: 0 }, data: { imageUrl: 'old.png', generationLastJobId: 'old-job', generationJobState: 'succeeded' } } as CanvasNode;
+  const edges = [{ id: 'old-edge', source: source.id, target: oldResult.id }];
+  const cleanup = subscribeCanvasGenerationTrigger(bus, CANVAS_NODE_TYPES.imageEdit, source.id, () => undefined);
+  service.submit([source.id], [source, oldResult]);
+  expect(service.getStatus([source, oldResult], edges, { nodeId: source.id })).toMatchObject({ status: 'idle', hasResult: false, resultNodeIds: [] });
+  expect(service.getStatus([source, oldResult], edges, { jobId: 'old-job' })).toMatchObject({ status: 'succeeded', hasResult: true });
+  cleanup();
+});

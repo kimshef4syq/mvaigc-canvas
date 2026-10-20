@@ -208,6 +208,7 @@ function createNodeData(command: Extract<CanvasCommand, { type: 'node.create' }>
     return {};
   }
   const data: Record<string, unknown> = {};
+  if (configuration.shotNumber !== undefined) data.shotNumber = configuration.shotNumber;
   if (configuration.displayName !== undefined) {
     data.displayName = configuration.displayName;
     if (
@@ -363,18 +364,30 @@ function applyCreateNode(
       height: command.input.dimensions.height,
     };
   }
+  let nextDraft = { ...draft, nodes: [...draft.nodes, node] };
+  const edgeIds: string[] = [];
+  for (const sourceNodeId of uniqueNonEmpty(command.input.referenceNodeIds ?? [])) {
+    const connected = applyConnectEdge({
+      type: 'edge.connect', version: command.version,
+      input: { sourceNodeId, targetNodeId: node.id },
+    }, nextDraft);
+    if (!connected.ok) return connected;
+    nextDraft = connected.draft;
+    edgeIds.push(...(connected.output.references.edgeIds ?? []));
+  }
   return success(
-    { ...draft, nodes: [...draft.nodes, node] },
+    nextDraft,
     impact(`Create ${command.input.nodeType} node.`, {
-      affectedNodeIds: [node.id],
+      affectedNodeIds: [node.id, ...(command.input.referenceNodeIds ?? [])],
+      affectedEdgeIds: edgeIds,
       creates: {
         nodes: 1,
-        edges: 0,
+        edges: edgeIds.length,
         groups: command.input.nodeType === CANVAS_NODE_TYPES.group
           || command.input.nodeType === CANVAS_NODE_TYPES.tagGroup ? 1 : 0,
       },
     }),
-    { references: { nodeId: node.id, nodeIds: [node.id] } },
+    { references: { nodeId: node.id, nodeIds: [node.id], edgeIds } },
   );
 }
 
