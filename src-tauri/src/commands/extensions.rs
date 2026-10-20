@@ -314,11 +314,17 @@ pub async fn install_skill_zip(
     app: tauri::AppHandle,
     id: String,
     url: String,
-    expected_sha256: String,
+    expected_sha256: Option<String>,
 ) -> Result<InstalledSkill, String> {
     valid_id(&id)?;
-    if expected_sha256.len() != 64 || !expected_sha256.bytes().all(|b| b.is_ascii_hexdigit()) {
-        return Err("需要有效 SHA256".into());
+    // SHA256 可选：留空则跳过完整性校验；若填写则必须是 64 位十六进制。
+    let expected_sha256 = expected_sha256
+        .map(|value| value.trim().to_lowercase())
+        .filter(|value| !value.is_empty());
+    if let Some(value) = &expected_sha256 {
+        if value.len() != 64 || !value.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("SHA256 需为 64 位十六进制，或留空跳过校验".into());
+        }
     }
     let url = reqwest::Url::parse(&url).map_err(|e| e.to_string())?;
     if url.scheme() != "https" || !url.username().is_empty() || url.password().is_some() {
@@ -346,8 +352,10 @@ pub async fn install_skill_zip(
         }
         data.extend_from_slice(&chunk);
     }
-    if format!("{:x}", Sha256::digest(&data)) != expected_sha256.to_lowercase() {
-        return Err("SHA256 不匹配".into());
+    if let Some(expected) = &expected_sha256 {
+        if format!("{:x}", Sha256::digest(&data)) != *expected {
+            return Err("SHA256 不匹配".into());
+        }
     }
     let _guard = MUTATION.lock().await;
     let base = root(&app)?;
