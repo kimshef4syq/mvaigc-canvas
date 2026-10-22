@@ -1,6 +1,8 @@
 import {
   CANVAS_NODE_TYPES,
   DEFAULT_NODE_WIDTH,
+  EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+  EXPORT_RESULT_NODE_LAYOUT_HEIGHT,
   type CanvasNode,
 } from '../domain/canvasNodes';
 import { canvasNodeDefinitions } from '../domain/nodeRegistry';
@@ -36,7 +38,9 @@ export function getCanvasNodeSize(node: Pick<CanvasNode, 'type' | 'measured' | '
   const fallback = canvasNodeDefinitions[node.type]?.defaultSize
     ?? (node.type === CANVAS_NODE_TYPES.imageEdit ? { width: 680, height: 380 }
       : node.type === CANVAS_NODE_TYPES.aiVideo ? { width: 680, height: 360 }
-        : { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
+        : node.type === CANVAS_NODE_TYPES.exportImage
+          ? { width: EXPORT_RESULT_NODE_DEFAULT_WIDTH, height: EXPORT_RESULT_NODE_LAYOUT_HEIGHT }
+          : { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
   const valid = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0;
   const first = (values: unknown[], defaultValue: number) => (values.find(valid) as number | undefined) ?? defaultValue;
   const minWidth = node.type === CANVAS_NODE_TYPES.imageEdit ? 520 : node.type === CANVAS_NODE_TYPES.aiVideo ? 560 : 0;

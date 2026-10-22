@@ -65,6 +65,11 @@ describe('findRelatedCanvasNodePositions', () => {
   it('reserves the real size of generation cards before measurement', () => {
     expect(getCanvasNodeSize({ type: CANVAS_NODE_TYPES.imageEdit })).toEqual({ width: 680, height: 380 });
     expect(getCanvasNodeSize({ type: CANVAS_NODE_TYPES.aiVideo })).toEqual({ width: 680, height: 360 });
+    // 生成图片结果节点（exportImage）无 defaultSize，未测量时不能回退到过窄的 220，
+    // 否则自动分组的列距会小于卡片实际宽度 → 重叠。
+    const exportImage = getCanvasNodeSize({ type: CANVAS_NODE_TYPES.exportImage });
+    expect(exportImage.width).toBeGreaterThanOrEqual(384);
+    expect(exportImage.height).toBeGreaterThanOrEqual(288);
     const source = { id: 'fresh', type: CANVAS_NODE_TYPES.aiVideo, position: { x: 0, y: 0 }, data: {} } as CanvasNode;
     const [position] = findRelatedCanvasNodePositions({ nodes: [source], desired: { x: 250, y: 0 }, size: { width: 384, height: 288 } });
     expect(overlaps(position, { width: 384, height: 288 }, node('real-size', 0, 0, 680, 360))).toBe(false);

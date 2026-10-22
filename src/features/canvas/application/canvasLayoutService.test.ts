@@ -101,4 +101,52 @@ describe('canvasLayoutService', () => {
     const grid = organizeByDirection(nodes, 'grid', { origin: { x: 0, y: 0 } });
     expect(grid).toHaveLength(3);
   });
+
+  it('aligns a generation result column to its parent node instead of centering the column', () => {
+    // 单个连通分量：源节点连出 2 张结果图，同层还有几张关键帧把该层撑高。
+    // 修复前：结果列被"垂直居中"到远离生成节点的地方；修复后应贴近其父节点。
+    const nodes: CanvasNode[] = [
+      makeNode('p', CANVAS_NODE_TYPES.aiText, 0, 0),
+      makeNode('kf4', CANVAS_NODE_TYPES.exportImage, 500, 0),
+      makeNode('kf5', CANVAS_NODE_TYPES.exportImage, 500, 300),
+      makeNode('gen', CANVAS_NODE_TYPES.imageEdit, 500, 600),
+      makeNode('res-1', CANVAS_NODE_TYPES.exportImage, 900, 0),
+      makeNode('res-2', CANVAS_NODE_TYPES.exportImage, 900, 300),
+    ];
+    const edges: CanvasEdge[] = [
+      { id: 'e1', source: 'p', target: 'kf4' } as CanvasEdge,
+      { id: 'e2', source: 'p', target: 'kf5' } as CanvasEdge,
+      { id: 'e3', source: 'p', target: 'gen' } as CanvasEdge,
+      { id: 'e4', source: 'gen', target: 'res-1' } as CanvasEdge,
+      { id: 'e5', source: 'gen', target: 'res-2' } as CanvasEdge,
+    ];
+
+    const result = organizeByConnection(nodes, edges, { origin: { x: 0, y: 0 } });
+    const posOf = (id: string) => result.find((r) => r.nodeId === id)!.position;
+
+    // 结果列应与父节点 gen 处于同一纵向邻域（不相差远超一个节点高度）
+    const genY = posOf('gen').y;
+    const resMidY = (posOf('res-1').y + posOf('res-2').y) / 2;
+    expect(Math.abs(resMidY - genY)).toBeLessThan(240);
+  });
+
+  it('keeps grouped children out of the flat layout (they stay relative to their group)', () => {
+    const group = makeNode('g1', CANVAS_NODE_TYPES.group, 100, 100);
+    (group as any).style = { width: 400, height: 300 };
+    const child1 = { ...makeNode('c1', CANVAS_NODE_TYPES.imageEdit, 20, 40), parentId: 'g1' } as CanvasNode;
+    const child2 = { ...makeNode('c2', CANVAS_NODE_TYPES.aiText, 20, 180), parentId: 'g1' } as CanvasNode;
+    const other = makeNode('t1', CANVAS_NODE_TYPES.aiText, 700, 100);
+
+    const result = organizeByConnection([group, child1, child2, other], [
+      { id: 'e1', source: 't1', target: 'g1' } as CanvasEdge,
+    ], { origin: { x: 0, y: 0 } });
+
+    const ids = result.map((r) => r.nodeId);
+    // 组内子节点（有 parentId）不参与扁平排布，保持其相对坐标不动。
+    expect(ids).not.toContain('c1');
+    expect(ids).not.toContain('c2');
+    // 组节点本身与其它顶层节点照常排布。
+    expect(ids).toContain('g1');
+    expect(ids).toContain('t1');
+  });
 });

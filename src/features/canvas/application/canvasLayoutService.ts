@@ -1,4 +1,11 @@
-import { CANVAS_NODE_TYPES, type CanvasNode, type CanvasEdge, type CanvasNodeType } from '@/features/canvas/domain/canvasNodes';
+import {
+  CANVAS_NODE_TYPES,
+  EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+  EXPORT_RESULT_NODE_LAYOUT_HEIGHT,
+  type CanvasNode,
+  type CanvasEdge,
+  type CanvasNodeType,
+} from '@/features/canvas/domain/canvasNodes';
 
 export interface NodeLayoutPosition {
   nodeId: string;
@@ -17,19 +24,29 @@ const DEFAULT_NODE_HEIGHT = 240;
 
 function getNodeDimensions(node: CanvasNode): { width: number; height: number } {
   const style = node.style as { width?: unknown; height?: unknown } | undefined;
+  // exportImage（生成图片结果）无 defaultSize，未测量时按它真实渲染尺寸回退，避免排布重叠。
+  const fallbackWidth = node.type === CANVAS_NODE_TYPES.exportImage
+    ? EXPORT_RESULT_NODE_DEFAULT_WIDTH
+    : DEFAULT_NODE_WIDTH;
+  const fallbackHeight = node.type === CANVAS_NODE_TYPES.exportImage
+    ? EXPORT_RESULT_NODE_LAYOUT_HEIGHT
+    : DEFAULT_NODE_HEIGHT;
   return {
-    width: node.measured?.width ?? node.width ?? (typeof style?.width === 'number' ? style.width : DEFAULT_NODE_WIDTH),
-    height: node.measured?.height ?? node.height ?? (typeof style?.height === 'number' ? style.height : DEFAULT_NODE_HEIGHT),
+    width: node.measured?.width ?? node.width ?? (typeof style?.width === 'number' ? style.width : fallbackWidth),
+    height: node.measured?.height ?? node.height ?? (typeof style?.height === 'number' ? style.height : fallbackHeight),
   };
 }
 
 function resolveTargetNodes(nodes: CanvasNode[], activeNodeIds?: string[]): CanvasNode[] {
+  // 分组子节点的坐标是相对父组的，扁平排布会把它写成绝对坐标 → 组内挤成一坨。
+  // 因此整理只排布顶层节点（无 parentId），子节点随组整体移动、保持组内布局。
+  const topLevel = nodes.filter((n) => !n.parentId);
   if (activeNodeIds && activeNodeIds.length >= 2) {
     const activeSet = new Set(activeNodeIds);
-    const filtered = nodes.filter((n) => activeSet.has(n.id));
+    const filtered = topLevel.filter((n) => activeSet.has(n.id));
     if (filtered.length >= 2) return filtered;
   }
-  return nodes;
+  return topLevel;
 }
 
 function computeBoundingOrigin(nodes: CanvasNode[], fallback = { x: 80, y: 80 }): { x: number; y: number } {
@@ -194,36 +211,55 @@ export function organizeByConnection(
       colWidths[l] = maxWidth;
     }
 
-    // 计算每列的高度，以便居中对齐
-    let componentMaxHeight = 0;
-    const colHeights: number[] = [];
+    // 纵向定位：按父节点重心（barycenter）对齐，而不是各列独立居中。
+    // 这样生成结果会贴着它的生成节点排开，而不是飘到列的中间。
+    const nodeYById = new Map<string, number>();
     for (let l = 0; l <= maxLayer; l++) {
       const bucket = layerBuckets.get(l) ?? [];
-      const totalH = bucket.reduce((sum, n, idx) => sum + getNodeDimensions(n).height + (idx > 0 ? gapY : 0), 0);
-      colHeights[l] = totalH;
-      componentMaxHeight = Math.max(componentMaxHeight, totalH);
+      const targetY = (node: CanvasNode): number => {
+        const parents = inEdges.get(node.id) ?? [];
+        let sum = 0;
+        let count = 0;
+        for (const parentId of parents) {
+          const parentY = nodeYById.get(parentId);
+          if (parentY !== undefined) {
+            sum += parentY;
+            count += 1;
+          }
+        }
+        return count > 0 ? sum / count : currentTopY;
+      };
+      // 同层内按目标 Y 排序（避免连线交叉），再顺序放置并保证不重叠。
+      const ordered = [...bucket].sort((a, b) => targetY(a) - targetY(b));
+      let cursor = -Infinity;
+      for (const node of ordered) {
+        const y = Math.max(targetY(node), cursor);
+        nodeYById.set(node.id, y);
+        cursor = y + getNodeDimensions(node).height + gapY;
+      }
     }
 
-    // 排布当前连通分量内的节点
+    // 归一化：让本分量的最高节点落在 currentTopY，并据此推进下一个分量的起点。
+    const componentYs = componentNodes.map((node) => nodeYById.get(node.id) ?? currentTopY);
+    const componentMinY = Math.min(...componentYs);
+    const shift = currentTopY - componentMinY;
+    const componentBottom = Math.max(
+      ...componentNodes.map((node) => (nodeYById.get(node.id) ?? currentTopY) + getNodeDimensions(node).height),
+    );
+
     let currentX = origin.x;
     for (let l = 0; l <= maxLayer; l++) {
       const bucket = layerBuckets.get(l) ?? [];
-      // 垂直垂直居中对齐
-      const colHeight = colHeights[l] ?? 0;
-      let nodeY = currentTopY + Math.max(0, (componentMaxHeight - colHeight) / 2);
-
       bucket.forEach((node) => {
         results.push({
           nodeId: node.id,
-          position: { x: currentX, y: Math.round(nodeY) },
+          position: { x: currentX, y: Math.round((nodeYById.get(node.id) ?? currentTopY) + shift) },
         });
-        nodeY += getNodeDimensions(node).height + gapY;
       });
-
       currentX += (colWidths[l] ?? DEFAULT_NODE_WIDTH) + gapX;
     }
 
-    currentTopY += componentMaxHeight + gapY * 2;
+    currentTopY = componentBottom + shift + gapY * 2;
   });
 
   // 3. 处理无连线独立节点（按 3 列网格平铺在下方）
@@ -421,25 +457,38 @@ export function organizeByDirection(
       return a.position.x - b.position.x;
     });
     const cols = Math.max(2, Math.ceil(Math.sqrt(sorted.length)));
-    let curX = origin.x;
-    let curY = origin.y;
-    let maxRowHeight = 0;
-
+    const rowCount = Math.ceil(sorted.length / cols);
+    // 用每列的“该列最大节点宽”预先定列宽，而不是逐个用当前节点宽度推进。
+    // 否则未测量的节点（回退到默认 320 宽）会让实际更宽的卡片互相重叠。
+    const colWidths: number[] = [];
+    const rowHeights: number[] = [];
     sorted.forEach((node, index) => {
       const dim = getNodeDimensions(node);
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      colWidths[col] = Math.max(colWidths[col] ?? 0, dim.width);
+      rowHeights[row] = Math.max(rowHeights[row] ?? 0, dim.height);
+    });
+    const colX: number[] = [];
+    let accX = origin.x;
+    for (let c = 0; c < cols; c += 1) {
+      colX[c] = accX;
+      accX += (colWidths[c] ?? DEFAULT_NODE_WIDTH) + gapX;
+    }
+    const rowY: number[] = [];
+    let accY = origin.y;
+    for (let r = 0; r < rowCount; r += 1) {
+      rowY[r] = accY;
+      accY += (rowHeights[r] ?? DEFAULT_NODE_HEIGHT) + gapY;
+    }
+
+    sorted.forEach((node, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
       results.push({
         nodeId: node.id,
-        position: { x: curX, y: curY },
+        position: { x: colX[col], y: rowY[row] },
       });
-      maxRowHeight = Math.max(maxRowHeight, dim.height);
-
-      if ((index + 1) % cols === 0) {
-        curX = origin.x;
-        curY += maxRowHeight + gapY;
-        maxRowHeight = 0;
-      } else {
-        curX += dim.width + gapX;
-      }
     });
   }
 
