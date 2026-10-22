@@ -27,6 +27,8 @@ export const reviewCheckSchema = z.object({
   contentHash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
   decidedAt: z.number().int().positive().optional(),
   reason: z.string().optional(),
+  requiresUserConfirmation: z.boolean().optional(),
+  confirmedByUser: z.boolean().optional(),
 });
 
 export type ReviewCheckV1 = z.infer<typeof reviewCheckSchema>;
@@ -161,6 +163,7 @@ export const productionPlanSchema = z.object({
     id: z.string().min(1),
     variant: z.string().default('canonical'),
     profileRevision: z.string().default('1.0'),
+    confirmationPolicy: z.literal('staged-v1').optional(),
   }),
   scope: z.object({
     deliverables: z.array(z.string()).min(1),

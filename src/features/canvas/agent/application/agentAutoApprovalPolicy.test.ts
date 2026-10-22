@@ -42,3 +42,13 @@ describe('built-in Agent auto approval policy', () => {
     })).allowed).toBe(true);
   });
 });
+
+it('requires a real user decision for production reviews in auto mode', () => {
+  expect(decideAgentAutoApproval(prepared({ toolName: 'production_plan',
+    arguments: { action: 'record_review', recordReviewInput: { status: 'passed' } },
+  })).allowed).toBe(false);
+  expect(decideAgentAutoApproval(prepared({ toolName: 'storyboard_canvas.production_plan',
+    arguments: { action: 'record_review', recordReviewInput: { status: 'passed' } },
+  })).allowed).toBe(false);
+  expect(decideAgentAutoApproval(prepared({ toolName: 'production_plan', arguments: { action: 'get' } })).allowed).toBe(true);
+});

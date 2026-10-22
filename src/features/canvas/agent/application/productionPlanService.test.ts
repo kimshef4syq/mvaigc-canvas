@@ -41,7 +41,7 @@ describe('ProductionPlanService', () => {
     });
 
     // Author stage 1
-    const planAfterS1 = productionPlanService.authorStage({
+    let planAfterS1 = productionPlanService.authorStage({
       projectId: 'proj-tvc',
       planId: plan.id,
       expectedRevision: 1,
@@ -64,11 +64,22 @@ describe('ProductionPlanService', () => {
     expect(planAfterS1.revision).toBe(2);
     expect(planAfterS1.stages).toHaveLength(1);
 
+    // Workflow advancement requires a real user review of the preceding document.
+    planAfterS1 = productionPlanService.recordReview({
+      projectId: 'proj-tvc', planId: plan.id, expectedRevision: planAfterS1.revision,
+      stageId: 'stage-brief', reviewId: planAfterS1.stages[0].review.afterExecution[0].id,
+      status: 'passed', userConfirmed: true,
+    });
+    planAfterS1 = productionPlanService.authorStage({
+      projectId: 'proj-tvc', planId: plan.id, expectedRevision: planAfterS1.revision,
+      stage: { ...planAfterS1.stages[0], status: 'succeeded' },
+    });
+
     // Author stage 2 depending on stage 1
-    const planAfterS2 = productionPlanService.authorStage({
+    let planAfterS2 = productionPlanService.authorStage({
       projectId: 'proj-tvc',
       planId: plan.id,
-      expectedRevision: 2,
+      expectedRevision: planAfterS1.revision,
       stage: {
         id: 'stage-storyboard',
         order: 1,
@@ -85,14 +96,24 @@ describe('ProductionPlanService', () => {
       },
     });
 
-    expect(planAfterS2.revision).toBe(3);
+    expect(planAfterS2.revision).toBe(planAfterS1.revision + 1);
     expect(planAfterS2.stages).toHaveLength(2);
+
+    planAfterS2 = productionPlanService.recordReview({
+      projectId: 'proj-tvc', planId: plan.id, expectedRevision: planAfterS2.revision,
+      stageId: 'stage-storyboard', reviewId: planAfterS2.stages[1].review.afterExecution[0].id,
+      status: 'passed', userConfirmed: true,
+    });
+    planAfterS2 = productionPlanService.authorStage({
+      projectId: 'proj-tvc', planId: plan.id, expectedRevision: planAfterS2.revision,
+      stage: { ...planAfterS2.stages[1], status: 'succeeded' },
+    });
 
     // Now re-author stage 1 -> stage 2 should be marked stale!
     const planReauthored = productionPlanService.authorStage({
       projectId: 'proj-tvc',
       planId: plan.id,
-      expectedRevision: 3,
+      expectedRevision: planAfterS2.revision,
       stage: {
         id: 'stage-brief',
         order: 0,
@@ -110,7 +131,7 @@ describe('ProductionPlanService', () => {
       changeReason: 'User requested tone update',
     });
 
-    expect(planReauthored.revision).toBe(4);
+    expect(planReauthored.revision).toBe(planAfterS2.revision + 1);
     const s2 = planReauthored.stages.find((s) => s.id === 'stage-storyboard');
     expect(s2?.status).toBe('stale');
   });

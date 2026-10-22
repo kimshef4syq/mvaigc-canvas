@@ -9,6 +9,7 @@ import {
   type StageStatus,
 } from '../domain/productionPlan';
 import { computeSha256 } from '../infrastructure/sourceRepository';
+import { assertStageCanStart, stageReviewsAccepted, STAGED_CONFIRMATION_POLICY } from '../domain/workflowConfirmation';
 
 export interface StageExecutionLease {
   leaseId: string;
@@ -138,6 +139,7 @@ export class ProductionCoordinator {
       throw new Error(`制作计划中未找到阶段：${stageId}`);
     }
 
+    assertStageCanStart(plan, stage);
     // 1. Acquire execution lease
     this.acquireLease(projectId, planId, stageId, runId);
 
@@ -308,7 +310,8 @@ export class ProductionCoordinator {
       const hasFailed = updatedStage.workItems.some((w) => w.status === 'failed');
 
       const finalStageStatus: StageStatus = allSucceeded
-        ? 'succeeded'
+        ? currentPlan.workflow.confirmationPolicy === STAGED_CONFIRMATION_POLICY && !stageReviewsAccepted(updatedStage, 'afterExecution')
+          ? 'waiting-user' : 'succeeded'
         : hasFailed
         ? 'failed'
         : 'recoverable';

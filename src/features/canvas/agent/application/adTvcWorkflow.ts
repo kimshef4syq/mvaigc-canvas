@@ -1,3 +1,4 @@
+import { enforceWorkflowConfirmations } from '../domain/workflowConfirmation';
 import {
   type ProductionPlanV1,
   type ProductionStageV1,
@@ -93,13 +94,14 @@ export function createAdTvcPlan(input: CreateAdTvcPlanInput): ProductionPlanV1 {
     supersededOutputs: [],
   };
 
-  return productionPlanSchema.parse({
+  return enforceWorkflowConfirmations(productionPlanSchema.parse({
     schemaVersion: 1,
     id: planId,
     projectId: input.projectId,
     revision: 1,
     workflow: {
       id: 'ad-tvc',
+      confirmationPolicy: 'staged-v1',
       variant: `${category}:${direction}`,
       profileRevision: '1.0',
     },
@@ -118,7 +120,7 @@ export function createAdTvcPlan(input: CreateAdTvcPlanInput): ProductionPlanV1 {
     status: 'active',
     createdAt: now,
     updatedAt: now,
-  });
+  }));
 }
 
 export function resolveAdTvcAnchors(

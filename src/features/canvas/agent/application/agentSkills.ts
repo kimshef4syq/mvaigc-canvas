@@ -1,3 +1,4 @@
+import { workflowIntakeInstructions } from './workflowIntakeInstructions';
 import { getInstalledAgentSkills, type InstalledAgentSkill } from './installedSkills';
 import type { TaskRouteV1 } from '../domain/taskRoute';
 
@@ -89,9 +90,9 @@ export const BUILTIN_AGENT_SKILLS: readonly SkillDefinitionV1[] = Object.freeze(
   defineSkill({
     id: 'video-prompt-director',
     summary: '编写带时间、动作和运镜约束的视频提示词',
-    activation: ['录制视频', '生视频', '视频', '运镜', '时间轴', '即梦', 'Seedance', 'video prompt', 'camera move', 'motion'],
+    activation: ['MV', '音乐视频', 'TVC', 'UGC', 'KOC', '微电影', '短剧', '录制视频', '生视频', '视频', '运镜', '时间轴', '即梦', 'Seedance', 'video prompt', 'camera move', 'motion'],
     toolNamespaces: ['canvas.read', 'generation', 'prompting'],
-    instructions: '用时间段描述主体动作、镜头运动、节奏和连续性；避免互相冲突的动作，提交前明确首尾帧、时长、比例、分辨率和模型。',
+    instructions: '用时间段描述主体动作、镜头运动、节奏和连续性；避免互相冲突的动作，提交前明确首尾帧、时长、比例、分辨率和模型。完整作品必须按任务路由进入工作流，先收集资料并让用户确认方案/分镜，再生成视频；只有内容、时长和运动明确的独立单镜头可直达，不能自行补全缺失资料后直接生成。',
     examples: [{ input: '做一个 8 秒推镜，角色回头后奔跑', outcome: '形成分时视频提示词和完整提交参数，确认后执行' }],
     evalCaseIds: ['video-prompt-director:timed-motion'],
   }),
@@ -223,7 +224,7 @@ function taskRouteBoost(skill: SkillDefinitionV1, context: SkillRoutingContext):
   if (route.requiredCapabilities?.includes('generation:video') || route.requestedDeliverables?.includes('commercial-video')) {
     if (skill.id === 'video-prompt-director') return 5;
   }
-  if (route.workflow === 'ad-tvc' && (skill.id === 'minimax-design-profiles' || skill.id === 'storyboard-planning')) return 5;
+  if (route.workflow === 'ad-tvc' && (skill.id === 'minimax-design-profiles' || skill.id === 'storyboard-planning')) return 8;
   if (route.workflow === 'drama-series' && skill.id === 'storyboard-planning') return 5;
   return 0;
 }
@@ -291,7 +292,9 @@ export function buildSkillContext(context: SkillRoutingContext): {
       ? `【任务分流系统判定】本次任务为单步快速直达（direct: ${context.taskRoute.requestedDeliverables.join(', ') || 'image'}）。严禁盲目创建多阶段制作大纲或流程文档。对于从零生图，先调用 node.create 创建 imageNode，configuration 中写入 prompt 与模型参数；返回真实 nodeId 后再调用 generation.submit。`
       : context.taskRoute.kind === 'clarify'
         ? '【任务分流系统判定】本次任务检测到信息缺失（clarify）。请先向用户提出明确的澄清问题，不要擅自排队生成。'
-        : context.taskRoute.workflow === 'ad-tvc'
+        : context.taskRoute.kind === 'stage'
+          ? workflowIntakeInstructions(context.taskRoute)
+          : context.taskRoute.workflow === 'ad-tvc'
           ? `【任务分流系统判定】本次任务为商业广告 TVC 全流程制作（workflow: ad-tvc）。\n` +
             `1. 【严禁行为】严禁直接在画布创建单个孤立的视频节点或直接调用 generation.submit 发起生成！商业广告必须严格遵守工业级多阶段制作大纲。\n` +
             `2. 【品类与方向识别】自动检测行业品类（auto 汽车/SUV、fashion 时尚球鞋/服饰、beauty 美妆护肤、food 美食餐饮、tech 3C数码、appliance 家电）以及方向（product-ad 产品广告 / brand-ad 品牌大片）。\n` +
@@ -318,6 +321,7 @@ export function buildSkillContext(context: SkillRoutingContext): {
         : skill.instructions).join('\n\n')
       : '本轮没有命中专用技能。只使用最小画布能力确认对象和意图；若目标仍不明确，先向用户提出一个具体澄清问题。',
     taskRouteInstruction,
+    context.taskRoute?.kind === 'workflow' ? workflowIntakeInstructions(context.taskRoute) : '',
   ].filter(Boolean).join('\n\n');
   const toolNamespaces = Array.from(new Set(selections.flatMap((selection) => selection.skill.toolNamespaces)));
   return {

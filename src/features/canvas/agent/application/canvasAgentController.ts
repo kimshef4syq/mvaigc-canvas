@@ -26,6 +26,8 @@ import {
 } from './agentMediaResolver';
 import { buildSkillContext, resolveAgentToolPolicy, type SkillRoutingContext } from './agentSkills';
 import { routeUserTask } from './taskRouter';
+import { productionPlanRepository } from '../infrastructure/productionPlanRepository';
+import { taskWorkflowKindSchema } from '../domain/taskRoute';
 import { getAgentGenerationNetworkRevision, getAgentProviderRevision } from './agentConfigPatch';
 import { canvasAgentBudgetLedger } from './agentBudget';
 import { canvasCommandRegistry } from '@/features/canvas/application/canvasCommandService';
@@ -223,6 +225,32 @@ function buildApprovalImpact(toolName: string, args: unknown): {
     };
   }
   const effect = approvalEffect(toolName);
+  const reviewArgs = toolName === 'production_plan' && args && typeof args === 'object'
+    ? args as { action?: string; planId?: string; recordReviewInput?: { stageId?: string; reviewId?: string } } : undefined;
+  if (reviewArgs?.action === 'record_review' && reviewArgs.planId) {
+    const plan = productionPlanRepository.listPlans(useProjectStore.getState().currentProjectId ?? '')
+      .find((candidate) => candidate.id === reviewArgs.planId);
+    const stage = plan?.stages.find((candidate) => candidate.id === reviewArgs.recordReviewInput?.stageId);
+    const check = stage && [...stage.review.beforeExecution, ...stage.review.afterExecution]
+      .find((candidate) => candidate.id === reviewArgs.recordReviewInput?.reviewId);
+    const labels: Record<string, string> = { contentSource: '内容来源', referenceSource: '参考素材来源',
+      durationSeconds: '时长（秒）', aspectRatio: '画幅', musicSource: '歌曲来源', musicSourceId: '歌曲素材' };
+    const values: Record<string, string> = { user: '用户提供', agent: '授权创作', upload: '上传素材',
+      existing: '已有素材', original: '原创', generate: '授权生成' };
+    const details = stage?.workItems.flatMap((item) => {
+      const intake = item.payload.intake && typeof item.payload.intake === 'object' && !Array.isArray(item.payload.intake)
+        ? Object.entries(item.payload.intake as Record<string, unknown>)
+          .map(([key, value]) => `${labels[key] ?? key}：${values[String(value)] ?? String(value)}`).join('；') : '';
+      return [item.name, intake, typeof item.payload.text === 'string' ? item.payload.text : '',
+        typeof item.payload.prompt === 'string' ? item.payload.prompt : '',
+        item.inputRefs.length ? `参考素材：${item.inputRefs.join('、')}` : ''].filter(Boolean);
+    }) ?? [];
+    return { baseRevision: canvasCommandRegistry.getRevision(), impact: {
+      effect: 'canvas-write', title: '制作阶段确认', summary: [check?.label ?? '确认当前制作阶段',
+        stage?.goal ?? '', ...details,
+      ].join('\n').slice(0, 12000), affectedNodeCount: 0, affectedEdgeCount: 0, externalSideEffect: false,
+    } };
+  }
   const assetReadArgs = toolName === 'asset_read' && args && typeof args === 'object' && !Array.isArray(args)
     ? args as Record<string, unknown>
     : undefined;
@@ -445,7 +473,12 @@ async function createActiveRun(input: {
     .map((message) => message.text)
     .join('\n');
   const [installed, mcp] = await Promise.all([refreshInstalledAgentSkills(), prepareAgentMcpConnections()]);
-  const taskRoute = routeUserTask({ text: input.message });
+  const activePlan = productionPlanRepository.getActivePlan(input.projectId);
+  const activeWorkflow = taskWorkflowKindSchema.safeParse(activePlan?.workflow.id);
+  const taskRoute = routeUserTask({ text: input.message,
+    activePlanId: activePlan?.id, activeWorkflow: activeWorkflow.success ? activeWorkflow.data : undefined,
+    selectedNodeIds: useCanvasStore.getState().nodes.filter((node) => node.selected).map((node) => node.id),
+  });
   const skillRoutingContext: SkillRoutingContext = {
     text: input.message,
     installedSkills: installed.skills,

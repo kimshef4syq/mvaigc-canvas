@@ -64,6 +64,9 @@ describe('KOC Video & Standalone Audio Workflow (T15 & A22)', () => {
         personaCandidates: Array<{ id: string }>;
       };
 
+      expect(briefWorkItem.payload.selectedHookId).toBeUndefined();
+      expect(briefWorkItem.payload.selectedPersonaId).toBeUndefined();
+      expect(plan.stages[0].review.afterExecution[0].status).toBe('pending');
       expect(payload.hookCandidates).toHaveLength(5);
       expect(payload.personaCandidates).toHaveLength(3);
     });

@@ -1,3 +1,4 @@
+import { enforceWorkflowConfirmations } from '../domain/workflowConfirmation';
 import {
   type ProductionPlanV1,
   type ProductionStageV1,
@@ -73,8 +74,7 @@ export function createKocPlan(input: CreateKocPlanInput): ProductionPlanV1 {
       originalPrompt: input.prompt,
       hookCandidates: KOC_DEFAULT_HOOK_TEMPLATES,
       personaCandidates: format === 'on-camera' ? KOC_DEFAULT_PERSONA_CANDIDATES : [],
-      selectedHookId: 'hook-1',
-      selectedPersonaId: format === 'on-camera' ? 'persona-1' : undefined,
+      selectionStatus: 'awaiting-user',
       wantBgm,
       wantSubtitles,
       audioApproach: 'native-dialogue-in-video', // Hard rule: native in video, no separate TTS
@@ -104,13 +104,14 @@ export function createKocPlan(input: CreateKocPlanInput): ProductionPlanV1 {
     supersededOutputs: [],
   };
 
-  return productionPlanSchema.parse({
+  return enforceWorkflowConfirmations(productionPlanSchema.parse({
     schemaVersion: 1,
     id: planId,
     projectId: input.projectId,
     revision: 1,
     workflow: {
       id: 'koc-video',
+      confirmationPolicy: 'staged-v1',
       variant: format,
       profileRevision: '1.0',
     },
@@ -120,8 +121,8 @@ export function createKocPlan(input: CreateKocPlanInput): ProductionPlanV1 {
     },
     sourceIds: productSourceIds,
     decisions: [
-      { key: 'contentFormat', value: format, source: 'workflow', scope: 'global', timestamp: now },
-      { key: 'platform', value: platform, source: 'workflow', scope: 'global', timestamp: now },
+      { key: 'contentFormat', value: format, source: input.contentFormat ? 'user' : 'default', scope: 'global', timestamp: now },
+      { key: 'platform', value: platform, source: input.platform ? 'user' : 'default', scope: 'global', timestamp: now },
       { key: 'wantBgm', value: wantBgm, source: 'workflow', scope: 'global', timestamp: now },
       { key: 'wantSubtitles', value: wantSubtitles, source: 'workflow', scope: 'global', timestamp: now },
       { key: 'audioApproach', value: 'native-dialogue-in-video', source: 'workflow', scope: 'global', timestamp: now },
@@ -131,7 +132,7 @@ export function createKocPlan(input: CreateKocPlanInput): ProductionPlanV1 {
     status: 'active',
     createdAt: now,
     updatedAt: now,
-  });
+  }));
 }
 
 export interface CreateAudioProductionPlanInput {
@@ -182,7 +183,7 @@ export function createAudioProductionPlan(input: CreateAudioProductionPlanInput)
     supersededOutputs: [],
   };
 
-  return productionPlanSchema.parse({
+  return enforceWorkflowConfirmations(productionPlanSchema.parse({
     schemaVersion: 1,
     id: planId,
     projectId: input.projectId,
@@ -203,5 +204,5 @@ export function createAudioProductionPlan(input: CreateAudioProductionPlanInput)
     status: 'active',
     createdAt: now,
     updatedAt: now,
-  });
+  }));
 }

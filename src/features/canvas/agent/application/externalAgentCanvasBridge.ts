@@ -35,8 +35,10 @@ import { redactSensitiveValue } from './agentRedaction';
 import type { ExternalAgentToolRequest } from '../domain/agentModel';
 import { loadDiagnosticEvents } from '@/features/canvas/application/diagnosticEvents';
 import { searchProfiles, readProfile } from '../infrastructure/profileRepository';
-import { sourceRepository } from '../infrastructure/sourceRepository';
+import { sourceRepository, computeSha256 } from '../infrastructure/sourceRepository';
 import { productionPlanService } from './productionPlanService';
+import { assertWorkflowGenerationAllowed, assertWorkflowReviewReady } from './workflowGenerationGuard';
+import { buildCanvasAssetCatalog } from '@/features/canvas/application/canvasAssetCatalog';
 import { mediaPostprocessService } from './mediaPostprocessService';
 
 export interface ExternalAgentToolExecutionResult {
@@ -105,6 +107,10 @@ async function executeCanvasCommand(
   const graphWrite = approval.impact.effect === 'canvas-write'
     && (definition.effect === 'graph' || command.type === 'node.tool.run');
   const canvas = useCanvasStore.getState();
+  if (command.type === 'generation.submit') {
+    assertWorkflowGenerationAllowed({ projectId: approval.projectId, nodeIds: command.input.nodeIds,
+      nodes: canvas.nodes, edges: canvas.edges, references: buildCanvasAssetCatalog(canvas.nodes) });
+  }
   const rollbackToken = graphWrite
     ? canvasAgentRollbackStore.begin(
         approval.projectId,
@@ -259,13 +265,29 @@ async function executeApprovedTool(
             expectedRevision: args.expectedRevision,
             ...args.replanInput,
           });
-        case 'record_review':
+        case 'record_review': {
+          const reviewPlan = productionPlanService.getPlan(approval.projectId, args.planId);
+          const reviewStage = reviewPlan?.stages.find((item) => item.id === args.recordReviewInput?.stageId);
+          if (args.recordReviewInput?.status === 'passed') {
+            const plan = productionPlanService.getPlan(approval.projectId, args.planId);
+            const stage = plan?.stages.find((item) => item.id === args.recordReviewInput.stageId);
+            if (!plan || !stage) throw new Error('未找到待确认阶段');
+            const nodes = useCanvasStore.getState().nodes;
+            assertWorkflowReviewReady(plan, stage, args.recordReviewInput.reviewId, new Set([
+              ...nodes.map((node) => node.id), ...buildCanvasAssetCatalog(nodes).map((asset) => asset.id),
+              ...sourceRepository.listSources(approval.projectId).map((source) => source.id),
+            ]));
+          }
           return productionPlanService.recordReview({
             projectId: approval.projectId,
             planId: args.planId,
             expectedRevision: args.expectedRevision,
             ...args.recordReviewInput,
+            userConfirmed: true,
+            contentHash: reviewStage ? await computeSha256(JSON.stringify({ stageId: reviewStage.id,
+              goal: reviewStage.goal, locks: reviewStage.executionLocks, items: reviewStage.workItems, outputs: reviewStage.currentOutputs })) : undefined,
           });
+        }
         case 'retry_items':
           return productionPlanService.retryItems({
             projectId: approval.projectId,

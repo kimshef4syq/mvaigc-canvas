@@ -51,6 +51,8 @@ export const taskRouteSchema = z.object({
   scope: taskRouteScopeSchema,
   workflow: taskWorkflowKindSchema.optional(),
   stageIntent: z.string().max(100).optional(),
+  activePlanId: z.string().min(1).optional(),
+  productionCategory: z.enum(['music-video', 'commercial', 'product-launch', 'ugc', 'drama', 'presenter', 'explainer', 'documentary', 'creative', 'promotion']).optional(),
   sourceIds: z.array(z.string().max(100)).max(50).default([]),
   requiredCapabilities: z.array(z.string().max(100)).max(20).default([]),
   missingFacts: z.array(missingFactSchema).max(10).default([]),

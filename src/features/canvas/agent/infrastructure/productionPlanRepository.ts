@@ -8,6 +8,7 @@ import {
   type StageStatus,
   type WorkItemStatus,
 } from '../domain/productionPlan';
+import { enforceWorkflowConfirmations, assertStageCanStart, stageReviewsAccepted, STAGED_CONFIRMATION_POLICY } from '../domain/workflowConfirmation';
 
 export class OptimisticLockError extends Error {
   constructor(expected: number, actual: number) {
@@ -23,8 +24,11 @@ class ProductionPlanRepository {
     return `${projectId}:${planId}`;
   }
 
-  savePlan(plan: ProductionPlanV1): ProductionPlanV1 {
-    const validated = productionPlanSchema.parse(plan);
+  savePlan(plan: ProductionPlanV1, userReview?: { stageId: string; reviewId: string }): ProductionPlanV1 {
+    const previous = this.getPlan(plan.projectId, plan.id);
+    const policyPlan = previous?.workflow.confirmationPolicy
+      ? { ...plan, workflow: { ...plan.workflow, confirmationPolicy: previous.workflow.confirmationPolicy } } : plan;
+    const validated = productionPlanSchema.parse(enforceWorkflowConfirmations(policyPlan, previous, userReview));
     const key = this.makeKey(validated.projectId, validated.id);
     this.plans.set(key, validated);
     return validated;
@@ -35,12 +39,7 @@ class ProductionPlanRepository {
   }
 
   getActivePlan(projectId: string): ProductionPlanV1 | undefined {
-    for (const plan of this.plans.values()) {
-      if (plan.projectId === projectId && (plan.status === 'active' || plan.status === 'waiting-user')) {
-        return plan;
-      }
-    }
-    return undefined;
+    return this.listPlans(projectId).find((plan) => plan.status === 'active' || plan.status === 'waiting-user');
   }
 
   listPlans(projectId: string): ProductionPlanV1[] {
@@ -109,6 +108,11 @@ class ProductionPlanRepository {
 
     if (!canTransitionStage(stage.status, input.status)) {
       throw new Error(`阶段 ${input.stageId} 状态无法从 ${stage.status} 流转到 ${input.status}`);
+    }
+    if (input.status === 'running') assertStageCanStart(plan, stage);
+    if (input.status === 'succeeded' && plan.workflow.confirmationPolicy === STAGED_CONFIRMATION_POLICY
+        && !stageReviewsAccepted(stage, 'afterExecution')) {
+      throw new Error(`请先由用户确认“${stage.name}”的阶段成果。`);
     }
 
     const updatedStages = plan.stages.map((s) => {
@@ -206,6 +210,8 @@ class ProductionPlanRepository {
     reviewId: string;
     status: ReviewCheckStatus;
     reason?: string;
+    userConfirmed?: boolean;
+    contentHash?: string;
   }): ProductionPlanV1 {
     const plan = this.getPlan(input.projectId, input.planId);
     if (!plan) {
@@ -224,12 +230,20 @@ class ProductionPlanRepository {
     let found = false;
     const updateCheck = (c: any) => {
       if (c.id === input.reviewId) {
+        if (c.requiresUserConfirmation && !input.userConfirmed) {
+          throw new Error('阶段确认必须通过用户审批，Agent 不能代替用户确认。');
+        }
+        if (c.requiresUserConfirmation && input.status === 'waived') {
+          throw new Error('制作阶段确认不能以 waived 跳过。');
+        }
         found = true;
         return {
           ...c,
           status: input.status,
           decidedAt: Date.now(),
           reason: input.reason,
+          confirmedByUser: input.userConfirmed === true,
+          contentHash: input.contentHash ?? c.contentHash,
         };
       }
       return c;
@@ -244,9 +258,14 @@ class ProductionPlanRepository {
 
     const updatedStages = plan.stages.map((s) => {
       if (s.id !== input.stageId) return s;
+      const reviewsAccepted = (checks: typeof afterExecution) => checks.length > 0
+        && checks.every((check) => check.status === 'passed' && check.confirmedByUser === true);
+      const complete = s.workItems.length > 0 && s.workItems.every((item) => item.status === 'succeeded' || item.status === 'skipped');
       return {
         ...s,
         review: { beforeExecution, afterExecution },
+        status: reviewsAccepted(afterExecution) && complete ? 'succeeded' as const
+          : reviewsAccepted(beforeExecution) && s.status === 'waiting-user' ? 'ready' as const : s.status,
         revision: s.revision + 1,
       };
     });
@@ -258,7 +277,7 @@ class ProductionPlanRepository {
       updatedAt: Date.now(),
     };
 
-    return this.savePlan(updatedPlan);
+    return this.savePlan(updatedPlan, input.userConfirmed ? { stageId: input.stageId, reviewId: input.reviewId } : undefined);
   }
 
   deletePlan(projectId: string, planId: string): boolean {

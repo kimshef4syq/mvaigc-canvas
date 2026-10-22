@@ -36,6 +36,7 @@ import {
   createIdempotencyKey,
 } from '../application/agentApproval';
 import { revokeAgentMediaRun } from '../application/agentMediaResolver';
+import { routeUserTask } from '../application/taskRouter';
 
 const reference: AgentModelReference = {
   catalogId: 'custom:provider:model',
@@ -539,7 +540,7 @@ describe('OpenAI Agents SDK runtime adapter', () => {
     const request = captured as AgentModelTurnRequest | null;
     expect(request?.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining(['canvas_command']));
     expect(request?.systemInstructions).toContain('当前是自动模式');
-    expect(request?.systemInstructions).toContain('不要先要求用户回复“继续”');
+    expect(request?.systemInstructions).toContain('素材来源、脚本方案、人物资产、分镜和视频生成授权必须由用户确认');
   });
 
   it('loads the SDK runtime once through the dynamic boundary', async () => {
@@ -1328,6 +1329,30 @@ describe('OpenAI Agents SDK runtime adapter', () => {
     expect(toolNames).toContain('source_read');
     expect(toolNames).toContain('source_inspect');
     expect(toolNames).toContain('production_plan');
+  });
+
+  it('exposes production tools for every workflow and pauses reviews even in auto mode', async () => {
+    const text = '做一个动画短片';
+    let firstRequest: AgentModelTurnRequest | undefined;
+    const transport: AgentModelTransport = {
+      async getResponse(request) {
+        firstRequest = request;
+        return { responseId: 'stage-review-call', toolCalls: [{ callId: 'review-call', name: 'production_plan',
+          arguments: JSON.stringify({ action: 'record_review', planId: 'plan-review', expectedRevision: 1,
+            recordReviewInput: { stageId: 'intent-brief', reviewId: 'user:intent-brief:afterExecution', status: 'passed' } }),
+        }], usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 } };
+      },
+      async *getStreamedResponse() { throw new Error('unused'); },
+    };
+    const runtime = createStoryboardAgentRuntime({ resolveModel: () => reference, transport });
+    const context: CanvasAgentContext = { projectId: 'review-test', runId: 'review-auto-run' };
+    const agent = createCanvasAgent({ runtime, context, executionMode: 'auto',
+      skillContext: { text, taskRoute: routeUserTask({ text }) },
+    });
+    const interrupted = await runtime.runner.run(agent, text, { context });
+    expect(firstRequest?.tools.map((item) => item.name)).toContain('production_plan');
+    expect(interrupted.interruptions).toHaveLength(1);
+    expect(interrupted.interruptions[0].name).toBe('production_plan');
   });
 
   it('executes production_plan create with ad-tvc workflow factory', async () => {

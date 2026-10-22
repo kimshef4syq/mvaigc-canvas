@@ -14,6 +14,7 @@ import {
   propagateStaleStages,
   productionStageSchema,
 } from '../domain/productionPlan';
+import { STAGED_VIDEO_WORKFLOWS, STAGED_CONFIRMATION_POLICY, assertPreviousStagesAccepted } from '../domain/workflowConfirmation';
 
 export interface CreatePlanInput {
   projectId: string;
@@ -58,6 +59,9 @@ export interface RecordReviewInput {
   reviewId: string;
   status: ReviewCheckStatus;
   reason?: string;
+  /** Set only by the host after the user approves the review tool call. */
+  userConfirmed?: boolean;
+  contentHash?: string;
 }
 
 export interface RetryItemsInput {
@@ -88,6 +92,7 @@ export class ProductionPlanService {
         id: input.workflow.id,
         variant: input.workflow.variant ?? 'canonical',
         profileRevision: input.workflow.profileRevision ?? '1.0',
+        ...(STAGED_VIDEO_WORKFLOWS.has(input.workflow.id) ? { confirmationPolicy: STAGED_CONFIRMATION_POLICY } : {}),
       },
       scope: {
         deliverables: input.scope.deliverables,
@@ -138,6 +143,11 @@ export class ProductionPlanService {
     }
 
     // Check if modifying an existing stage requires propagating stale to downstream
+    const outline = plan.stageOutline.find((stage) => stage.id === input.stage.id);
+    if (plan.workflow.confirmationPolicy === STAGED_CONFIRMATION_POLICY && (!outline || outline.order !== input.stage.order)) {
+      throw new Error('请按制作大纲的当前阶段编写，不能跳过或伪造阶段顺序。');
+    }
+    assertPreviousStagesAccepted(plan, input.stage);
     let updatedStages = plan.stages;
     const existingIndex = plan.stages.findIndex((s) => s.id === input.stage.id);
     if (existingIndex >= 0) {

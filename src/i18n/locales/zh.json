@@ -99,7 +99,7 @@
     "tasks": "任务",
     "navigation": "Agent 视图导航",
     "moreActions": "更多操作",
-    "scopeNotice": "手动模式逐项确认；自动模式仅删除节点需要确认",
+    "scopeNotice": "手动模式逐项审批；自动模式保留制作阶段与删除节点确认",
     "runtime": {
       "title": "Agent 运行方式",
       "builtin": "内置",
@@ -200,7 +200,7 @@
     "executionMode": "执行模式",
     "executionModes": {
       "manual": { "title": "手动确认", "description": "执行画布修改和生成前显示确认卡。", "short": "手动" },
-      "auto": { "title": "自动执行", "description": "读取、配置、画布操作、生成与安全恢复直接执行；只有删除节点需要确认。", "short": "自动" }
+      "auto": { "title": "自动执行", "description": "自动执行已确认阶段内的操作；素材、方案、分镜、生成授权与删除节点仍需确认。", "short": "自动" }
     },
     "contextUsage": "上下文",
     "contextEstimate": "约 {{used}} / {{limit}} tokens",
@@ -208,7 +208,7 @@
     "contextIncludes": "包含当前对话、附件引用、画布查询结果与按需加载的技能。",
     "contextEstimateNotice": "这是本地估算，不是模型供应商的精确计数。",
     "autoModeConfirmTitle": "启用自动执行？",
-    "autoModeConfirmDescription": "内置 Agent 将直接执行读取、配置、画布修改、新生成提交和安全结果恢复；只有删除画布节点需要确认。它不会自动重复提交结果不明的付费生成请求；外接 Codex/Claude Code 始终保持手动审批。",
+    "autoModeConfirmDescription": "内置 Agent 自动执行已确认阶段内的读取、配置、画布修改、生成和安全恢复；制作资料与方案、分镜、阶段成果、视频生成授权及删除节点仍需您确认。它不会自动重复提交结果不明的付费生成请求；外接 Codex/Claude Code 始终保持手动审批。",
     "enableAutoMode": "启用自动执行",
     "noImageOnSelection": "请先选中包含图片的画布节点",
     "enterHint": "Enter 发送，Shift + Enter 换行",

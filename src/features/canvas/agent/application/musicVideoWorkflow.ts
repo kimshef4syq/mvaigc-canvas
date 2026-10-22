@@ -1,3 +1,4 @@
+import { enforceWorkflowConfirmations } from '../domain/workflowConfirmation';
 import {
   type ProductionPlanV1,
   type ProductionStageV1,
@@ -25,8 +26,8 @@ export interface CreateMusicVideoPlanInput {
 export function createMusicVideoPlan(input: CreateMusicVideoPlanInput): ProductionPlanV1 {
   const planId = input.planId || `plan-mv-${Date.now()}`;
   const now = Date.now();
-  const directionMode = input.directionMode || 'visual_aesthetic';
-  const styleSystem = input.styleSystem || 'cyberpunk-neon';
+  const directionMode = input.directionMode;
+  const styleSystem = input.styleSystem;
   const sourceIds = input.musicSourceId ? [input.musicSourceId] : [];
   const targetNodeIds = input.targetNodeIds || [];
 
@@ -54,7 +55,7 @@ export function createMusicVideoPlan(input: CreateMusicVideoPlanInput): Producti
     order: 0,
     name: '确定 MV 方向',
     revision: 1,
-    goal: `确定 MV 创意方向（${directionMode === 'narrative_story' ? '叙事剧情' : '视觉概念'}）与${styleSystem}风格系统`,
+    goal: '先确定歌曲与参考素材来源，再由用户确认 MV 创意方向、风格、时长和画幅',
     dependsOn: [],
     status: 'ready',
     review: { beforeExecution: [], afterExecution: [] },
@@ -66,14 +67,15 @@ export function createMusicVideoPlan(input: CreateMusicVideoPlanInput): Producti
     supersededOutputs: [],
   };
 
-  return productionPlanSchema.parse({
+  return enforceWorkflowConfirmations(productionPlanSchema.parse({
     schemaVersion: 1,
     id: planId,
     projectId: input.projectId,
     revision: 1,
     workflow: {
       id: 'mv',
-      variant: directionMode,
+      confirmationPolicy: 'staged-v1',
+      variant: directionMode ?? 'pending-intake',
       profileRevision: '1.0',
     },
     scope: {
@@ -82,8 +84,8 @@ export function createMusicVideoPlan(input: CreateMusicVideoPlanInput): Producti
     },
     sourceIds,
     decisions: [
-      { key: 'directionMode', value: directionMode, source: 'workflow', scope: 'global', timestamp: now },
-      { key: 'styleSystem', value: styleSystem, source: 'workflow', scope: 'global', timestamp: now },
+      ...(directionMode ? [{ key: 'directionMode', value: directionMode, source: 'user' as const, scope: 'global', timestamp: now }] : []),
+      ...(styleSystem ? [{ key: 'styleSystem', value: styleSystem, source: 'user' as const, scope: 'global', timestamp: now }] : []),
       { key: 'concurrencyLimit', value: 1, source: 'workflow', scope: 'global', timestamp: now },
     ],
     stageOutline,
@@ -91,7 +93,7 @@ export function createMusicVideoPlan(input: CreateMusicVideoPlanInput): Producti
     status: 'active',
     createdAt: now,
     updatedAt: now,
-  });
+  }));
 }
 
 export function authorMvShotPlan(

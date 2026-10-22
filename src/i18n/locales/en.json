@@ -99,7 +99,7 @@
     "tasks": "Tasks",
     "navigation": "Agent views",
     "moreActions": "More actions",
-    "scopeNotice": "Manual confirms each action; Auto only confirms node deletion",
+    "scopeNotice": "Manual approves each action; Auto retains production-stage and deletion confirmations",
     "runtime": {
       "title": "Agent runtime",
       "builtin": "Built-in",
@@ -200,7 +200,7 @@
     "executionMode": "Execution mode",
     "executionModes": {
       "manual": { "title": "Manual approval", "description": "Show a confirmation card before canvas changes and generation.", "short": "Manual" },
-      "auto": { "title": "Automatic execution", "description": "Run reads, settings, canvas actions, generation, and safe recovery directly; only node deletion asks for approval.", "short": "Auto" }
+      "auto": { "title": "Automatic execution", "description": "Run operations within approved stages automatically; production decisions, video authorization, and node deletion still require confirmation.", "short": "Auto" }
     },
     "contextUsage": "Context",
     "contextEstimate": "About {{used}} / {{limit}} tokens",
@@ -208,7 +208,7 @@
     "contextIncludes": "Includes this conversation, attachment references, canvas query results, and skills loaded on demand.",
     "contextEstimateNotice": "This is a local estimate, not an exact provider token count.",
     "autoModeConfirmTitle": "Enable automatic execution?",
-    "autoModeConfirmDescription": "The built-in Agent will directly run reads, settings, canvas changes, new generation submissions, and safe result recovery; only deleting canvas nodes asks for approval. It never automatically replays an ambiguous paid submission. External Codex and Claude Code connections always remain manually approved.",
+    "autoModeConfirmDescription": "The built-in Agent automatically runs reads, settings, canvas changes, generation, and safe recovery within approved stages. Production inputs, plans, storyboards, stage results, video authorization, and node deletion still require your confirmation. It never automatically replays an ambiguous paid submission. External Codex and Claude Code connections always remain manually approved.",
     "enableAutoMode": "Enable automatic execution",
     "noImageOnSelection": "Select a canvas node that contains an image first",
     "enterHint": "Enter to send, Shift + Enter for a new line",

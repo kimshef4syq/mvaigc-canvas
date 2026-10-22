@@ -9,6 +9,14 @@ import {
 } from './musicVideoWorkflow';
 
 describe('Music Video Workflow Application Service (T14 & A21)', () => {
+  it('starts with a pending intake review and does not select style or music for the user', () => {
+    const plan = createMusicVideoPlan({ projectId: 'project-intake', prompt: '帮我制作一首MV' });
+    expect(plan.workflow.confirmationPolicy).toBe('staged-v1');
+    expect(plan.stages[0].review.afterExecution[0]).toMatchObject({ status: 'pending', requiresUserConfirmation: true });
+    expect(plan.decisions.some((decision) => decision.key === 'styleSystem')).toBe(false);
+    expect(plan.sourceIds).toEqual([]);
+  });
+
   describe('Music Duration Authority & Gapless Partitioning (A21)', () => {
     it('partitions a 60-second song into continuous, gapless [4s, 15s] clip groups', () => {
       const groups = partitionMvClipGroups(60.0);

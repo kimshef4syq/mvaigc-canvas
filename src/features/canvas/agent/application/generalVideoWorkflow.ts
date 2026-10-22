@@ -1,3 +1,4 @@
+import { enforceWorkflowConfirmations } from '../domain/workflowConfirmation';
 import {
   type ProductionPlanV1,
   type ProductionStageV1,
@@ -68,7 +69,7 @@ export function createGeneralVideoPlan(input: CreateGeneralVideoPlanInput): Prod
     payload: {
       driver,
       originalPrompt: input.prompt,
-      visualMotif: '自然光影、电影级景深、真实物理质感',
+      visualDirectionStatus: 'awaiting-user',
       soundDesign: soundPolicy,
       stageCount: stageOutline.length,
     },
@@ -95,13 +96,14 @@ export function createGeneralVideoPlan(input: CreateGeneralVideoPlanInput): Prod
     supersededOutputs: [],
   };
 
-  return productionPlanSchema.parse({
+  return enforceWorkflowConfirmations(productionPlanSchema.parse({
     schemaVersion: 1,
     id: planId,
     projectId: input.projectId,
     revision: 1,
     workflow: {
       id: 'general-video',
+      confirmationPolicy: 'staged-v1',
       variant: driver,
       profileRevision: '1.0',
     },
@@ -116,7 +118,7 @@ export function createGeneralVideoPlan(input: CreateGeneralVideoPlanInput): Prod
     status: 'active',
     createdAt: now,
     updatedAt: now,
-  });
+  }));
 }
 
 export function compileGeneralVideoClipPrompts(

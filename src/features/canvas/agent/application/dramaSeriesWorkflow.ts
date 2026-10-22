@@ -1,3 +1,4 @@
+import { enforceWorkflowConfirmations } from '../domain/workflowConfirmation';
 import {
   type ProductionPlanV1,
   type ProductionStageV1,
@@ -27,7 +28,7 @@ export function createDramaSeriesPlan(input: CreateDramaSeriesPlanInput): Produc
   const targetNodeIds = input.targetNodeIds || [];
   const sourceIds = input.sourceIds || [];
 
-  const episodeScope = input.scope?.episodeScope || '第1集';
+  const episodeScope = input.scope?.episodeScope || '待确认集数';
   const hasExistingScript = input.scope?.hasExistingScript ?? (sourceIds.length > 0 || /已有剧本|提供剧本|上传剧本/i.test(input.prompt));
   const skipKeyframes = input.scope?.storyboardStyle === 'skip' || /跳过宫格|不生成宫格/i.test(input.prompt);
   const productionMode = input.scope?.productionMode || 'live-action';
@@ -114,35 +115,36 @@ export function createDramaSeriesPlan(input: CreateDramaSeriesPlanInput): Produc
     };
   }
 
-  return productionPlanSchema.parse({
+  return enforceWorkflowConfirmations(productionPlanSchema.parse({
     schemaVersion: 1,
     id: planId,
     projectId: input.projectId,
     revision: 1,
     workflow: {
       id: 'drama-series',
+      confirmationPolicy: 'staged-v1',
       variant: productionMode,
       profileRevision: '1.0',
     },
     scope: {
       deliverables: ['drama-episode-video'],
-      targetEpisodeScope: episodeScope,
+      targetEpisodeScope: input.scope?.episodeScope,
       targetNodeIds,
     },
     sourceIds,
     decisions: [
-      { key: 'targetEpisodeScope', value: episodeScope, source: 'workflow', scope: 'global', timestamp: now },
-      { key: 'productionMode', value: productionMode, source: 'workflow', scope: 'global', timestamp: now },
-      { key: 'aspectRatio', value: aspectRatio, source: 'workflow', scope: 'global', timestamp: now },
-      { key: 'bgmPolicy', value: bgmPolicy, source: 'workflow', scope: 'global', timestamp: now },
-      { key: 'subtitlePolicy', value: subtitlePolicy, source: 'workflow', scope: 'global', timestamp: now },
+      { key: 'targetEpisodeScope', value: input.scope?.episodeScope, source: input.scope?.episodeScope ? 'user' : 'default', scope: 'global', timestamp: now },
+      { key: 'productionMode', value: productionMode, source: input.scope?.productionMode ? 'user' : 'default', scope: 'global', timestamp: now },
+      { key: 'aspectRatio', value: aspectRatio, source: input.scope?.aspectRatio ? 'user' : 'default', scope: 'global', timestamp: now },
+      { key: 'bgmPolicy', value: bgmPolicy, source: input.scope?.bgmPolicy ? 'user' : 'default', scope: 'global', timestamp: now },
+      { key: 'subtitlePolicy', value: subtitlePolicy, source: input.scope?.subtitlePolicy ? 'user' : 'default', scope: 'global', timestamp: now },
     ],
     stageOutline,
     stages: [initialStage],
     status: 'active',
     createdAt: now,
     updatedAt: now,
-  });
+  }));
 }
 
 export function authorDramaAssetStage(

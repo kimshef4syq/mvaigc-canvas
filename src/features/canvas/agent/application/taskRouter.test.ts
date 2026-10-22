@@ -101,3 +101,50 @@ describe('Task Router Application Service (T03)', () => {
     expect(ambiguous.missingFacts.length).toBeGreaterThan(0);
   });
 });
+
+describe('production intent and direct-shot boundary', () => {
+  it.each([
+    ['制作一首 MV', 'mv'], ['制作一个音乐视频', 'mv'], ['给这首歌做一个MV视频', 'mv'],
+    ['制作一个MV，我有歌手图片', 'mv'], ['制作一首M V，我有歌曲和人物图片', 'mv'],
+    ['做15秒歌词视频', 'mv'], ['做卡点视频', 'mv'],
+    ['制作xxTVC广告', 'ad-tvc'], ['制作一支TVC广告，我有产品图片', 'ad-tvc'], ['做品牌大片视频', 'ad-tvc'], ['做品牌宣传视频', 'ad-tvc'],
+    ['做产品发布视频', 'ad-tvc'], ['做App功能介绍视频', 'ad-tvc'], ['做软件演示视频', 'ad-tvc'],
+    ['做UGC视频', 'koc-video'], ['做开箱视频', 'koc-video'], ['做产品测评视频', 'koc-video'], ['做口播视频', 'koc-video'],
+    ['制作一个短剧视频', 'drama-series'], ['做一部微电影', 'drama-series'], ['做剧情动画', 'drama-series'],
+    ['做数字人讲解视频', 'general-video'], ['做AI主播视频', 'general-video'], ['做照片说话视频', 'general-video'],
+    ['做科普视频', 'general-video'], ['做教程视频', 'general-video'], ['做故事解说视频', 'general-video'],
+    ['做旅行Vlog视频', 'general-video'], ['剪辑一部采访成片', 'general-video'],
+    ['做动画短片', 'general-video'], ['做氛围片', 'general-video'], ['做活动预告片', 'general-video'],
+    ['做人物介绍视频', 'general-video'], ['做作品集视频', 'general-video'],
+    ['批量制作开箱视频', 'koc-video'], ['用产品图片制作一个宣传视频', 'general-video'],
+    ['制作多段同一个人物的视频', 'general-video'],
+    ['先出分镜确认后生成8秒视频', 'general-video'],
+  ])('routes %s to %s before generating', (text, expected) => {
+    expect(routeUserTask({ text })).toMatchObject({ kind: 'workflow', workflow: expected });
+  });
+
+  it.each(['用这张图生成8秒缓慢推镜视频', '做一个8秒推镜，角色回头后奔跑', '只做一个镜头：8秒TVC风格的产品旋转视频'])('keeps the specified independent shot direct: %s', (text) => {
+    expect(routeUserTask({ text })).toMatchObject({ kind: 'direct', requestedDeliverables: ['video'] });
+  });
+
+  it.each(['TVC风格的一张海报', '批量生成十张互相独立的海报', '根据MV参考视频生成一张图片'])('keeps still-image deliverables direct: %s', (text) => {
+    expect(routeUserTask({ text })).toMatchObject({ kind: 'direct' });
+    expect(routeUserTask({ text }).requiredCapabilities).not.toContain('generation:video');
+  });
+
+  it('asks about a video with no subject, instead of submitting', () => {
+    expect(routeUserTask({ text: '帮我生成视频' })).toMatchObject({ kind: 'clarify', missingFacts: [{ key: 'videoBrief' }] });
+  });
+
+  it('continues the same plan for a parameter answer and does not hijack an independent task', () => {
+    const context = { activePlanId: 'plan-mv', activeWorkflow: 'mv' as const };
+    expect(routeUserTask({ ...context, text: '16:9，30秒' })).toMatchObject({ kind: 'workflow', workflow: 'mv', activePlanId: 'plan-mv' });
+    expect(routeUserTask({ ...context, text: '生成一张海报' })).toMatchObject({ kind: 'direct', requestedDeliverables: ['image'] });
+  });
+
+  it('does not treat a shot text edit as permission to regenerate', () => {
+    const route = routeUserTask({ text: '修改第3个镜头的提示词' });
+    expect(route.stageIntent).toBe('edit-shot');
+    expect(route.requiredCapabilities).toEqual([]);
+  });
+});

@@ -25,7 +25,7 @@ import { AgentModelGatewayError, createAgentModelTransport } from './agentModelG
 import { getInstalledAgentSkills } from '../application/installedSkills';
 import { readSkillResource } from '@/commands/extensions';
 import { searchProfiles, readProfile } from './profileRepository';
-import { sourceRepository } from './sourceRepository';
+import { sourceRepository, computeSha256 } from './sourceRepository';
 import { productionPlanService } from '../application/productionPlanService';
 import { productionPlanRepository } from './productionPlanRepository';
 import { createAdTvcPlan } from '../application/adTvcWorkflow';
@@ -33,6 +33,7 @@ import { createDramaSeriesPlan } from '../application/dramaSeriesWorkflow';
 import { createKocPlan } from '../application/kocVideoWorkflow';
 import { createMusicVideoPlan } from '../application/musicVideoWorkflow';
 import { createGeneralVideoPlan } from '../application/generalVideoWorkflow';
+import { assertWorkflowGenerationAllowed, assertWorkflowReviewReady } from '../application/workflowGenerationGuard';
 import { mediaPostprocessOperationSchema } from '../domain/mediaPostprocess';
 import { mediaPostprocessService } from '../application/mediaPostprocessService';
 import type { McpAgentTool } from '@/commands/mcpClient';
@@ -1070,6 +1071,7 @@ export function createCanvasAgent(options: {
   context: CanvasAgentContext;
 }): Agent<CanvasAgentContext> {
   const { runtime, context } = options;
+  let workflowPlanId = options.skillContext.taskRoute?.activePlanId;
   const skillContext = buildSkillContext(options.skillContext);
   const toolPolicy = resolveAgentToolPolicy({
     skillContext,
@@ -1083,7 +1085,7 @@ export function createCanvasAgent(options: {
   const canvasTool = tool({
     name: 'canvas_command',
     description: options.executionMode === 'auto'
-      ? 'Read or change the canvas through the versioned command contract. Calls are visible; only node deletion requires confirmation in automatic mode.'
+      ? 'Read or change the canvas through the versioned command contract. Calls are visible; node deletion and production-stage decisions require user confirmation even in automatic mode.'
       : 'Read or change the canvas through the versioned command contract. Calls are visible and require confirmation in manual mode.',
     parameters: toolPolicy.mode === 'minimal' ? compactCanvasCommandParameters : canvasCommandSdkParameters,
     strict: false,
@@ -1119,6 +1121,16 @@ export function createCanvasAgent(options: {
         toolEvent(context, { toolName: 'canvas_command', callId, status: 'failed', error: disciplineViolation.message });
         agentLoopGuard.recordResult(context.runId, 'canvas_command', input, false, disciplineViolation.message);
         return { ok: false, error: disciplineViolation.message, code: disciplineViolation.code };
+      }
+      if (command.type === 'generation.submit') {
+        try {
+          const canvas = useCanvasStore.getState();
+          assertWorkflowGenerationAllowed({ projectId: context.projectId, route: options.skillContext.taskRoute,
+            planId: workflowPlanId, nodeIds: command.input.nodeIds, nodes: canvas.nodes, edges: canvas.edges,
+            references: buildCanvasAssetCatalog(canvas.nodes) });
+        } catch (error) {
+          return { ok: false, code: 'workflow_confirmation_required', error: error instanceof Error ? error.message : String(error) };
+        }
       }
 
       const approvalId = createApprovalId(context.runId, 'canvas_command', callId);
@@ -1730,6 +1742,7 @@ export function createCanvasAgent(options: {
   const productionPlanTool = tool({
     name: 'production_plan',
     description: '读取、创建或更新视频/短剧/广告制作计划（ProductionPlanV1）。支持阶段编写、工作项重试、人工审核记录与状态推进。',
+    needsApproval: async (_runContext, raw) => (raw as { action?: string }).action === 'record_review',
     parameters: {
       type: 'object',
       properties: {
@@ -1792,48 +1805,67 @@ export function createCanvasAgent(options: {
         switch (parsed.action) {
           case 'create': {
             const input = parsed.createInput ?? {};
+            const saveWorkflowPlan = (plan: Parameters<typeof productionPlanRepository.savePlan>[0]) => {
+              const saved = productionPlanRepository.savePlan(plan);
+              workflowPlanId = saved.id;
+              return saved;
+            };
             const workflowId = typeof input.workflow === 'string' ? input.workflow : input.workflow?.id;
             if (workflowId === 'ad-tvc') {
               const plan = createAdTvcPlan({
                 projectId: context.projectId,
                 prompt: input.prompt ?? input.title ?? '',
                 category: input.category,
+                productSourceIds: input.productSourceIds ?? input.sourceIds,
                 direction: input.direction,
                 targetNodeIds: input.targetNodeIds,
                 options: input.options,
               });
-              return productionPlanRepository.savePlan(plan);
+              return saveWorkflowPlan(plan);
             }
             if (workflowId === 'drama-series') {
               const plan = createDramaSeriesPlan({
                 projectId: context.projectId,
                 prompt: input.prompt ?? input.title ?? '',
-                scope: input.scope,
+                scope: { ...input.scope, episodeScope: input.scope?.episodeScope ?? options.skillContext.taskRoute?.scope.episodeScope },
+                sourceIds: input.sourceIds,
+                targetNodeIds: input.targetNodeIds,
               });
-              return productionPlanRepository.savePlan(plan);
+              return saveWorkflowPlan(plan);
             }
             if (workflowId === 'koc-video') {
               const plan = createKocPlan({
+                contentFormat: input.contentFormat,
+                platform: input.platform,
+                productSourceIds: input.productSourceIds ?? input.sourceIds,
+                creatorImageSourceId: input.creatorImageSourceId,
+                targetNodeIds: input.targetNodeIds,
                 projectId: context.projectId,
                 prompt: input.prompt ?? input.title ?? '',
                 options: input.options,
               });
-              return productionPlanRepository.savePlan(plan);
+              return saveWorkflowPlan(plan);
             }
             if (workflowId === 'mv') {
               const plan = createMusicVideoPlan({
+                directionMode: input.directionMode,
+                styleSystem: input.styleSystem,
+                musicSourceId: input.musicSourceId,
+                targetNodeIds: input.targetNodeIds,
                 projectId: context.projectId,
                 prompt: input.prompt ?? input.title ?? '',
               });
-              return productionPlanRepository.savePlan(plan);
+              return saveWorkflowPlan(plan);
             }
             if (workflowId === 'general-video') {
               const plan = createGeneralVideoPlan({
                 projectId: context.projectId,
                 prompt: input.prompt ?? '',
                 driver: input.driver,
+                targetNodeIds: input.targetNodeIds,
+                options: input.options,
               });
-              return productionPlanRepository.savePlan(plan);
+              return saveWorkflowPlan(plan);
             }
             return productionPlanService.createPlan({
               projectId: context.projectId,
@@ -1871,7 +1903,20 @@ export function createCanvasAgent(options: {
             if (!parsed.planId || parsed.expectedRevision === undefined || !parsed.recordReviewInput) {
               throw new Error('record_review 操作必须提供 planId, expectedRevision 和 recordReviewInput');
             }
+            const reviewPlan = productionPlanService.getPlan(context.projectId, parsed.planId);
+            const reviewStage = reviewPlan?.stages.find((stage) => stage.id === parsed.recordReviewInput.stageId);
+            if (!reviewPlan || !reviewStage) throw new Error('未找到待确认阶段');
+            if (parsed.recordReviewInput.status === 'passed') {
+              const nodes = useCanvasStore.getState().nodes;
+              const availableRefs = new Set([...nodes.map((node) => node.id),
+                ...buildCanvasAssetCatalog(nodes).map((asset) => asset.id),
+                ...sourceRepository.listSources(context.projectId).map((source) => source.id)]);
+              assertWorkflowReviewReady(reviewPlan, reviewStage, parsed.recordReviewInput.reviewId, availableRefs);
+            }
             return productionPlanService.recordReview({
+              userConfirmed: true,
+              contentHash: await computeSha256(JSON.stringify({ stageId: reviewStage.id, goal: reviewStage.goal,
+                locks: reviewStage.executionLocks, items: reviewStage.workItems, outputs: reviewStage.currentOutputs })),
               projectId: context.projectId,
               planId: parsed.planId,
               expectedRevision: parsed.expectedRevision,
@@ -1946,6 +1991,7 @@ export function createCanvasAgent(options: {
     ...(toolPolicy.toolKinds.includes('config') || options.restoreExtensions ? [configPatchTool] : []),
     ...(assetReadTool && (toolPolicy.toolKinds.includes('asset-read') || options.restoreExtensions) ? [assetReadTool] : []),
     ...(skillContext.toolNamespaces.includes('knowledge') || options.restoreExtensions
+      || options.skillContext.taskRoute?.kind === 'workflow' || !!options.skillContext.taskRoute?.activePlanId
       ? [profileSearchTool, profileReadTool, sourceReadTool, sourceInspectTool, productionPlanTool, mediaPostprocessTool]
       : []),
     ...(skillReadTool ? [skillReadTool] : []),
@@ -1970,8 +2016,8 @@ export function createCanvasAgent(options: {
       `本轮 MCP 实际连接状态：${JSON.stringify(redactSensitiveValue(options.mcpConnectionStatus ?? []))}。历史消息中的工具名不代表本轮仍可调用；以当前工具定义为准。服务未连接时根据错误说明缺口，禁止反复调用旧工具名。`,
       'asset.locate 仅在画布中定位，参数只有 assetId 和可选 select；不支持 reveal，也不返回磁盘路径。用户要求把成品图放入达芬奇时：先 asset.list {kind:"image",generatedOnly:true} 查询真实成品 assetIds，再调用 mcp_davinci_append_images（若已注册）。用户要求把成品视频放入达芬奇时：先 asset.list {kind:"video",generatedOnly:true} 查询真实 assetIds，再调用 mcp_davinci_append_videos（若已注册），保留完整视频时长及原音频；不要调用图片导入工具处理视频。中间截图、输入及参考素材不得导入。availability=unchecked 只说明存在引用，不代表文件已验证；宿主会预检文件。不要绕过路径脱敏或停在“先查一下”的承诺。根据返回 stage/error/imported/appended 报告实际结果。',
       options.executionMode === 'auto'
-        ? '当前是自动模式：直接发起结构化工具调用，应用会自动执行本次用户要求范围内的操作；只有删除节点会等待用户确认。不要先要求用户回复“继续”或批准，也不要把“我会做”当成已执行。'
-        : '当前是手动模式：需要操作时直接发起结构化工具调用，由应用显示确认卡；不要在正文里要求用户另行回复“继续”，也不要把“我会做”当成已执行。',
+        ? '当前是自动模式：自动执行已确认阶段内的工具操作。素材来源、脚本方案、人物资产、分镜和视频生成授权必须由用户确认；遇到资料缺失先提问并等待，选择上传后等待真实文件。阶段确认调用 production_plan record_review，应用会保留用户审批卡，不得自行通过或 waived。删除节点也仍需确认。'
+        : '当前是手动模式：工具操作由应用显示确认卡；制作所需素材、方案和阶段确认仍须先完成。工具审批不代表用户已接受未呈现的创意。',
       '结果必须引用真实 nodeId/assetId/jobId；成功后告诉用户如何定位。错误要分类并保留未知状态。',
       '用户可见正文必须简洁自然。禁止在正文输出 Reasoning Summary、Context Analysis、Constraint Check、Action Strategy、Node Creation、Generation Submission 等内部分析标题或英文工作记录；应用已有独立的 reasoning summary 展开区。状态查询和生成结果通常用一至三段中文说明状态、关键结果与下一步，不重复罗列 nodeId、jobId、坐标或“如何定位”，除非用户正在排错或明确要求详情。',
       '多镜头任务：按分镜顺序设置 node.create.configuration.shotNumber（从1开始）和唯一 displayName（如第01镜 · 旋钮锁合）。有锚点/参考素材时，用 node.create.input.referenceNodeIds 传入已成功产出的真实素材节点ID，应用会原子创建连线；不要只把参考写在提示词里。无连线就不能声称已使用锚点。并发读取可以；画布写操作必须逐个等待完成，避免审批快照冲突。',
