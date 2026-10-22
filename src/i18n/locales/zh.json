@@ -118,6 +118,10 @@
       }
     },
     "newConversation": "新建对话",
+    "viewArchived": "查看归档对话",
+    "activeConversations": "返回当前对话",
+    "archiveConversation": "归档对话",
+    "restoreConversation": "恢复对话",
     "showCompletedTools": "显示已完成的工具调用",
     "hideCompletedTools": "隐藏已完成的工具调用",
     "completedToolCount": "工具调用 {{count}} 个",
@@ -211,6 +215,7 @@
     "resolveApprovalHint": "先处理上方待确认操作，再发送下一条消息",
     "resolvePlanHint": "先审核上方执行计划，再发送下一条消息",
     "noHistory": "当前项目还没有 Agent 对话",
+    "noArchivedConversations": "当前项目还没有归档对话",
     "newItems": "查看新内容",
     "streaming": "正在生成",
     "pendingApprovals": "有 {{count}} 项操作等待确认",

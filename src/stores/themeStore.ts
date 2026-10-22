@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { resilientLocalStorage } from './persistStorage';
 
 export type Theme = 'dark' | 'light';
 export type SkinPreset = 'warm-amber' | 'classic' | 'cool-frost' | 'sunset-glow';
@@ -90,6 +91,7 @@ export const useThemeStore = create<ThemeState>()(
     }),
     {
       name: 'theme-storage',
+      storage: resilientLocalStorage,
       onRehydrateStorage: () => (state) => {
         if (state && typeof document !== 'undefined') {
           document.documentElement.classList.toggle('dark', state.theme === 'dark');

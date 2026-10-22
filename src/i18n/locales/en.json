@@ -118,6 +118,10 @@
       }
     },
     "newConversation": "New conversation",
+    "viewArchived": "View archived conversations",
+    "activeConversations": "Back to active conversations",
+    "archiveConversation": "Archive conversation",
+    "restoreConversation": "Restore conversation",
     "showCompletedTools": "Show completed tool calls",
     "hideCompletedTools": "Hide completed tool calls",
     "completedToolCount": "{{count}} tool calls",
@@ -211,6 +215,7 @@
     "resolveApprovalHint": "Resolve the pending approval before sending the next message",
     "resolvePlanHint": "Review the pending plan before sending the next message",
     "noHistory": "This project has no Agent conversations yet",
+    "noArchivedConversations": "This project has no archived conversations",
     "newItems": "View new items",
     "streaming": "Generating",
     "pendingApprovals": "{{count}} actions are waiting for approval",

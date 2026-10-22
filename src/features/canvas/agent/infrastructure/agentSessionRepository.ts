@@ -13,7 +13,7 @@ import {
 } from '../domain/agentModel';
 import { CANVAS_COMMAND_VERSION } from '../../domain/canvasCommands';
 
-const SESSION_STORAGE_KEY = 'storyboard-copilot:canvas-agent:sessions:v1';
+export const SESSION_STORAGE_KEY = 'storyboard-copilot:canvas-agent:sessions:v1';
 const RUN_STATE_STORAGE_KEY = 'storyboard-copilot:canvas-agent:run-states:v1';
 const MAX_SESSION_ITEMS = 2_000;
 const MAX_SERIALIZED_BYTES = 8 * 1024 * 1024;
@@ -21,7 +21,7 @@ const MAX_COMPACTED_SUMMARY_CHARACTERS = 100_000;
 const MAX_SESSION_MEDIA_REFERENCES = 256;
 const MAX_RESUMABLE_RUN_STATE_AGE_MS = 30 * 60_000;
 
-interface StorageLike {
+export interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
@@ -39,6 +39,8 @@ export interface AgentSessionRecord {
   compactedSummary?: string;
   appliedTransactions: Record<string, string>;
 }
+
+export type AgentSessionSummary = Pick<AgentSessionRecord, 'id' | 'projectId' | 'title' | 'modelRef' | 'createdAt' | 'updatedAt'>;
 
 export type AgentRunStateStatus =
   | 'running'
@@ -60,7 +62,7 @@ export interface AgentRunStateRecord {
   updatedAt: number;
 }
 
-interface SessionEnvelope {
+export interface SessionEnvelope {
   version: 1;
   sessions: AgentSessionRecord[];
 }
@@ -111,7 +113,7 @@ function unsafeStringReason(value: string): string | null {
   return null;
 }
 
-function assertPersistenceSafe(value: unknown, path = '$', seen = new WeakSet<object>()): void {
+export function assertPersistenceSafe(value: unknown, path = '$', seen = new WeakSet<object>()): void {
   if (typeof value === 'string') {
     const reason = unsafeStringReason(value);
     if (reason) throw new Error(`Agent persistence rejected ${reason} at ${path}.`);
@@ -134,7 +136,7 @@ function assertPersistenceSafe(value: unknown, path = '$', seen = new WeakSet<ob
   seen.delete(value);
 }
 
-function serializeBounded(value: unknown): string {
+export function serializeBounded(value: unknown): string {
   assertPersistenceSafe(value);
   const serialized = JSON.stringify(value);
   if (new TextEncoder().encode(serialized).byteLength > MAX_SERIALIZED_BYTES) {
@@ -202,7 +204,7 @@ function isFiniteTimestamp(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
-function isAgentSessionRecord(value: unknown): value is AgentSessionRecord {
+export function isAgentSessionRecord(value: unknown): value is AgentSessionRecord {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const record = value as Partial<AgentSessionRecord>;
   return typeof record.id === 'string'
@@ -281,6 +283,27 @@ export class AgentSessionRepository {
       ?? `agent-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
   ) {
     this.compactPersistedTerminalRunStates();
+  }
+
+  /** Async storage boundary; the legacy adapter needs no preparation. */
+  async prepare(): Promise<void> {}
+
+  async loadSession(_sessionId: string): Promise<void> {}
+
+  async flush(): Promise<void> {}
+
+  async releaseSessions(): Promise<void> {}
+
+  retainSession(_sessionId: string): () => void { return () => {}; }
+
+  async listSessionSummaries(
+    projectId: string,
+    isVisible: (items: AgentInputItem[]) => boolean,
+  ): Promise<AgentSessionSummary[]> {
+    return this.listSessions(projectId).filter((session) => isVisible(session.items))
+      .map(({ id, projectId, title, modelRef, createdAt, updatedAt }) => (
+        { id, projectId, title, modelRef, createdAt, updatedAt }
+      ));
   }
 
   listSessions(projectId: string): AgentSessionRecord[] {
@@ -540,7 +563,7 @@ export class AgentSessionRepository {
     return cloneJson(next);
   }
 
-  private readSessions(): SessionEnvelope {
+  protected readSessions(): SessionEnvelope {
     if (!this.storage) return cloneJson(this.sessionMemory);
     try {
       return parseSessionEnvelope(this.storage.getItem(SESSION_STORAGE_KEY));
@@ -550,7 +573,7 @@ export class AgentSessionRepository {
     }
   }
 
-  private writeSessions(envelope: SessionEnvelope): void {
+  protected writeSessions(envelope: SessionEnvelope): void {
     const serialized = serializeBounded(envelope);
     if (!this.storage) this.sessionMemory = cloneJson(envelope);
     else {
@@ -707,28 +730,34 @@ implements SessionHistoryRewriteAwareSession, SessionHistoryTransactionAwareSess
       operationId: `append-${this.sessionId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       transaction: { type: 'append_items', items },
     });
+    await this.repository.flush();
   }
 
   async replaceHistoryWithCompaction(items: AgentInputItem[]): Promise<void> {
     this.repository.replaceItems(this.sessionId, items);
+    await this.repository.flush();
   }
 
   async popItem(): Promise<AgentInputItem | undefined> {
     const current = this.repository.getSession(this.sessionId)?.items ?? [];
     const item = current[current.length - 1];
     this.repository.replaceItems(this.sessionId, current.slice(0, -1));
+    await this.repository.flush();
     return item ? cloneJson(item) : undefined;
   }
 
   async clearSession(): Promise<void> {
     this.repository.replaceItems(this.sessionId, []);
+    await this.repository.flush();
   }
 
   async applyHistoryMutations(args: SessionHistoryRewriteArgs): Promise<void> {
     await this.repository.applyHistoryMutation(this.sessionId, args);
+    await this.repository.flush();
   }
 
   async applyHistoryTransaction(args: SessionHistoryTransactionArgs): Promise<void> {
     await this.repository.applyHistoryTransaction(this.sessionId, args);
+    await this.repository.flush();
   }
 }

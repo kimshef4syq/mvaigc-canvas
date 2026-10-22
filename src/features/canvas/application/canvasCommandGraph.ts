@@ -1,6 +1,5 @@
 import {
   CANVAS_NODE_TYPES,
-  DEFAULT_NODE_WIDTH,
   IMAGE_SIZES,
   type CanvasEdge,
   type ImageSize,
@@ -34,7 +33,7 @@ import {
   applyPanoramaUpdate,
   applyStoryboardUpdate,
 } from './canvasWorkflowCommands';
-import { findRelatedCanvasNodePositions } from './canvasNodePlacement';
+import { findRelatedCanvasNodePositions, getCanvasNodeSize } from './canvasNodePlacement';
 
 export const CANVAS_GRAPH_COMMAND_TYPES = new Set<CanvasCommand['type']>([
   'node.create',
@@ -58,38 +57,17 @@ export const CANVAS_GRAPH_COMMAND_TYPES = new Set<CanvasCommand['type']>([
   'group.ungroup',
 ]);
 
-function nodeCreationDimensions(command: Extract<CanvasCommand, { type: 'node.create' }>): { width: number; height: number } {
-  if (command.input.dimensions) return command.input.dimensions;
-  switch (command.input.nodeType) {
-    case CANVAS_NODE_TYPES.imageEdit: return { width: DEFAULT_NODE_WIDTH, height: 380 };
-    case CANVAS_NODE_TYPES.video: return { width: DEFAULT_NODE_WIDTH, height: 288 };
-    case CANVAS_NODE_TYPES.aiVideo: return { width: DEFAULT_NODE_WIDTH, height: 360 };
-    default: return { width: DEFAULT_NODE_WIDTH, height: 220 };
-  }
-}
-
 export function resolveAgentNodeCreationPosition(
   command: Extract<CanvasCommand, { type: 'node.create' }>,
   nodes: readonly CanvasNode[],
 ): { x: number; y: number } {
-  const desired = command.input.position;
-  const size = nodeCreationDimensions(command);
-  const margin = 18;
-  const desiredCollides = nodes.some((node) => {
-    const style = node.style as { width?: unknown; height?: unknown } | undefined;
-    const width = node.measured?.width
-      ?? node.width
-      ?? (typeof style?.width === 'number' ? style.width : DEFAULT_NODE_WIDTH);
-    const height = node.measured?.height
-      ?? node.height
-      ?? (typeof style?.height === 'number' ? style.height : 220);
-    return desired.x < node.position.x + width + margin
-      && desired.x + size.width + margin > node.position.x
-      && desired.y < node.position.y + height + margin
-      && desired.y + size.height + margin > node.position.y;
-  });
-  if (!desiredCollides) return { ...desired };
-  return findRelatedCanvasNodePositions({ nodes, desired, size })[0] ?? { ...desired };
+  const size = getCanvasNodeSize({ type: command.input.nodeType, style: command.input.dimensions });
+  return findRelatedCanvasNodePositions({
+    nodes,
+    desired: command.input.position,
+    size,
+    relatedNodeId: command.input.referenceNodeIds?.find((id) => nodes.some((node) => node.id === id)),
+  })[0];
 }
 
 function impact(
@@ -173,13 +151,7 @@ function collectNodeIdsWithDescendants(nodes: CanvasNode[], seedIds: string[]): 
   return ids;
 }
 
-function getNodeSize(node: CanvasNode): { width: number; height: number } {
-  const style = node.style as { width?: unknown; height?: unknown } | undefined;
-  return {
-    width: node.measured?.width ?? node.width ?? (typeof style?.width === 'number' ? style.width : DEFAULT_NODE_WIDTH),
-    height: node.measured?.height ?? node.height ?? (typeof style?.height === 'number' ? style.height : 200),
-  };
-}
+const getNodeSize = getCanvasNodeSize;
 
 function resolveAbsolutePosition(
   node: CanvasNode,
@@ -667,6 +639,7 @@ function applyMoveNodes(
 function applyLayoutNodes(
   command: Extract<CanvasCommand, { type: 'node.layout' }>,
   draft: CanvasGraphDraft,
+  commandOrigin: CanvasCommandOrigin,
 ): CanvasGraphCommandPreparation {
   const nodeIds = uniqueNonEmpty(command.input.nodeIds);
   const selected = nodeIds.map((nodeId) => draft.nodes.find((node) => node.id === nodeId));
@@ -705,6 +678,24 @@ function applyLayoutNodes(
       }
     }
   });
+  if (commandOrigin === 'agent' && selectedNodes.every((node) => !node.parentId)) {
+    const bounds = selectedNodes.reduce((box, node) => {
+      const point = nextPositions.get(node.id)!;
+      const size = getNodeSize(node);
+      return { width: Math.max(box.width, point.x - origin.x + size.width),
+        height: Math.max(box.height, point.y - origin.y + size.height) };
+    }, { width: 0, height: 0 });
+    const selectedIds = new Set(nodeIds);
+    const [safeOrigin] = findRelatedCanvasNodePositions({
+      nodes: draft.nodes.filter((node) => !selectedIds.has(node.id)),
+      desired: { x: origin.x - 24, y: origin.y - 40 },
+      size: { width: bounds.width + 48, height: bounds.height + 64 },
+    });
+    for (const point of nextPositions.values()) {
+      point.x += safeOrigin.x + 24 - origin.x;
+      point.y += safeOrigin.y + 40 - origin.y;
+    }
+  }
   return applyMoveNodes({
     type: 'node.move',
     version: command.version,
@@ -1152,7 +1143,7 @@ export function applyCanvasGraphCommand(
     case 'node.move':
       return applyMoveNodes(command, draft);
     case 'node.layout':
-      return applyLayoutNodes(command, draft);
+      return applyLayoutNodes(command, draft, origin);
     case 'node.setEnabled':
       return applySetNodeEnabled(command, draft);
     case 'node.duplicate':

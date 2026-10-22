@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { resilientLocalStorage } from './persistStorage';
 import { isHomeBackground, type HomeBackground } from '@/features/project/backgrounds/catalog';
 
 interface HomeAppearanceState {
@@ -19,6 +20,7 @@ export const useHomeAppearanceStore = create<HomeAppearanceState>()(
     }),
     {
       name: 'mvaigc-home-appearance',
+      storage: resilientLocalStorage,
       partialize: ({ background, paused }) => ({ background, paused }),
       merge: (persisted, current) => {
         const saved = persisted as Partial<HomeAppearanceState> | null;

@@ -1,5 +1,5 @@
 import type { ComponentProps, RefObject } from 'react';
-import { Bot, CheckCheck, ChevronRight, Plus, Wrench, XCircle } from 'lucide-react';
+import { Archive, ArchiveRestore, Bot, CheckCheck, ChevronRight, Plus, Wrench, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { canvasAgentBudgetLedger } from '../application/agentBudget';
 import type { AgentPlanDraft } from '../application/agentPlan';
@@ -61,6 +61,10 @@ type Props = {
   nodes: ComponentProps<typeof GenerationTasksPanel>['nodes'];
   displayedFeed: AgentFeedItem[];
   sessions: Array<{ id: string; title: string; updatedAt: number }>;
+  historyLoading?: boolean;
+  historyError?: string;
+  showArchivedSessions?: boolean;
+  supportsArchive?: boolean;
   isRunning: boolean;
   showCompletedTools: boolean;
   pendingCount: number;
@@ -70,6 +74,8 @@ type Props = {
   onScroll: () => void;
   onStartConversation: () => void;
   onLoadSession: (sessionId: string) => void;
+  onToggleArchived?: () => void;
+  onArchiveSession?: (sessionId: string) => void;
   onApproval: (item: Extract<AgentFeedItem, { kind: 'approval' }>, approve: boolean) => void;
   onBatchApproval: (items: Array<Extract<AgentFeedItem, { kind: 'approval' }>>, approve: boolean) => void;
   onLocate: (nodeIds: string[]) => void;
@@ -88,6 +94,10 @@ export function CanvasAgentFeedViewport({
   nodes,
   displayedFeed,
   sessions,
+  historyLoading = false,
+  historyError = '',
+  showArchivedSessions = false,
+  supportsArchive = false,
   isRunning,
   showCompletedTools,
   pendingCount,
@@ -97,6 +107,8 @@ export function CanvasAgentFeedViewport({
   onScroll,
   onStartConversation,
   onLoadSession,
+  onToggleArchived,
+  onArchiveSession,
   onApproval,
   onBatchApproval,
   onLocate,
@@ -133,35 +145,64 @@ export function CanvasAgentFeedViewport({
         </div>
       ) : (
         <div key={activeView} className="agent-view-enter">
+          {historyError && <p role="alert" className="mb-3 text-xs text-red-500">{historyError}</p>}
           {activeView === 'history' ? (
             <div className="space-y-2">
               <button
                 type="button"
-                disabled={isRunning || pendingCount > 0 || hasPendingPlan}
+                disabled={isRunning || historyLoading || pendingCount > 0 || hasPendingPlan}
                 className="flex min-h-11 w-full items-center gap-2 rounded-[5px] border border-border-dark px-3 text-xs text-text-dark transition-[background-color,transform] duration-150 hover:bg-text-dark/[0.05] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
                 onClick={onStartConversation}
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                 {t('canvasAgent.newConversation')}
               </button>
-              {sessions.length ? sessions.map((session) => (
+              {supportsArchive ? (
                 <button
-                  key={session.id}
                   type="button"
-                  disabled={isRunning || pendingCount > 0 || hasPendingPlan}
-                  className="w-full rounded-[5px] border border-border-dark/60 px-3 py-2.5 text-left transition-[background-color,border-color,transform] duration-150 hover:border-border-dark hover:bg-text-dark/[0.04] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-                  onClick={() => onLoadSession(session.id)}
+                  disabled={isRunning || historyLoading || pendingCount > 0 || hasPendingPlan}
+                  className="flex min-h-9 w-full items-center justify-center gap-2 rounded-[5px] border border-border-dark/60 px-3 text-[11px] text-text-muted hover:bg-text-dark/[0.04] disabled:opacity-50"
+                  onClick={onToggleArchived}
                 >
-                  <div className="truncate text-xs text-text-dark">{session.title}</div>
-                  <div className="mt-1 text-[10px] text-text-muted">
-                    {new Date(session.updatedAt).toLocaleString()}
-                  </div>
+                  {showArchivedSessions ? <ArchiveRestore className="h-3.5 w-3.5" aria-hidden="true" /> : <Archive className="h-3.5 w-3.5" aria-hidden="true" />}
+                  {showArchivedSessions ? t('canvasAgent.activeConversations') : t('canvasAgent.viewArchived')}
                 </button>
-              )) : (
-                <div className="px-3 py-8 text-center text-xs text-text-muted">
-                  {t('canvasAgent.noHistory')}
+              ) : null}
+              {historyLoading && <p role="status" className="text-xs text-text-muted">{t('common.loading')}</p>}
+              {sessions.length ? sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className="flex items-stretch rounded-[5px] border border-border-dark/60 transition-[background-color,border-color] hover:border-border-dark hover:bg-text-dark/[0.04]"
+                >
+                  <button
+                    type="button"
+                    disabled={isRunning || historyLoading || pendingCount > 0 || hasPendingPlan}
+                    className="min-w-0 flex-1 px-3 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                    onClick={() => onLoadSession(session.id)}
+                  >
+                    <div className="truncate text-xs text-text-dark">{session.title}</div>
+                    <div className="mt-1 text-[10px] text-text-muted">
+                      {new Date(session.updatedAt).toLocaleString()}
+                    </div>
+                  </button>
+                  {supportsArchive ? (
+                    <button
+                      type="button"
+                      disabled={isRunning || historyLoading || pendingCount > 0 || hasPendingPlan}
+                      className="inline-flex w-10 shrink-0 items-center justify-center border-l border-border-dark/40 text-text-muted hover:text-text-dark disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                      aria-label={showArchivedSessions ? t('canvasAgent.restoreConversation') : t('canvasAgent.archiveConversation')}
+                      title={showArchivedSessions ? t('canvasAgent.restoreConversation') : t('canvasAgent.archiveConversation')}
+                      onClick={() => onArchiveSession?.(session.id)}
+                    >
+                      {showArchivedSessions ? <ArchiveRestore className="h-4 w-4" aria-hidden="true" /> : <Archive className="h-4 w-4" aria-hidden="true" />}
+                    </button>
+                  ) : null}
                 </div>
-              )}
+              )) : !historyLoading && !historyError ? (
+                <div className="px-3 py-8 text-center text-xs text-text-muted">
+                  {t(showArchivedSessions ? 'canvasAgent.noArchivedConversations' : 'canvasAgent.noHistory')}
+                </div>
+              ) : null}
             </div>
           ) : displayedFeed.length ? (
             <div className="space-y-3">

@@ -9,6 +9,7 @@ import {
   recordComfyUiOutputs,
   recordExplicitGrouping,
   recordGeneratedOutputs,
+  recordAgentCreatedNode,
 } from './recentOutputGrouping';
 
 const source = {
@@ -92,4 +93,45 @@ describe('current-turn generated output grouping', () => {
     expect(isEligibleForAutoGroup('group-run', 'project')).toBe(false);
     expect(await groupRecentGeneratedOutputs('group-run', 'project')).toBe(false);
   });
+  it('keeps new shot sources beside their results and clears existing content as one task', async () => {
+    const old = { ...source, id: 'old', measured: { width: 1600, height: 1200 } } as CanvasNode;
+    const first = { ...source, id: 'shot-1', position: { x: 100, y: 100 }, data: { ...source.data, shotNumber: 1 } } as CanvasNode;
+    const second = { ...source, id: 'shot-2', position: { x: 9000, y: 8000 }, data: { ...source.data, shotNumber: 2 } } as CanvasNode;
+    useCanvasStore.setState({ nodes: [old, first, second, video('one', 4000), video('two', 15000)], edges: [], revision: 0 });
+    vi.spyOn(useProjectStore, 'getState').mockReturnValue({
+      currentProjectId: 'project', saveCurrentProject: vi.fn(), waitForProjectPersistence: vi.fn(async () => undefined),
+    } as unknown as ReturnType<typeof useProjectStore.getState>);
+    recordAgentCreatedNode('group-run', 'project', 'shot-1');
+    recordAgentCreatedNode('group-run', 'project', 'shot-2');
+    recordGeneratedOutputs('group-run', 'project', ['shot-1'], ['one']);
+    recordGeneratedOutputs('group-run', 'project', ['shot-2'], ['two']);
+    expect(await groupRecentGeneratedOutputs('group-run', 'project')).toBe(true);
+    const nodes = useCanvasStore.getState().nodes;
+    const group = nodes.find((node) => node.type === CANVAS_NODE_TYPES.group)!;
+    expect(nodes.find((node) => node.id === 'old')?.position).toEqual(old.position);
+    expect(nodes.filter((node) => node.parentId === group.id)).toHaveLength(4);
+    for (const [sourceId, resultId] of [['shot-1', 'one'], ['shot-2', 'two']]) {
+      const shot = nodes.find((node) => node.id === sourceId)!;
+      const result = nodes.find((node) => node.id === resultId)!;
+      expect(result.position.y).toBe(shot.position.y);
+      expect(result.position.x - shot.position.x).toBe(728);
+    }
+    const width = Number(group.style?.width);
+    const height = Number(group.style?.height);
+    expect(group.position.x >= 1618 || group.position.x + width <= -18
+      || group.position.y >= 1218 || group.position.y + height <= -18).toBe(true);
+  });
+
+  it('also arranges a single new generation node with its result', async () => {
+    useCanvasStore.setState({ nodes: [source, video('one', 9000)], edges: [], revision: 0 });
+    vi.spyOn(useProjectStore, 'getState').mockReturnValue({
+      currentProjectId: 'project', saveCurrentProject: vi.fn(), waitForProjectPersistence: vi.fn(async () => undefined),
+    } as unknown as ReturnType<typeof useProjectStore.getState>);
+    recordAgentCreatedNode('group-run', 'project', source.id);
+    recordGeneratedOutputs('group-run', 'project', [source.id], ['one']);
+    expect(isEligibleForAutoGroup('group-run', 'project')).toBe(true);
+    expect(await groupRecentGeneratedOutputs('group-run', 'project')).toBe(true);
+    expect(useCanvasStore.getState().nodes.filter((node) => node.parentId)).toHaveLength(2);
+  });
+
 });

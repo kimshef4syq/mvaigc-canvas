@@ -1,8 +1,9 @@
+import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentModelTurnRequest, AgentModelTurnResponse } from '../domain/agentModel';
 import type { ChatCatalogEntry } from '../../application/chatModelCatalog';
 import { useProjectStore } from '@/stores/projectStore';
-import { runCanvasAgentTurn } from './canvasAgentController';
+import { runCanvasAgentTurn, listCanvasAgentSessions, loadCanvasAgentSession, releaseCanvasAgentSessionCache } from './canvasAgentController';
 import { callMcpTool } from '@/commands/mcpClient';
 import { prepareExternalImageSource, prepareExternalVideoSource } from '@/commands/image';
 import { useCanvasStore } from '@/stores/canvasStore';
@@ -86,6 +87,12 @@ describe('MCP automatic approval orchestration', () => {
       const result = await runCanvasAgentTurn({ projectId: 'mcp-auto-fixture', model, message: '诊断 MCP 连接', executionMode: 'auto' });
       expect(result.status).toBe('completed');
       expect(result.finalText).toBe('检查完成');
+      const history = await listCanvasAgentSessions('mcp-auto-fixture');
+      expect(history.map((session) => session.id)).toContain(result.sessionId);
+      expect(history[0]).not.toHaveProperty('items');
+      await releaseCanvasAgentSessionCache();
+      const restored = await loadCanvasAgentSession(result.sessionId);
+      expect(restored.some((message) => message.role === 'assistant' && message.text === '检查完成')).toBe(true);
       expect(vi.mocked(callMcpTool).mock.calls.map((args) => args[3])).toEqual(scripts.map((script) => ({ script })));
     } finally { useProjectStore.setState({ currentProjectId: previous }); }
   });

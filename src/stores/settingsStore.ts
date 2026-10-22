@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { resilientLocalStorage } from './persistStorage';
 import {
   DEFAULT_LIGHTING_PROMPT_TEMPLATE,
   DEFAULT_MULTI_ANGLE_PROMPT_TEMPLATE,
@@ -1367,6 +1368,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'settings-storage',
+      storage: resilientLocalStorage,
       version: 21,
       onRehydrateStorage: () => {
         return (_state, error) => {

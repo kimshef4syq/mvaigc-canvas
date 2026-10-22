@@ -711,9 +711,12 @@ describe('CanvasCommandRegistry transactions', () => {
     expect(systemCreateResult).toMatchObject({ ok: true, commandType: 'node.create' });
   });
 
-  it('produces equivalent graph/history results for UI and Agent origins', () => {
+  it('produces equivalent graph/history results for non-overlapping UI and Agent commands', () => {
+    const transaction = createAtomicGraphTransaction();
+    const target = transaction.commands[1];
+    if (target.type === 'node.create') target.input.position.x = 800;
     const uiResult = canvasCommandRegistry.executeTransaction({
-      ...createAtomicGraphTransaction(),
+      ...transaction,
       id: 'ui-parity',
       origin: 'ui',
     });
@@ -728,7 +731,7 @@ describe('CanvasCommandRegistry transactions', () => {
 
     resetCanvas();
     const agentResult = canvasCommandRegistry.executeTransaction({
-      ...createAtomicGraphTransaction(),
+      ...transaction,
       id: 'agent-parity',
       origin: 'agent',
     });

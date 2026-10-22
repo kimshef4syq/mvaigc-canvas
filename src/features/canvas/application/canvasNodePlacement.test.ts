@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CANVAS_NODE_TYPES, type CanvasNode } from '../domain/canvasNodes';
-import { findRelatedCanvasNodePositions } from './canvasNodePlacement';
+import { findRelatedCanvasNodePositions, getCanvasNodeSize } from './canvasNodePlacement';
 
 function node(id: string, x: number, y: number, width = 300, height = 240): CanvasNode {
   return {
@@ -62,4 +62,25 @@ describe('findRelatedCanvasNodePositions', () => {
       });
     });
   });
+  it('reserves the real size of generation cards before measurement', () => {
+    expect(getCanvasNodeSize({ type: CANVAS_NODE_TYPES.imageEdit })).toEqual({ width: 680, height: 380 });
+    expect(getCanvasNodeSize({ type: CANVAS_NODE_TYPES.aiVideo })).toEqual({ width: 680, height: 360 });
+    const source = { id: 'fresh', type: CANVAS_NODE_TYPES.aiVideo, position: { x: 0, y: 0 }, data: {} } as CanvasNode;
+    const [position] = findRelatedCanvasNodePositions({ nodes: [source], desired: { x: 250, y: 0 }, size: { width: 384, height: 288 } });
+    expect(overlaps(position, { width: 384, height: 288 }, node('real-size', 0, 0, 680, 360))).toBe(false);
+  });
+
+  it('escapes a dense canvas without returning an unchecked overlapping fallback', () => {
+    const obstacle = node('large-board', -10000, -10000, 20000, 20000);
+    const [position] = findRelatedCanvasNodePositions({ nodes: [obstacle], desired: { x: 0, y: 0 }, size: { width: 384, height: 288 } });
+    expect(overlaps(position, { width: 384, height: 288 }, obstacle)).toBe(false);
+  });
+
+  it('uses absolute coordinates for nodes inside groups', () => {
+    const child = { ...node('child', 0, 0), parentId: 'group' };
+    const parent = node('group', 2000, 1000, 20, 20);
+    const [position] = findRelatedCanvasNodePositions({ nodes: [parent, child], desired: { x: 2000, y: 1100 }, size: { width: 220, height: 180 } });
+    expect(overlaps(position, { width: 220, height: 180 }, node('absolute-child', 2000, 1000))).toBe(false);
+  });
+
 });

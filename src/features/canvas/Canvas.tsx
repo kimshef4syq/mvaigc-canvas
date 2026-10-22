@@ -27,6 +27,7 @@ import { Boxes, ClipboardPaste, Copy, Group, ImagePlus, Play, Tags, Trash2, Ungr
 import { useTranslation } from 'react-i18next';
 import '@xyflow/react/dist/style.css';
 
+import { resilientLocalStateStorage } from '@/stores/persistStorage';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useCustomProvidersStore } from '@/stores/customProvidersStore';
@@ -1039,22 +1040,22 @@ export function Canvas() {
   const setCanvasEdgeRoutingMode = useSettingsStore((state) => state.setCanvasEdgeRoutingMode);
 
   const [showGrid, setShowGrid] = useState(() => {
-    const saved = localStorage.getItem('canvas_show_grid');
+    const saved = resilientLocalStateStorage.getItem('canvas_show_grid');
     return saved !== null ? saved === 'true' : true;
   });
   const [isSnapEnabled, setIsSnapEnabled] = useState(() => {
-    const saved = localStorage.getItem('canvas_snap_grid');
+    const saved = resilientLocalStateStorage.getItem('canvas_snap_grid');
     return saved === 'true';
   });
   const [showMiniMap, setShowMiniMap] = useState(() => {
-    const saved = localStorage.getItem('canvas_show_minimap');
+    const saved = resilientLocalStateStorage.getItem('canvas_show_minimap');
     return saved === 'true';
   });
 
   const handleToggleGrid = useCallback(() => {
     setShowGrid((prev) => {
       const next = !prev;
-      localStorage.setItem('canvas_show_grid', String(next));
+      resilientLocalStateStorage.setItem('canvas_show_grid', String(next));
       return next;
     });
   }, []);
@@ -1062,7 +1063,7 @@ export function Canvas() {
   const handleToggleSnap = useCallback(() => {
     setIsSnapEnabled((prev) => {
       const next = !prev;
-      localStorage.setItem('canvas_snap_grid', String(next));
+      resilientLocalStateStorage.setItem('canvas_snap_grid', String(next));
       return next;
     });
   }, []);
@@ -1070,7 +1071,7 @@ export function Canvas() {
   const handleToggleMiniMap = useCallback(() => {
     setShowMiniMap((prev) => {
       const next = !prev;
-      localStorage.setItem('canvas_show_minimap', String(next));
+      resilientLocalStateStorage.setItem('canvas_show_minimap', String(next));
       return next;
     });
   }, []);

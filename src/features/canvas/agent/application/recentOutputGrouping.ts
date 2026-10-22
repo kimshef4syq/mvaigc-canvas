@@ -8,6 +8,8 @@ interface RunOutputs {
   projectId: string;
   nodeIds: Set<string>;
   explicitGrouping: boolean;
+  createdNodeIds: Set<string>;
+  resultSources: Map<string, string>;
 }
 
 const outputsByRun = new Map<string, RunOutputs>();
@@ -15,13 +17,24 @@ const outputsByRun = new Map<string, RunOutputs>();
 function runOutputs(runId: string, projectId: string): RunOutputs {
   const existing = outputsByRun.get(runId);
   if (existing && existing.projectId === projectId) return existing;
-  const created = { projectId, nodeIds: new Set<string>(), explicitGrouping: false };
+  const created: RunOutputs = {
+    projectId,
+    nodeIds: new Set(),
+    explicitGrouping: false,
+    createdNodeIds: new Set(),
+    resultSources: new Map(),
+  };
   outputsByRun.set(runId, created);
   return created;
 }
 
 const SOURCE_TYPES = new Set<CanvasNodeType>([CANVAS_NODE_TYPES.aiVideo, CANVAS_NODE_TYPES.imageEdit, CANVAS_NODE_TYPES.aiAudio]);
 const RESULT_TYPES = new Set<CanvasNodeType>([CANVAS_NODE_TYPES.video, CANVAS_NODE_TYPES.aiVideo, CANVAS_NODE_TYPES.exportImage, CANVAS_NODE_TYPES.audio]);
+
+/** Track only nodes created by this run, so arranging a task never moves old inputs. */
+export function recordAgentCreatedNode(runId: string, projectId: string, nodeId: string): void {
+  runOutputs(runId, projectId).createdNodeIds.add(nodeId);
+}
 
 export function recordGeneratedOutputs(
   runId: string,
@@ -38,6 +51,9 @@ export function recordGeneratedOutputs(
     if (!results.has(node.id) || node.parentId) continue;
     if (RESULT_TYPES.has(node.type)) {
       run.nodeIds.add(node.id);
+      const sourceId = useCanvasStore.getState().edges.find((edge) => edge.target === node.id && inputNodeIds.includes(edge.source))?.source
+        ?? (inputNodeIds.length === 1 ? inputNodeIds[0] : undefined);
+      if (sourceId) run.resultSources.set(node.id, sourceId);
     }
   }
 }
@@ -62,7 +78,9 @@ export function isEligibleForAutoGroup(runId: string, projectId: string): boolea
     .filter((node) => !node.parentId && RESULT_TYPES.has(node.type))
     .map((node) => node.id));
   const eligible = nodeIds.filter((id) => present.has(id));
-  return eligible.length >= 2;
+  const created = useCanvasStore.getState().nodes.filter((node) => run.createdNodeIds.has(node.id)
+    && !node.parentId && node.type !== CANVAS_NODE_TYPES.group).map((node) => node.id);
+  return eligible.length > 0 && new Set([...eligible, ...created]).size >= 2;
 }
 
 export function clearRecentOutputGrouping(runId: string): void {
@@ -80,14 +98,28 @@ export async function groupRecentGeneratedOutputs(runId: string, projectId: stri
     .filter((node) => !node.parentId && RESULT_TYPES.has(node.type))
     .map((node) => node.id));
   const eligible = nodeIds.filter((id) => present.has(id));
-  if (eligible.length < 2) return false;
+  if (!eligible.length) return false;
+  const canvasNodes = useCanvasStore.getState().nodes;
+  const createdNodes = canvasNodes.filter((node) => run.createdNodeIds.has(node.id) && !node.parentId
+    && node.type !== CANVAS_NODE_TYPES.group);
+  if (eligible.length < 2 && createdNodes.length === 0) return false;
+  createdNodes.sort((a, b) => Number(a.data.shotNumber ?? 0) - Number(b.data.shotNumber ?? 0));
+  const layoutIds = new Set<string>();
+  for (const node of createdNodes) {
+    layoutIds.add(node.id);
+    for (const id of eligible) if (run.resultSources.get(id) === node.id) layoutIds.add(id);
+  }
+  for (const id of eligible) layoutIds.add(id);
+  const members = Array.from(layoutIds);
+  if (members.length < 2) return false;
+  const anchor = createdNodes[0]?.position;
   const result = canvasCommandRegistry.executeTransaction({
     id: `generation-auto-group:${runId}`,
     origin: 'agent',
     expectedRevision: canvasCommandRegistry.getRevision(),
     commands: [
-      { type: 'node.layout', version: CANVAS_COMMAND_VERSION, input: { nodeIds: eligible, direction: 'grid' } },
-      { type: 'group.create', version: CANVAS_COMMAND_VERSION, input: { nodeIds: eligible, displayName: '本轮生成结果' } },
+      { type: 'node.layout', version: CANVAS_COMMAND_VERSION, input: { nodeIds: members, direction: 'grid', ...(createdNodes.length ? { columns: 2, origin: anchor } : {}) } },
+      { type: 'group.create', version: CANVAS_COMMAND_VERSION, input: { nodeIds: members, displayName: createdNodes.length ? '本轮创作' : '本轮生成结果' } },
     ],
   });
   if (!result.ok) return false;

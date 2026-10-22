@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { PromptLibraryEntry } from '@/features/promptLibrary/promptLibraryData';
+import { resilientLocalStorage } from './persistStorage';
 
 interface PromptLibraryState {
   favoritePrompts: Record<string, PromptLibraryEntry>;
@@ -59,7 +60,17 @@ export const usePromptLibraryStore = create<PromptLibraryState>()(
     }),
     {
       name: 'prompt-library-storage',
-      version: 1,
+      version: 2,
+      storage: resilientLocalStorage,
+      // The community catalog is bundled with the app (BUNDLED_COMMUNITY_PROMPTS)
+      // and re-fetched live on demand, so persisting a second copy here only
+      // consumed the shared 5 MiB WebKit localStorage budget — it had grown past
+      // the quota and made every other store's write throw. Keep favorites only.
+      partialize: (state) => ({ favoritePrompts: state.favoritePrompts }),
+      migrate: (persistedState: unknown) => {
+        const state = (persistedState ?? {}) as Partial<PromptLibraryState>;
+        return { favoritePrompts: state.favoritePrompts ?? {} };
+      },
     }
   )
 );

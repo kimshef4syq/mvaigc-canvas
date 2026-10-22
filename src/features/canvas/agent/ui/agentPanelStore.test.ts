@@ -131,7 +131,7 @@ describe('canvas agent panel store', () => {
 
     expect(isLegacyInferredAgentFailure(inferredFailure)).toBe(true);
     expect(isLegacyInferredAgentFailure(rawFailure)).toBe(false);
-    expect(migrateCanvasAgentPanelState({ feed: [inferredFailure, rawFailure] }).feed).toEqual([rawFailure]);
+    expect(migrateCanvasAgentPanelState({ feed: [inferredFailure, rawFailure] }).feed).toEqual([]);
   });
 
   it('creates distinct feed identifiers', () => {

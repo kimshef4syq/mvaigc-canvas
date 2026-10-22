@@ -1,7 +1,9 @@
 import {
+  CANVAS_NODE_TYPES,
   DEFAULT_NODE_WIDTH,
   type CanvasNode,
 } from '../domain/canvasNodes';
+import { canvasNodeDefinitions } from '../domain/nodeRegistry';
 
 type Point = { x: number; y: number };
 type Size = { width: number; height: number };
@@ -28,20 +30,36 @@ const DEFAULT_NODE_HEIGHT = 200;
 const COLLISION_MARGIN = 18;
 const RELATION_GAP = 32;
 
-function nodeRect(node: CanvasNode): Rect {
+/** Match card sizes before React Flow has measured a newly created node. */
+export function getCanvasNodeSize(node: Pick<CanvasNode, 'type' | 'measured' | 'width' | 'height' | 'style'>): Size {
   const style = node.style as { width?: unknown; height?: unknown } | undefined;
-  const width = node.measured?.width
-    ?? node.width
-    ?? (typeof style?.width === 'number' ? style.width : DEFAULT_NODE_WIDTH);
-  const height = node.measured?.height
-    ?? node.height
-    ?? (typeof style?.height === 'number' ? style.height : DEFAULT_NODE_HEIGHT);
+  const fallback = canvasNodeDefinitions[node.type]?.defaultSize
+    ?? (node.type === CANVAS_NODE_TYPES.imageEdit ? { width: 680, height: 380 }
+      : node.type === CANVAS_NODE_TYPES.aiVideo ? { width: 680, height: 360 }
+        : { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
+  const valid = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0;
+  const first = (values: unknown[], defaultValue: number) => (values.find(valid) as number | undefined) ?? defaultValue;
+  const minWidth = node.type === CANVAS_NODE_TYPES.imageEdit ? 520 : node.type === CANVAS_NODE_TYPES.aiVideo ? 560 : 0;
+  const minHeight = minWidth ? 260 : 0;
   return {
-    x: node.position.x,
-    y: node.position.y,
-    width: Number.isFinite(width) && width > 0 ? width : DEFAULT_NODE_WIDTH,
-    height: Number.isFinite(height) && height > 0 ? height : DEFAULT_NODE_HEIGHT,
+    width: valid(node.measured?.width) ? node.measured.width : Math.max(minWidth, first([node.width, style?.width], fallback.width)),
+    height: valid(node.measured?.height) ? node.measured.height : Math.max(minHeight, first([node.height, style?.height], fallback.height)),
   };
+}
+
+function nodeRect(node: CanvasNode, nodes: readonly CanvasNode[]): Rect {
+  let { x, y } = node.position;
+  let parentId = node.parentId;
+  const visited = new Set([node.id]);
+  while (parentId && !visited.has(parentId)) {
+    visited.add(parentId);
+    const parent = nodes.find((candidate) => candidate.id === parentId);
+    if (!parent) break;
+    x += parent.position.x;
+    y += parent.position.y;
+    parentId = parent.parentId;
+  }
+  return { x, y, ...getCanvasNodeSize(node) };
 }
 
 function overlaps(left: Rect, right: Rect, margin = COLLISION_MARGIN): boolean {
@@ -123,11 +141,11 @@ function buildCandidates(anchor: Point, size: Size, relatedRect?: Rect): Point[]
  */
 export function findRelatedCanvasNodePositions(input: RelatedCanvasPlacementInput): Point[] {
   const total = Math.max(1, Math.floor(input.count ?? 1));
-  const obstacles = input.nodes.map(nodeRect);
+  const obstacles = input.nodes.map((node) => nodeRect(node, input.nodes));
   const relatedNode = input.relatedNodeId
     ? input.nodes.find((node) => node.id === input.relatedNodeId)
     : undefined;
-  const relatedRect = relatedNode ? nodeRect(relatedNode) : undefined;
+  const relatedRect = relatedNode ? nodeRect(relatedNode, input.nodes) : undefined;
   const anchor = relatedRect
     ? { x: relatedRect.x + relatedRect.width + RELATION_GAP, y: relatedRect.y }
     : input.desired;
@@ -142,6 +160,16 @@ export function findRelatedCanvasNodePositions(input: RelatedCanvasPlacementInpu
       input.size,
       relatedRect,
     );
+    // Obstacle edges cover narrow gaps and extend beyond a dense canvas. In
+    // particular, the outermost edge always supplies a collision-free fallback.
+    for (const obstacle of [...obstacles, ...reserved]) {
+      candidates.push(
+        { x: obstacle.x + obstacle.width + RELATION_GAP, y: anchor.y },
+        { x: obstacle.x - input.size.width - RELATION_GAP, y: anchor.y },
+        { x: anchor.x, y: obstacle.y + obstacle.height + RELATION_GAP },
+        { x: anchor.x, y: obstacle.y - input.size.height - RELATION_GAP },
+      );
+    }
     let best: { point: Point; score: number } | null = null;
     for (const point of candidates) {
       const rect: Rect = { ...point, ...input.size };
@@ -157,17 +185,15 @@ export function findRelatedCanvasNodePositions(input: RelatedCanvasPlacementInpu
       const overflow = viewportOverflow(rect, input.viewport);
       const upwardPenalty = point.y < anchor.y ? Math.abs(point.y - anchor.y) * 0.12 : 0;
       const score = relationshipDistance * 0.72
-        + overflow * 7
+        + Math.min(overflow, input.size.width + input.size.height) * 0.2
         + upwardPenalty
-        - Math.min(clearance, 360) * 0.45;
+        - Math.min(clearance, RELATION_GAP) * 0.1;
       if (!best || score < best.score) best = { point, score };
     }
 
-    const point = best?.point ?? {
-      x: anchor.x + (index + 2) * (input.size.width + RELATION_GAP),
-      y: anchor.y,
-    };
-    positions.push(point);
+    if (!best) throw new Error('No collision-free canvas placement found.');
+    const point = best.point;
+    positions.push({ ...point });
     reserved.push({ ...point, ...input.size });
   }
 

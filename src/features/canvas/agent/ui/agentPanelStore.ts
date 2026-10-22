@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
+import { createResilientStorage } from '@/stores/persistStorage';
 import { redactSensitiveValue } from '../application/agentRedaction';
 import type { AgentImpactSummary } from '../application/agentApproval';
 import type { AgentPlanDraft } from '../application/agentPlan';
@@ -75,21 +76,16 @@ interface CanvasAgentPanelState {
   replaceFeed: (items: AgentFeedItem[]) => void;
 }
 
-const memoryStorageItems = new Map<string, string>();
-const memoryStorage: StateStorage = {
-  getItem: (name) => memoryStorageItems.get(name) ?? null,
-  setItem: (name, value) => { memoryStorageItems.set(name, value); },
-  removeItem: (name) => { memoryStorageItems.delete(name); },
-};
-
 function panelStorage(): StateStorage {
-  try {
-    return typeof window !== 'undefined' && window.localStorage
-      ? window.localStorage
-      : memoryStorage;
-  } catch {
-    return memoryStorage;
-  }
+  return createResilientStorage(() => {
+    try {
+      return typeof window !== 'undefined' && window.localStorage
+        ? window.localStorage
+        : null;
+    } catch {
+      return null;
+    }
+  });
 }
 
 export function clampCanvasAgentPanelWidth(width: number): number {
@@ -110,7 +106,7 @@ export function isLegacyInferredAgentFailure(item: AgentFeedItem): boolean {
     && LEGACY_INFERRED_PROVIDER_FAILURE_PREFIXES.some((prefix) => item.text.startsWith(prefix));
 }
 
-function persistableFeed(feed: AgentFeedItem[]): AgentFeedItem[] {
+export function persistableFeed(feed: AgentFeedItem[]): AgentFeedItem[] {
   return feed.slice(-500).flatMap((item) => {
     if (isLegacyInferredAgentFailure(item)) return [];
     if (item.kind === 'status' && item.status === 'running') return [];
@@ -120,6 +116,12 @@ function persistableFeed(feed: AgentFeedItem[]): AgentFeedItem[] {
     }
     if (item.kind === 'approval' && (item.status === 'approving' || item.status === 'rejecting')) {
       return [{ ...item, status: 'pending' }];
+    }
+    // A tool still marked executing cannot actually be running after a reload —
+    // the turn that owned it is gone. Persisting it would restore a spinner that
+    // never stops, so record it as an unknown outcome instead.
+    if (item.kind === 'tool' && item.status === 'executing') {
+      return [{ ...item, status: 'unknown' }];
     }
     return [item];
   });
@@ -156,7 +158,8 @@ export function migrateCanvasAgentPanelState(value: unknown): PersistedPanelStat
     showCompletedTools: legacy.showCompletedTools === true,
     panelWidth: clampCanvasAgentPanelWidth(Number(legacy.panelWidth ?? CANVAS_AGENT_PANEL_DEFAULT_WIDTH)),
     activeSessionId: typeof legacy.activeSessionId === 'string' ? legacy.activeSessionId : null,
-    feed: Array.isArray(legacy.feed) ? legacy.feed.filter((item) => !isLegacyInferredAgentFailure(item)) : [],
+    // Conversation bodies now live in Agent history storage, never in the panel key.
+    feed: [],
   };
 }
 
@@ -226,7 +229,7 @@ export const useCanvasAgentPanelStore = create<CanvasAgentPanelState>()(persist(
   replaceFeed: (feed) => set({ feed: redactSensitiveValue(feed.slice(-500)), unread: 0 }),
 }), {
   name: 'storyboard-copilot:canvas-agent-panel:v1',
-  version: 3,
+  version: 4,
   storage: createJSONStorage(panelStorage),
   migrate: migrateCanvasAgentPanelState,
   partialize: (state) => ({
@@ -240,7 +243,6 @@ export const useCanvasAgentPanelStore = create<CanvasAgentPanelState>()(persist(
     showCompletedTools: state.showCompletedTools,
     panelWidth: state.panelWidth,
     activeSessionId: state.activeSessionId,
-    feed: persistableFeed(state.feed),
   }),
 }));
 

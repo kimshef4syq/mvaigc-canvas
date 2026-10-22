@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Bot, ExternalLink, ShieldCheck, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { isTauri } from '@tauri-apps/api/core';
 import { useChatModelCatalog } from '@/features/canvas/application/chatModelCatalog';
 import { useImageModelCatalog } from '@/features/canvas/application/modelCatalog';
 import { useVideoModelCatalog } from '@/features/canvas/application/videoModelCatalog';
@@ -19,9 +20,14 @@ import {
 import { buildAgentPlanDraft, compileAgentPlanMessage, type AgentPlanDraft } from '../application/agentPlan';
 import { rollbackAgentCanvasReceipt } from '../application/agentCanvasRollback';
 import {
-  getCanvasAgentSessionMessages,
+  prepareCanvasAgentSessionStorage,
+  loadCanvasAgentSession,
+  releaseCanvasAgentSessionCache,
   listPendingCanvasAgentApprovals,
   listCanvasAgentSessions,
+  listArchivedCanvasAgentSessions,
+  archiveCanvasAgentSession,
+  restoreArchivedCanvasAgentSession,
   resolveCanvasAgentApproval,
   runCanvasAgentTurn,
 } from '../application/canvasAgentController';
@@ -172,7 +178,61 @@ export function CanvasAgentDock({ projectId }: Props) {
   const hasPendingPlan = visibleFeed.some(
     (item) => item.kind === 'plan' && item.plan.status === 'pending',
   );
-  const sessions = activeView === 'history' ? listCanvasAgentSessions(projectId) : [];
+  const [sessionHistory, setSessionHistory] = useState<{
+    projectId: string;
+    sessions: Awaited<ReturnType<typeof listCanvasAgentSessions>>;
+  }>({ projectId, sessions: [] });
+  const sessions = sessionHistory.projectId === projectId ? sessionHistory.sessions : [];
+  const [historyError, setHistoryError] = useState('');
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [showArchivedSessions, setShowArchivedSessions] = useState(false);
+  const historyLoadEpoch = useRef(0);
+  const historyBusyRef = useRef(false);
+  const restoredPanelSession = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        await prepareCanvasAgentSessionStorage();
+        if (cancelled || restoredPanelSession.current) return;
+        restoredPanelSession.current = true;
+        const panel = useCanvasAgentPanelStore.getState();
+        if (panel.projectId !== projectId || !panel.activeSessionId) return;
+        const messages = await loadCanvasAgentSession(panel.activeSessionId);
+        if (cancelled || useCanvasAgentPanelStore.getState().activeSessionId !== panel.activeSessionId) return;
+        const pendingApprovals = useCanvasAgentPanelStore.getState().feed.filter((item) => (
+          item.kind === 'approval' && item.status === 'pending'
+        ));
+        const restoredMessages: AgentFeedItem[] = messages.map((message) => ({
+          id: nextAgentFeedId('history'),
+          kind: 'message' as const,
+          role: message.role,
+          text: message.text,
+          attachments: message.mediaReferences,
+          createdAt: message.createdAt,
+        }));
+        replaceFeed([...restoredMessages, ...pendingApprovals]);
+      } catch (error) {
+        if (!cancelled) setHistoryError(readableAgentFailure(error, t));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId, replaceFeed, t]);
+  useEffect(() => {
+    if (activeView !== 'history') return;
+    let cancelled = false;
+    setHistoryError('');
+    setHistoryLoading(true);
+    const listSessions = showArchivedSessions
+      ? listArchivedCanvasAgentSessions
+      : listCanvasAgentSessions;
+    void listSessions(projectId).then((sessions) => {
+      if (!cancelled) setSessionHistory({ projectId, sessions });
+    }).catch((error: unknown) => {
+      if (!cancelled) setHistoryError(readableAgentFailure(error, t));
+    }).finally(() => { if (!cancelled) setHistoryLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeView, projectId, showArchivedSessions, t]);
   const usableImageModels = useMemo(() => imageCatalog.filter((entry) => entry.usable), [imageCatalog]);
   const usableVideoModels = useMemo(() => videoCatalog.filter((entry) => entry.usable), [videoCatalog]);
 
@@ -253,6 +313,10 @@ export function CanvasAgentDock({ projectId }: Props) {
 
   useEffect(() => {
     if (previousProjectIdRef.current !== projectId) {
+      historyLoadEpoch.current += 1;
+      historyBusyRef.current = false;
+      setHistoryLoading(false);
+      setHistoryError('');
       previousProjectIdRef.current = projectId;
       runEpochRef.current += 1;
       abortRef.current?.abort();
@@ -593,7 +657,7 @@ export function CanvasAgentDock({ projectId }: Props) {
   });
 
   const executeTurn = async (message: string) => {
-    if (!message.trim() || !selectedEntry || isRunning || pendingCount > 0) return;
+    if (!message.trim() || !selectedEntry || isRunning || historyBusyRef.current || pendingCount > 0) return;
     if (!acquireCanvasAgentTurn(executionGateRef.current)) return;
     const runEpoch = ++runEpochRef.current;
     const statusId = nextAgentFeedId('status');
@@ -704,7 +768,7 @@ export function CanvasAgentDock({ projectId }: Props) {
 
   const send = async () => {
     const message = draft.trim();
-    if (!message || !runtimeReady || isRunning || pendingCount > 0 || hasPendingPlan) return;
+    if (!message || !runtimeReady || isRunning || historyBusyRef.current || pendingCount > 0 || hasPendingPlan) return;
     if (attachments.length && !selectedEntry?.supportsMultimodal) {
       attachmentState.setError(t('canvasAgent.switchToVisionModelHint'));
       return;
@@ -847,32 +911,94 @@ export function CanvasAgentDock({ projectId }: Props) {
     }
   };
 
-  const loadSession = (sessionId: string) => {
-    if (isRunning || executionGateRef.current.active || pendingCount > 0 || hasPendingPlan) return;
-    const messages = getCanvasAgentSessionMessages(sessionId);
-    if (!messages.length) return;
-    replaceFeed(messages.map((message) => ({
-      id: nextAgentFeedId('history'),
-      kind: 'message',
-      role: message.role,
-      text: message.text,
-      attachments: message.mediaReferences,
-      createdAt: message.createdAt,
-    })));
-    attachmentState.reset();
-    setActiveSessionId(sessionId);
-    setActiveView('conversation');
-    stickToBottomRef.current = true;
+  const loadSession = async (sessionId: string) => {
+    if (isRunning || historyLoading || historyBusyRef.current || executionGateRef.current.active || pendingCount > 0 || hasPendingPlan) return;
+    const epoch = ++historyLoadEpoch.current;
+    historyBusyRef.current = true;
+    setHistoryError('');
+    setHistoryLoading(true);
+    try {
+      await releaseCanvasAgentSessionCache();
+      if (showArchivedSessions) await restoreArchivedCanvasAgentSession(sessionId);
+      const messages = await loadCanvasAgentSession(sessionId);
+      if (epoch !== historyLoadEpoch.current
+        || useCanvasAgentPanelStore.getState().projectId !== projectId) return;
+      if (!messages.length) return;
+      if (showArchivedSessions) {
+        setSessionHistory((current) => ({
+          ...current,
+          sessions: current.sessions.filter((session) => session.id !== sessionId),
+        }));
+      }
+      replaceFeed(messages.map((message) => ({
+        id: nextAgentFeedId('history'),
+        kind: 'message',
+        role: message.role,
+        text: message.text,
+        attachments: message.mediaReferences,
+        createdAt: message.createdAt,
+      })));
+      attachmentState.reset();
+      setActiveSessionId(sessionId);
+      setActiveView('conversation');
+      stickToBottomRef.current = true;
+    } catch (error) {
+      if (epoch === historyLoadEpoch.current) setHistoryError(readableAgentFailure(error, t));
+    } finally {
+      if (epoch === historyLoadEpoch.current) {
+        historyBusyRef.current = false;
+        setHistoryLoading(false);
+      }
+    }
   };
 
-  const startConversation = () => {
-    if (isRunning || executionGateRef.current.active || pendingCount > 0 || hasPendingPlan) return;
-    clearFeed();
-    setActiveView('conversation');
-    setDraft('');
-    attachmentState.reset();
-    toolFeedIdsRef.current.clear();
-    requestAnimationFrame(() => panelRef.current?.querySelector('textarea')?.focus());
+  const moveSessionArchiveState = async (sessionId: string) => {
+    if (historyBusyRef.current || historyLoading) return;
+    historyBusyRef.current = true;
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      if (showArchivedSessions) {
+        await restoreArchivedCanvasAgentSession(sessionId);
+      } else {
+        await archiveCanvasAgentSession(sessionId);
+        if (useCanvasAgentPanelStore.getState().activeSessionId === sessionId) clearFeed();
+      }
+      setSessionHistory((current) => ({
+        ...current,
+        sessions: current.sessions.filter((session) => session.id !== sessionId),
+      }));
+    } catch (error) {
+      setHistoryError(readableAgentFailure(error, t));
+    } finally {
+      historyBusyRef.current = false;
+      setHistoryLoading(false);
+    }
+  };
+
+  const startConversation = async () => {
+    if (isRunning || historyLoading || historyBusyRef.current || executionGateRef.current.active || pendingCount > 0 || hasPendingPlan) return;
+    const epoch = ++historyLoadEpoch.current;
+    historyBusyRef.current = true;
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      await releaseCanvasAgentSessionCache();
+      if (epoch !== historyLoadEpoch.current) return;
+      clearFeed();
+      setActiveView('conversation');
+      setDraft('');
+      attachmentState.reset();
+      toolFeedIdsRef.current.clear();
+      requestAnimationFrame(() => panelRef.current?.querySelector('textarea')?.focus());
+    } catch (error) {
+      if (epoch === historyLoadEpoch.current) setHistoryError(readableAgentFailure(error, t));
+    } finally {
+      if (epoch === historyLoadEpoch.current) {
+        historyBusyRef.current = false;
+        setHistoryLoading(false);
+      }
+    }
   };
 
   const cancelCurrentTurn = () => { abortRef.current?.abort(); };
@@ -1087,6 +1213,10 @@ export function CanvasAgentDock({ projectId }: Props) {
           nodes={canvasNodes}
           displayedFeed={displayedFeed}
           sessions={sessions}
+          historyLoading={historyLoading}
+          historyError={historyError}
+          showArchivedSessions={showArchivedSessions}
+          supportsArchive={isTauri()}
           isRunning={isRunning}
           showCompletedTools={showCompletedTools}
           pendingCount={pendingCount}
@@ -1096,6 +1226,8 @@ export function CanvasAgentDock({ projectId }: Props) {
           onScroll={onFeedScroll}
           onStartConversation={startConversation}
           onLoadSession={loadSession}
+          onToggleArchived={() => setShowArchivedSessions((value) => !value)}
+          onArchiveSession={(sessionId) => { void moveSessionArchiveState(sessionId); }}
           onApproval={(item, approve) => { void handleApproval(item, approve); }}
           onBatchApproval={(items, approve) => { void handleBatchApprovals(items, approve); }}
           onLocate={handleLocate}
@@ -1147,7 +1279,7 @@ export function CanvasAgentDock({ projectId }: Props) {
             maxAttachments={attachmentState.maxAttachments}
             hasMissingAttachments={hasMissingAttachments}
             isRunning={isRunning}
-            hasPendingApproval={pendingCount > 0}
+            hasPendingApproval={pendingCount > 0 || historyLoading}
             hasPendingPlan={hasPendingPlan}
             contextEstimateTokens={contextEstimateTokens}
             contextWindow={selectedEntry?.contextWindow}

@@ -3,6 +3,7 @@ pub mod commands;
 
 use std::time::Duration;
 
+use commands::agent_history as agent_history_commands;
 use commands::ai as ai_commands;
 use commands::diagnostic_log;
 use commands::external_agent;
@@ -84,6 +85,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(commands::startup::StartupSoundState::default())
         .manage(project_state::ProjectDb::new())
+        .manage(agent_history_commands::AgentHistoryDb::new())
         .manage(portability::PortabilityJobs::new())
         .manage(external_agent_state)
         .manage(commands::mcp_client::McpClientState::default())
@@ -285,6 +287,14 @@ pub fn run() {
             project_state::update_project_viewport_record,
             project_state::rename_project_record,
             project_state::delete_project_record,
+            agent_history_commands::list_agent_session_summaries,
+            agent_history_commands::list_archived_agent_session_summaries,
+            agent_history_commands::get_agent_session,
+            agent_history_commands::upsert_agent_session,
+            agent_history_commands::import_agent_sessions,
+            agent_history_commands::delete_agent_session,
+            agent_history_commands::archive_agent_session,
+            agent_history_commands::restore_archived_agent_session,
             portability::export_project_bundle,
             portability::inspect_project_bundle,
             portability::import_project_bundle,

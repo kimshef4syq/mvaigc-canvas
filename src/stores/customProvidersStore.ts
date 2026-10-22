@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { resilientLocalStorage } from './persistStorage';
 
 /**
  * User-defined image-generation provider config. Intentionally flexible — most
@@ -110,6 +111,7 @@ export const useCustomProvidersStore = create<CustomProvidersState>()(
     }),
     {
       name: 'custom-providers-storage',
+      storage: resilientLocalStorage,
       // Don't persist ephemeral pendingEditId across reloads.
       partialize: (s) => ({ providers: s.providers }) as unknown as CustomProvidersState,
     }

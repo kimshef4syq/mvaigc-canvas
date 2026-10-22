@@ -55,7 +55,7 @@ import {
   type CanvasCommandExecutionResult,
 } from '@/features/canvas/domain/canvasCommands';
 import { canvasCommandRegistry } from '@/features/canvas/application/canvasCommandService';
-import { recordExplicitGrouping, recordGeneratedOutputs } from '../application/recentOutputGrouping';
+import { recordAgentCreatedNode, recordExplicitGrouping, recordGeneratedOutputs } from '../application/recentOutputGrouping';
 import { agentLoopGuard } from '../application/agentLoopGuard';
 import { validateCanvasDiscipline } from '../domain/agentContracts';
 import {
@@ -1210,6 +1210,9 @@ export function createCanvasAgent(options: {
           isConflict: (result) => !result.ok && result.error.code === 'revision_conflict',
         });
         const result = execution.output;
+        if (command.type === 'node.create' && result.ok && result.output.references.nodeId) {
+          recordAgentCreatedNode(context.runId, context.projectId, result.output.references.nodeId);
+        }
         if (command.type === 'generation.submit' && result.ok) {
           const acceptedNodeIds = result.output.references.nodeIds ?? [];
           if (acceptedNodeIds.length > 0) {
