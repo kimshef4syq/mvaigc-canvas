@@ -1025,6 +1025,8 @@
         "walkBack": "后退行走", "sideStep": "侧步移动", "bow": "鞠躬"
       },
       "poses": {
+        "handsOpen": "张开双手",
+        "handsFists": "双手握拳",
         "standNeutral": "自然站立", "standAttention": "立正", "leanForward": "身体前倾", "leanBack": "身体后仰",
         "handsOnHips": "双手叉腰", "armsCrossed": "双臂交叉", "sitUpright": "端坐", "sitRelaxed": "放松坐姿",
         "squatLow": "低蹲", "kneelOne": "单膝跪地", "kneelTwo": "双膝跪地", "lieBack": "仰躺",

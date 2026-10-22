@@ -573,7 +573,17 @@ export interface BlueprintReferenceImageItem {
  * pose name in `BlueprintNodeData.customActionPoses`, that pose's bone
  * rotations override the keyword mapping for the same name.
  */
+/** Finger curl/opposition 0–1; spread -1–1. */
+export interface BlueprintHandPose {
+  thumb?: number; index?: number; middle?: number; ring?: number; pinky?: number;
+  spread?: number; thumbOpposition?: number;
+}
 export interface BlueprintActionPose {
+  /** Wrist radians: x flexes toward palm, y twists along fingers, z deviates toward thumb. */
+  leftWrist?: { x?: number; y?: number; z?: number };
+  rightWrist?: { x?: number; y?: number; z?: number };
+  leftHand?: BlueprintHandPose;
+  rightHand?: BlueprintHandPose;
   leftShoulder?: { x?: number; y?: number; z?: number };
   rightShoulder?: { x?: number; y?: number; z?: number };
   leftElbow?: { x?: number };
@@ -646,6 +656,27 @@ export interface DirectorActionClip {
   keyframes: DirectorActionClipKeyframe[];
 }
 
+/** Baked final local joint transforms. Quaternion order is x,y,z,w. */
+export interface DirectorSkeletonFrame {
+  time: number;
+  rootPosition: number[];
+  rootRotation: number[];
+  rootScale: number[];
+  /** Per joint: local position xyz, local quaternion xyzw. */
+  joints: number[];
+  /** Optional exact local 3x3 bases, column-major; preserves upstream matrix interpolation. */
+  jointBases?: number[];
+}
+
+export interface DirectorSkeletonRecording {
+  modelId: 'ai4animation-geno' | 'ai4animation-cranberry' | `mixamo-${string}`;
+  skeletonId: 'geno-biped-23-v1' | 'geno-biped-hands-53-v2' | 'cranberry-biped-23-v1' | 'cranberry-biped-hands-53-v2' | `mixamo-${string}`;
+  source?: { kind: 'upstream-motion'; motionId: string; label: string; sourceStart: number; sourceEnd: number };
+  fps: 30;
+  jointNames: string[];
+  frames: DirectorSkeletonFrame[];
+}
+
 export interface DirectorMotionProjectV1 {
   schemaVersion: 1;
   durationSeconds: number;
@@ -654,6 +685,7 @@ export interface DirectorMotionProjectV1 {
   objectTracks: Record<string, DirectorObjectKeyframe[]>;
   actionTracks: Record<string, DirectorActionKeyframe[]>;
   customClips: DirectorActionClip[];
+  skeletonRecordings?: Record<string, DirectorSkeletonRecording>;
 }
 
 export interface DirectorStudioCameraSettings {

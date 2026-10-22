@@ -50,6 +50,7 @@ export interface RecordDirectorVideoOptions {
   fps: DirectorVideoFps;
   format?: DirectorVideoFormat | null;
   signal?: AbortSignal;
+  stepMode?: 'wall-clock' | 'fixed';
   renderAtTime: (timeSeconds: number) => void | Promise<void>;
   setCleanExportMode: (enabled: boolean, size?: { width: number; height: number }) => void | Promise<void>;
   onProgress?: (progress: DirectorRecordingProgress) => void;
@@ -133,6 +134,10 @@ export async function recordDirectorVideo(options: RecordDirectorVideoOptions): 
     recorder = platform.createRecorder(stream, { mimeType: format.mimeType, videoBitsPerSecond: 12_000_000 });
     const chunks: Blob[] = [];
     let startedAt: number | null = null;
+    const isFixed = options.stepMode === 'fixed';
+    const totalFrames = Math.max(1, Math.round(durationSeconds * options.fps));
+    let frameIndex = 0;
+    let nextFrameDueMs = 0;
 
     const result = await new Promise<DirectorRecordedVideo>((resolve, reject) => {
       let settled = false;
@@ -194,11 +199,22 @@ export async function recordDirectorVideo(options: RecordDirectorVideoOptions): 
 
       const tick = async () => {
         if (settled || cancelled) return;
-        // The initial prerender predates captureStream. Repaint time zero with
-        // capture active before starting the clock, so startup delays cannot
-        // consume the beginning of the authored timeline.
-        const elapsedSeconds = startedAt === null ? 0 : Math.max(0, (platform.now() - startedAt) / 1000);
-        const timelineTime = Math.min(durationSeconds, elapsedSeconds);
+        if (isFixed) {
+          // Hold each authored frame until its real-time slot elapses. Canvas
+          // captureStream + MediaRecorder stamp frames by wall-clock time, so
+          // rendering one frame per rAF would finish a 24fps clip at ~60fps and
+          // produce a sped-up video. The deadline is anchored to startedAt
+          // because platform.now() is an absolute clock, not a zero-based one.
+          if (startedAt !== null && platform.now() < startedAt + nextFrameDueMs) {
+            frameHandle = platform.scheduleFrame(() => { void tick(); });
+            return;
+          }
+          nextFrameDueMs += 1000 / options.fps;
+        }
+        // In fixed mode, step by exact frame intervals (1/fps) so no frames are dropped under heavy render load.
+        const timelineTime = isFixed
+          ? Math.min(durationSeconds, frameIndex / options.fps)
+          : Math.min(durationSeconds, startedAt === null ? 0 : Math.max(0, (platform.now() - startedAt) / 1000));
         try {
           await options.renderAtTime(timelineTime);
         } catch (error) {
@@ -213,11 +229,14 @@ export async function recordDirectorVideo(options: RecordDirectorVideoOptions): 
         if (settled || cancelled) return;
         startedAt ??= platform.now();
         options.onProgress?.({
-          progress: Math.min(1, timelineTime / durationSeconds),
+          progress: isFixed ? Math.min(1, frameIndex / totalFrames) : Math.min(1, timelineTime / durationSeconds),
           elapsedSeconds: timelineTime,
-          remainingSeconds: Math.max(0, durationSeconds - timelineTime),
+          remainingSeconds: isFixed ? Math.max(0, durationSeconds - (frameIndex / options.fps)) : Math.max(0, durationSeconds - timelineTime),
         });
-        if (elapsedSeconds >= durationSeconds) {
+        const completed = isFixed
+          ? frameIndex >= totalFrames
+          : (startedAt !== null && (platform.now() - startedAt) / 1000 >= durationSeconds);
+        if (completed) {
           // Canvas capture happens during paint, after the rendering callback.
           // Keep the endpoint through two paint opportunities before stopping.
           frameHandle = platform.scheduleFrame(() => {
@@ -233,6 +252,7 @@ export async function recordDirectorVideo(options: RecordDirectorVideoOptions): 
           });
           return;
         }
+        if (isFixed) frameIndex += 1;
         frameHandle = platform.scheduleFrame(() => { void tick(); });
       };
 

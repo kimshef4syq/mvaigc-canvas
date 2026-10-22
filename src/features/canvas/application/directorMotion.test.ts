@@ -4,6 +4,7 @@ import type { BlueprintItem, DirectorMotionProjectV1 } from '@/features/canvas/d
 import {
   DIRECTOR_PROCEDURAL_ACTIONS,
   DIRECTOR_STATIC_POSES,
+  DIRECTOR_STATIC_POSE_MAP,
   createDirectorCameraPresetTrack,
   createDirectorCameraRouteTrack,
   createDirectorObjectRouteTrack,
@@ -390,5 +391,26 @@ describe('director motion sampling', () => {
 
     expect(elapsed).toBeLessThan(1_500);
     expect(Object.keys(sampleDirectorMotion(project, 4, items).objects)).toHaveLength(50);
+  });
+});
+
+
+describe('legacy built-in pose snapshots', () => {
+  it('updates old defaults in tracks and saved clips while keeping user edits', () => {
+    const old = { leftShoulder: { z: -0.8 }, rightShoulder: { z: 0.8 }, leftElbow: { x: -1.15 }, rightElbow: { x: -1.15 } };
+    const edited = { ...old, leftElbow: { x: -0.5 } };
+    const project = normalizeDirectorMotionProject({
+      ...createEmptyDirectorMotionProject(),
+      actionTracks: { actor: [
+        { id: 'old', time: 0, poseId: 'hands-on-hips', pose: old },
+        { id: 'edited', time: 1, poseId: 'hands-on-hips', pose: edited },
+      ] },
+      customClips: [{ id: 'saved', name: 'saved', durationSeconds: 2, loop: false, keyframes: [{ id: 'key', time: 0, poseId: 'hands-on-hips', pose: old }] }],
+    });
+    expect(project.actionTracks.actor[0].pose).toEqual(expect.objectContaining(DIRECTOR_STATIC_POSE_MAP['hands-on-hips']));
+    expect(project.actionTracks.actor[1].pose?.leftElbow).toEqual(edited.leftElbow);
+    expect(project.customClips[0].keyframes[0].pose).toEqual(project.actionTracks.actor[0].pose);
+    expect(old.leftShoulder.z).toBe(-0.8);
+    expect(normalizeDirectorMotionProject(project)).toEqual(project);
   });
 });

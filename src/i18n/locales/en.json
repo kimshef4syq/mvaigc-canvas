@@ -1027,6 +1027,8 @@
         "walkBack": "Walk Backward", "sideStep": "Side Step", "bow": "Bow"
       },
       "poses": {
+        "handsOpen": "Open hands",
+        "handsFists": "Fists",
         "standNeutral": "Neutral Stand", "standAttention": "Stand at Attention", "leanForward": "Lean Forward",
         "leanBack": "Lean Back", "handsOnHips": "Hands on Hips", "armsCrossed": "Arms Crossed",
         "sitUpright": "Sit Upright", "sitRelaxed": "Sit Relaxed", "squatLow": "Low Squat",

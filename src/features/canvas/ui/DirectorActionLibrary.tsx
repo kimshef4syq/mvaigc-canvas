@@ -1,4 +1,7 @@
 import { memo, useMemo, useState } from 'react';
+import { OriginalMotionLibrary } from './director/motion/OriginalMotionLibrary';
+import { MixamoMotionLibrary } from './director/motion/MixamoMotionLibrary';
+import { mixamoModelId } from './director/motion/mixamoCharacterAssets';
 import { Copy, Film, Pencil, Play, RotateCcw, Trash2, UserRound, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -23,9 +26,13 @@ type Props = {
   onDuplicateClip: (clipId: string) => void;
   onDeleteClip: (clipId: string) => void;
   onLoopClip: (clipId: string, loop: boolean) => void;
+  onClearAction?: () => void;
+  onEditCustomPose?: () => void;
+  onApplyOriginalMotion?: (id:string,start:number,end:number)=>Promise<void>;
+  onApplyMixamoMotion?: (clipId:string)=>Promise<void>;
 };
 
-type LibraryTab = 'poses' | 'actions' | 'clips';
+type LibraryTab = 'original' | 'poses' | 'actions' | 'clips';
 
 export const DirectorActionLibrary = memo(function DirectorActionLibrary({
   isOpen,
@@ -42,9 +49,13 @@ export const DirectorActionLibrary = memo(function DirectorActionLibrary({
   onDuplicateClip,
   onDeleteClip,
   onLoopClip,
+  onClearAction,
+  onEditCustomPose,
+  onApplyOriginalMotion,
+  onApplyMixamoMotion,
 }: Props) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<LibraryTab>('actions');
+  const [tab, setTab] = useState<LibraryTab>('original');
   const [clipName, setClipName] = useState('');
   const [editingClipId, setEditingClipId] = useState<string | null>(null);
   const [editingClipName, setEditingClipName] = useState('');
@@ -67,14 +78,17 @@ export const DirectorActionLibrary = memo(function DirectorActionLibrary({
             <div className="text-sm font-medium text-white/88">{t('directorStudio.motion.library.title')}</div>
             {selectedItem ? <span className="max-w-[230px] truncate text-[10px] text-white/36">{selectedItem.label}</span> : null}
           </div>
+          {onEditCustomPose && <button type="button" disabled={!personSelected} onClick={() => { onClose(); onEditCustomPose(); }}
+            className="ml-auto mr-2 rounded border border-white/20 px-2 py-1 text-xs text-white/80 hover:bg-white/10 disabled:opacity-35">手腕与手指编辑</button>}
           <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded text-white/48 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-accent/60" aria-label={t('common.close')}>
             <X className="h-4 w-4" />
           </button>
         </header>
         <div className="flex shrink-0 border-b border-white/10 px-3 pt-2">
           {([
+            ['original', '原仓库动作'],
             ['poses', t('directorStudio.motion.library.poses')],
-            ['actions', t('directorStudio.motion.library.actions')],
+            ['actions', '程序化动作'],
             ['clips', t('directorStudio.motion.library.clips')],
           ] as const).map(([value, label]) => (
             <button
@@ -92,8 +106,31 @@ export const DirectorActionLibrary = memo(function DirectorActionLibrary({
             </div>
           ) : null}
 
+          {tab === 'original' && (mixamoModelId(selectedItem?.presetId) ? (
+            <MixamoMotionLibrary modelId={mixamoModelId(selectedItem?.presetId)} remaining={project.durationSeconds-currentTime} onApply={onApplyMixamoMotion ?? (async()=>{throw new Error('请打开预演台');})} />
+          ) : (
+            <OriginalMotionLibrary compatible={Boolean((selectedItem?.presetId === 'ai4animation-geno' || selectedItem?.presetId === 'ai4animation-cranberry') && onApplyOriginalMotion)} selectedModelId={selectedItem?.presetId} remaining={project.durationSeconds-currentTime} onApply={onApplyOriginalMotion ?? (async()=>{throw new Error('请打开预演台');})} />
+          ))}
           {tab === 'poses' ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {onClearAction ? (
+                <button
+                  type="button"
+                  disabled={!personSelected}
+                  onClick={() => {
+                    if (window.confirm('确定要清除角色动作并恢复自然站立吗？')) {
+                      onClearAction();
+                    }
+                  }}
+                  className="flex min-h-[58px] flex-col items-start justify-between rounded border border-amber-400/40 bg-amber-400/15 px-2.5 py-2 text-left text-[10px] text-amber-100 hover:border-amber-300 hover:bg-amber-400/25 disabled:cursor-not-allowed disabled:opacity-35 focus:outline-none focus:ring-2 focus:ring-amber-300/60"
+                >
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-100">
+                    <RotateCcw className="h-3.5 w-3.5 text-amber-300" />
+                    清除动作
+                  </span>
+                  <span className="text-[10px] text-amber-200/70">恢复自然站立</span>
+                </button>
+              ) : null}
               {DIRECTOR_STATIC_POSES.map((pose) => (
                 <button
                   key={pose.id}
@@ -182,7 +219,7 @@ export const DirectorActionLibrary = memo(function DirectorActionLibrary({
                   <button type="button" onClick={() => { setEditingClipId(clip.id); setEditingClipName(clip.name); }} className="flex h-7 w-7 items-center justify-center rounded text-white/42 hover:bg-white/10 hover:text-white" title={t('directorStudio.motion.library.rename')} aria-label={t('directorStudio.motion.library.rename')}><Pencil className="h-3.5 w-3.5" /></button>
                   <button type="button" onClick={() => onDuplicateClip(clip.id)} className="flex h-7 w-7 items-center justify-center rounded text-white/42 hover:bg-white/10 hover:text-white" title={t('directorStudio.motion.library.duplicate')} aria-label={t('directorStudio.motion.library.duplicate')}><Copy className="h-3.5 w-3.5" /></button>
                   <button type="button" onClick={() => onLoopClip(clip.id, !clip.loop)} className={`flex h-7 w-7 items-center justify-center rounded ${clip.loop ? 'bg-accent/18 text-accent' : 'text-white/42 hover:bg-white/10 hover:text-white'}`} title={t('directorStudio.motion.library.loop')} aria-label={t('directorStudio.motion.library.loop')} aria-pressed={clip.loop}><RotateCcw className="h-3.5 w-3.5" /></button>
-                  <button type="button" onClick={() => onDeleteClip(clip.id)} className="flex h-7 w-7 items-center justify-center rounded text-red-200/55 hover:bg-red-500/12 hover:text-red-100" title={t('directorStudio.motion.library.delete')} aria-label={t('directorStudio.motion.library.delete')}><Trash2 className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => { if (window.confirm(`确定要删除动作片段「${clip.name}」吗？`)) onDeleteClip(clip.id); }} className="flex h-7 w-7 items-center justify-center rounded text-red-200/55 hover:bg-red-500/12 hover:text-red-100" title={t('directorStudio.motion.library.delete')} aria-label={t('directorStudio.motion.library.delete')}><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
               ))}
             </div>
@@ -190,6 +227,8 @@ export const DirectorActionLibrary = memo(function DirectorActionLibrary({
         </div>
         <footer className="flex shrink-0 items-center justify-between border-t border-white/10 px-4 py-2 text-[10px] text-white/38">
           <span>{t('directorStudio.motion.library.timeAt', { time: currentTime.toFixed(2) })}</span>
+          {onEditCustomPose && <button type="button" disabled={!personSelected} onClick={() => { onClose(); onEditCustomPose(); }}
+            className="ml-auto mr-2 rounded border border-white/20 px-2 py-1 text-xs text-white/80 hover:bg-white/10 disabled:opacity-35">手腕与手指编辑</button>}
           <button type="button" onClick={onClose} className="inline-flex h-8 items-center gap-1.5 rounded border border-white/10 bg-white/6 px-3 text-xs text-white/62 hover:bg-white/12 hover:text-white focus:outline-none focus:ring-2 focus:ring-accent/60"><X className="h-3.5 w-3.5" />{t('common.close')}</button>
         </footer>
       </section>

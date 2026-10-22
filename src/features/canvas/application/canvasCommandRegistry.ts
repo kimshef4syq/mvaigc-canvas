@@ -731,8 +731,9 @@ function validateDirectorUpdateInput(input: Record<string, unknown>, errors: str
   }
   if (input.motionProject !== undefined && input.motionProject !== null) {
     const project = input.motionProject;
-    if (!isPlainRecord(project) || !hasOnlyKeys(project, ['schemaVersion', 'durationSeconds', 'loop', 'cameraTrack', 'objectTracks', 'actionTracks', 'customClips']) || project.schemaVersion !== 1) errors.push('motionProject must be a version 1 project with only supported fields.');
+    if (!isPlainRecord(project) || !hasOnlyKeys(project, ['schemaVersion', 'durationSeconds', 'loop', 'cameraTrack', 'objectTracks', 'actionTracks', 'customClips', 'skeletonRecordings']) || project.schemaVersion !== 1) errors.push('motionProject must be a version 1 project with only supported fields.');
     else {
+      if (project.skeletonRecordings !== undefined) validateJsonConfiguration(project.skeletonRecordings, 'motionProject.skeletonRecordings', errors);
       validateFiniteNumber(project.durationSeconds, 'motionProject.durationSeconds', errors);
       if (typeof project.durationSeconds === 'number' && project.durationSeconds < 0) errors.push('motionProject.durationSeconds cannot be negative.');
       for (const field of ['cameraTrack', 'objectTracks', 'actionTracks', 'customClips'] as const) {

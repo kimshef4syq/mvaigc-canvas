@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { ArrowLeft, Box, Camera, ChevronRight, DiamondPlus, Film, Layers3, Route, Trash2, UserRound, UserRoundPlus } from 'lucide-react';
+import { ArrowLeft, Box, Camera, ChevronRight, DiamondPlus, Film, Layers3, RotateCcw, Route, Trash2, UserRound, UserRoundPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { BlueprintBodyControls, BlueprintItem, DirectorMotionProjectV1 } from '@/features/canvas/domain/canvasNodes';
@@ -26,6 +26,7 @@ export interface DirectorPrevisSidebarProps {
   onPatchKeyframe: (selection: DirectorKeyframeSelection, patch: DirectorKeyframePatch) => void;
   onDuplicateKeyframe: (selection: DirectorKeyframeSelection) => void;
   onDeleteKeyframe: (selection: DirectorKeyframeSelection) => void;
+  onClearCharacterAction?: (itemId: string) => void;
   onUpdateItem: (id: string, patch: Partial<BlueprintItem>) => void;
   onAddPerson: () => void;
   onAddCameraKeyframe: () => void;
@@ -50,6 +51,7 @@ export const DirectorPrevisSidebar = memo(function DirectorPrevisSidebar({
   onPatchKeyframe,
   onDuplicateKeyframe,
   onDeleteKeyframe,
+  onClearCharacterAction,
   onUpdateItem,
   onAddPerson,
   onAddCameraKeyframe,
@@ -184,6 +186,7 @@ export const DirectorPrevisSidebar = memo(function DirectorPrevisSidebar({
               onPatch={onPatchKeyframe}
               onDuplicate={onDuplicateKeyframe}
               onDelete={onDeleteKeyframe}
+              onClearCharacterAction={onClearCharacterAction}
             /> : null}
             {selectedItem?.category === 'person' ? (
               <button type="button" onClick={onOpenActions} className={`${BUTTON_CLASS} w-full`} title={t('directorStudio.previs.openActionsHelp')} data-director-tooltip={t('directorStudio.previs.openActionsHelp')}>
@@ -243,6 +246,20 @@ export const DirectorPrevisSidebar = memo(function DirectorPrevisSidebar({
                   <button type="button" onClick={onOpenActions} className={`${BUTTON_CLASS} w-full border-teal-300/25 bg-teal-400/10 text-teal-100 hover:bg-teal-400/20`} title={t('directorStudio.previs.openActionsHelp')} data-director-tooltip={t('directorStudio.previs.openActionsHelp')}>
                     <Film className="h-3.5 w-3.5" />{t('directorStudio.motion.guide.addAction')}
                   </button>
+                  {onClearCharacterAction && (Boolean(selectedItem.action) || actionTrack.length > 0) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`确定要清除角色「${selectedItem.label}」的动作并恢复自然站立吗？`)) {
+                          onClearCharacterAction(selectedItem.id);
+                        }
+                      }}
+                      className={`${BUTTON_CLASS} w-full border-amber-300/25 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20`}
+                      title="清除角色动作并恢复自然站立"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 text-amber-300" />清除动作 (恢复自然站立)
+                    </button>
+                  ) : null}
                   {actionTrack.length ? (
                     <button type="button" onClick={() => selectFirstKeyframe('action')} className={`${BUTTON_CLASS} w-full justify-between`} title={t('directorStudio.previs.editActionsHelp')} data-director-tooltip={t('directorStudio.previs.editActionsHelp')}>
                       <span>{t('directorStudio.previs.editActions')}</span><span className="flex items-center gap-1 text-white/50">{actionTrack.length}<ChevronRight className="h-3.5 w-3.5" /></span>
@@ -284,7 +301,17 @@ export const DirectorPrevisSidebar = memo(function DirectorPrevisSidebar({
             />
             {selectedItem.category === 'person' ? <PersonBodyProperties item={selectedItem} onUpdateItem={onUpdateItem} /> : null}
             {onDeleteItem ? (
-              <button type="button" onClick={() => onDeleteItem(selectedItem.id)} className={`${BUTTON_CLASS} w-full text-red-200 hover:border-red-300/40 hover:bg-red-500/15 active:bg-red-500/25`} title={t('directorStudio.previs.deleteObjectHelp')} data-director-tooltip={t('directorStudio.previs.deleteObjectHelp')}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(t('directorStudio.legacyPanel.confirmDeleteItem', { name: selectedItem.label }))) {
+                    onDeleteItem(selectedItem.id);
+                  }
+                }}
+                className={`${BUTTON_CLASS} w-full text-red-200 hover:border-red-300/40 hover:bg-red-500/15 active:bg-red-500/25`}
+                title={t('directorStudio.previs.deleteObjectHelp')}
+                data-director-tooltip={t('directorStudio.previs.deleteObjectHelp')}
+              >
                 <Trash2 className="h-3.5 w-3.5" />{t('directorStudio.previs.deleteObject')}
               </button>
             ) : null}
