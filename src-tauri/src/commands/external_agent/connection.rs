@@ -26,6 +26,38 @@ const CONNECTION_DESCRIPTOR_FILE: &str = "canvas-mcp-current.json";
 const CONNECTION_PARAMS_FILE: &str = "connection-params.json";
 const LEGACY_DESCRIPTOR_PREFIX: &str = "canvas-mcp-";
 
+/// Host-owned connection policy. Missing persisted values keep legacy manual approval.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExternalAgentPermissionMode {
+    #[default]
+    Manual,
+    Analysis,
+    Collaboration,
+}
+
+impl ExternalAgentPermissionMode {
+    fn code(self) -> u8 {
+        match self {
+            Self::Manual => 0,
+            Self::Analysis => 1,
+            Self::Collaboration => 2,
+        }
+    }
+
+    fn from_code(code: u8) -> Self {
+        match code {
+            1 => Self::Analysis,
+            2 => Self::Collaboration,
+            _ => Self::Manual,
+        }
+    }
+}
+
+fn new_connection_mode() -> ExternalAgentPermissionMode {
+    ExternalAgentPermissionMode::Analysis
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateExternalAgentConnectionRequest {
@@ -33,6 +65,8 @@ pub struct CreateExternalAgentConnectionRequest {
     pub project_name: String,
     #[serde(default)]
     pub tools: Vec<ExternalAgentToolDefinition>,
+    #[serde(default = "new_connection_mode")]
+    pub permission_mode: ExternalAgentPermissionMode,
     #[serde(default)]
     pub claude_code_project_dir: Option<String>,
 }
@@ -68,7 +102,7 @@ pub struct ExternalAgentConnectionInfo {
     pub status: String,
     pub project: Option<ExternalAgentConnectionProject>,
     pub scope: Vec<String>,
-    pub permission_mode: &'static str,
+    pub permission_mode: ExternalAgentPermissionMode,
     pub created_at: Option<u64>,
     pub expires_at: Option<u64>,
     pub connected_at: Option<u64>,
@@ -97,6 +131,8 @@ pub(crate) struct ConnectionParams {
     pub tools: Vec<ExternalAgentToolDefinition>,
     #[serde(default)]
     pub claude_code_project_dir: Option<String>,
+    #[serde(default)]
+    pub permission_mode: ExternalAgentPermissionMode,
 }
 
 fn validate_project_text(
@@ -275,7 +311,7 @@ fn disconnected_connection() -> ExternalAgentConnectionInfo {
         status: "disconnected".to_string(),
         project: None,
         scope: Vec::new(),
-        permission_mode: "manual",
+        permission_mode: ExternalAgentPermissionMode::Manual,
         created_at: None,
         expires_at: None,
         connected_at: None,
@@ -318,7 +354,7 @@ pub(crate) fn connection_info(
             name: session.project_name.clone().unwrap_or_default(),
         }),
         scope,
-        permission_mode: "manual",
+        permission_mode: ExternalAgentPermissionMode::from_code(session.permission_mode.load(Ordering::SeqCst)),
         created_at: Some(session.created_at),
         expires_at: Some(session.capability_expires_at),
         connected_at: (connected_at > 0).then_some(connected_at),
@@ -342,6 +378,7 @@ pub async fn create_external_agent_connection(
         request.project_name,
         request.tools,
         request.claude_code_project_dir,
+        request.permission_mode,
     )
     .await
 }
@@ -353,6 +390,7 @@ pub(crate) async fn establish_connection(
     project_name: String,
     tools: Vec<ExternalAgentToolDefinition>,
     claude_code_project_dir: Option<String>,
+    permission_mode: ExternalAgentPermissionMode,
 ) -> Result<ExternalAgentConnectionInfo, ExternalAgentCommandError> {
     if !inner.broker_started.load(Ordering::SeqCst) {
         return Err(ExternalAgentCommandError::unavailable(
@@ -449,6 +487,7 @@ pub(crate) async fn establish_connection(
         turn_gate: tokio::sync::Mutex::new(()),
         turn_workspaces: tokio::sync::Mutex::new(std::collections::HashMap::new()),
         user_managed: true,
+        permission_mode: std::sync::atomic::AtomicU8::new(permission_mode.code()),
         project_id: Some(project_id.clone()),
         project_name: Some(project_name.clone()),
         descriptor_path: Some(descriptor_path.clone()),
@@ -469,6 +508,7 @@ pub(crate) async fn establish_connection(
         project_name: project_name.clone(),
         tools: session.tools.values().cloned().collect(),
         claude_code_project_dir: claude_code_project_dir.clone(),
+        permission_mode,
     };
     let _ = write_connection_params(&descriptor_root, &params);
     if let Some(dir) = claude_code_project_dir.as_deref().filter(|d| !d.trim().is_empty()) {
@@ -519,6 +559,7 @@ pub(crate) async fn rebuild_managed_connection(
         params.project_name,
         params.tools,
         params.claude_code_project_dir,
+        params.permission_mode,
     )
     .await?;
     Ok(())
@@ -542,6 +583,30 @@ pub async fn inspect_external_agent_connection(
         *state.inner.managed_connection_id.write().await = None;
         return Ok(disconnected_connection());
     };
+    connection_info(&session)
+}
+
+#[tauri::command]
+pub async fn set_external_agent_connection_permission(
+    state: State<'_, ExternalAgentState>,
+    connection_id: String,
+    permission_mode: ExternalAgentPermissionMode,
+) -> Result<ExternalAgentConnectionInfo, ExternalAgentCommandError> {
+    if state.inner.managed_connection_id.read().await.as_deref() != Some(connection_id.as_str()) {
+        return Err(ExternalAgentCommandError::not_found("External Agent connection not found."));
+    }
+    let session = state.inner.sessions.read().await.get(&connection_id).cloned()
+        .ok_or_else(|| ExternalAgentCommandError::not_found("External Agent connection not found."))?;
+    if !session.user_managed || session.cancelled.load(Ordering::SeqCst) || now_millis() >= session.capability_expires_at {
+        return Err(ExternalAgentCommandError::permission_denied("The Canvas connection is no longer active."));
+    }
+    let root = state.inner.connection_descriptor_root.lock()
+        .map_err(|_| ExternalAgentCommandError::process("Descriptor root lock is poisoned."))?.clone();
+    if let Some(mut params) = read_connection_params(&root) {
+        params.permission_mode = permission_mode;
+        write_connection_params(&root, &params)?;
+    }
+    session.permission_mode.store(permission_mode.code(), Ordering::SeqCst);
     connection_info(&session)
 }
 
@@ -688,6 +753,7 @@ mod tests {
             project_name: "画布".into(),
             tools: vec![],
             claude_code_project_dir: Some("/tmp/x".into()),
+            permission_mode: ExternalAgentPermissionMode::Manual,
         };
         write_connection_params(root.path(), &params).unwrap();
         let back = read_connection_params(root.path()).unwrap();

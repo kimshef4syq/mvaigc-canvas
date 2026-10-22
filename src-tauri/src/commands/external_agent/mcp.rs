@@ -5,14 +5,14 @@ use std::time::Duration;
 
 use serde_json::{json, Value};
 use tauri::AppHandle;
-use tokio::io::{AsyncWriteExt, BufReader};
+use tokio::io::{AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use super::connection::ExternalAgentConnectionDescriptor;
 use super::protocol::{
-    mcp_tool_result, read_bounded_jsonl_line, sanitize_json, MAX_TOOL_RESULT_BYTES,
+    mcp_tool_result, read_bounded_jsonl_line, read_bounded_jsonl_line_with_limit, sanitize_json,
 };
 use super::{
     emit_event, ExternalAgentCommandError, ExternalAgentEvent, ExternalAgentEventKind,
@@ -21,6 +21,9 @@ use super::{
 };
 
 const MCP_MODE_ARGUMENT: &str = "--external-agent-mcp";
+// MCP text fallback and structuredContent can contain two copies of a bounded tool result.
+// Keep request/Agent stdout limits unchanged; only the local broker response uses this bound.
+const MAX_BROKER_RESPONSE_BYTES: usize = 1024 * 1024;
 const TOOL_RESOLUTION_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 pub(crate) fn bind_broker_listener() -> Result<(StdTcpListener, SocketAddr), String> {
@@ -85,7 +88,9 @@ pub(crate) fn start_broker_listener(
             let inner = inner.clone();
             let app = app.clone();
             tokio::spawn(async move {
-                let _ = handle_broker_connection(stream, inner, app).await;
+                if let Err(error) = handle_broker_connection(stream, inner, app).await {
+                    tracing::warn!(code = %error.code, "Canvas MCP broker connection failed");
+                }
             });
         }
     });
@@ -132,7 +137,7 @@ fn pending_tool_event(
             call_id,
             name: tool.name,
             input,
-            // External clients never inherit the built-in Agent's Auto mode.
+            // The host resolves calls according to its connection policy, never client hints.
             requires_approval: true,
         },
     )
@@ -159,17 +164,55 @@ async fn authorized_session(
     Some(session)
 }
 
+fn normalize_tool_input(name: &str, mut input: Value) -> Value {
+    if name == "canvas_command" && input.get("type").and_then(Value::as_str) == Some("canvas.query") {
+        if let Some(args) = input.get_mut("input").and_then(Value::as_object_mut) {
+            args.entry("scope").or_insert_with(|| json!("graph"));
+            let detail = if args.contains_key("fields") { "full" } else { "summary" };
+            args.entry("detail").or_insert_with(|| json!(detail));
+            args.entry("limit").or_insert_with(|| json!(20));
+        }
+    }
+    input
+}
+
+async fn write_broker_response<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    response: Value,
+) -> Result<(), ExternalAgentCommandError> {
+    let mut encoded = serde_json::to_vec(&response)
+        .map_err(|_| ExternalAgentCommandError::protocol("Failed to encode broker response."))?;
+    if encoded.len() + 1 > MAX_BROKER_RESPONSE_BYTES {
+        encoded = serde_json::to_vec(&json!({"ok": false, "error": {
+            "code": "result_too_large",
+            "message": "Canvas result exceeds the broker response limit. Query detail=summary with limit=20, follow output.page.nextInput, or narrow nodeIds/fields. The broker connection is healthy."
+        }})).map_err(|_| ExternalAgentCommandError::protocol("Failed to encode broker error."))?;
+    }
+    writer.write_all(&encoded).await
+        .map_err(|error| ExternalAgentCommandError::protocol(error.to_string()))?;
+    writer.write_all(b"\n").await
+        .map_err(|error| ExternalAgentCommandError::protocol(error.to_string()))?;
+    writer.flush().await
+        .map_err(|error| ExternalAgentCommandError::protocol(error.to_string()))
+}
+
 pub(crate) async fn handle_broker_connection(
     stream: TcpStream,
     inner: Arc<ExternalAgentInner>,
     app: AppHandle,
 ) -> Result<(), ExternalAgentCommandError> {
     let mut reader = BufReader::new(stream);
-    let Some(line) = read_bounded_jsonl_line(&mut reader).await? else {
-        return Ok(());
+    let line = match read_bounded_jsonl_line(&mut reader).await {
+        Ok(Some(line)) => line,
+        Ok(None) => return Ok(()),
+        Err(_) => return write_broker_response(reader.get_mut(), json!({"ok": false,
+            "error": {"code": "invalid_request", "message": "Malformed or oversized Canvas broker request."}})).await,
     };
-    let request: Value = serde_json::from_slice(&line)
-        .map_err(|_| ExternalAgentCommandError::protocol("Malformed broker request."))?;
+    let request: Value = match serde_json::from_slice(&line) {
+        Ok(value) => value,
+        Err(_) => return write_broker_response(reader.get_mut(), json!({"ok": false,
+            "error": {"code": "invalid_request", "message": "Malformed Canvas broker JSON."}})).await,
+    };
     let session_id = request
         .get("sessionId")
         .and_then(Value::as_str)
@@ -206,6 +249,7 @@ pub(crate) async fn handle_broker_connection(
         .and_then(Value::as_str)
         .unwrap_or_default();
     let response = match action {
+        "ping" => json!({"ok": true, "result": {"projectId": session.project_id, "expiresAt": session.capability_expires_at}}),
         "listTools" => {
             let mut tools = session.tools.values().cloned().collect::<Vec<_>>();
             tools.sort_by(|left, right| left.name.cmp(&right.name));
@@ -220,7 +264,11 @@ pub(crate) async fn handle_broker_connection(
                 session
                     .call_count
                     .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                let input = sanitize_json(request.get("input").unwrap_or(&Value::Null))?;
+                let input = match sanitize_json(request.get("input").unwrap_or(&Value::Null)) {
+                    Ok(input) => normalize_tool_input(name, input),
+                    Err(_) => return write_broker_response(reader.get_mut(), json!({"ok": false,
+                        "error": {"code": "invalid_arguments", "message": "Canvas tool arguments exceed the supported depth or collection size."}})).await,
+                };
                 let call_id = Uuid::new_v4().to_string();
                 let (sender, receiver) = oneshot::channel();
                 let event = pending_tool_event(
@@ -259,24 +307,7 @@ pub(crate) async fn handle_broker_connection(
             json!({"ok": false, "error": {"code": "unsupported_action", "message": "Unsupported Canvas broker action."}})
         }
     };
-    let encoded = serde_json::to_vec(&response)
-        .map_err(|error| ExternalAgentCommandError::protocol(error.to_string()))?;
-    if encoded.len() > MAX_TOOL_RESULT_BYTES + 16 * 1024 {
-        return Err(ExternalAgentCommandError::protocol(
-            "Canvas broker response exceeds the output limit.",
-        ));
-    }
-    reader
-        .get_mut()
-        .write_all(&encoded)
-        .await
-        .map_err(|error| ExternalAgentCommandError::protocol(error.to_string()))?;
-    reader
-        .get_mut()
-        .write_all(b"\n")
-        .await
-        .map_err(|error| ExternalAgentCommandError::protocol(error.to_string()))?;
-    Ok(())
+    write_broker_response(reader.get_mut(), response).await
 }
 
 async fn broker_request(
@@ -306,17 +337,18 @@ async fn broker_request(
         .await
         .map_err(|error| error.to_string())?;
     let mut reader = BufReader::new(stream);
-    let line = read_bounded_jsonl_line(&mut reader)
+    let line = read_bounded_jsonl_line_with_limit(&mut reader, MAX_BROKER_RESPONSE_BYTES)
         .await
         .map_err(|error| error.message)?
-        .ok_or_else(|| "broker closed without a response".to_string())?;
+        .ok_or_else(|| "Canvas broker disconnected before returning a result. Reconnect the canvas MCP; do not automatically retry write or generation operations.".to_string())?;
     let response: Value = serde_json::from_slice(&line).map_err(|error| error.to_string())?;
     if response.get("ok").and_then(Value::as_bool) != Some(true) {
         let message = response
             .pointer("/error/message")
             .and_then(Value::as_str)
             .unwrap_or("Canvas broker rejected the request.");
-        return Err(message.to_string());
+        let code = response.pointer("/error/code").and_then(Value::as_str).unwrap_or("broker_error");
+        return Err(format!("{code}: {message}"));
     }
     Ok(response.get("result").cloned().unwrap_or(Value::Null))
 }
@@ -437,7 +469,10 @@ async fn run_mcp_stdio(credentials: ChildBrokerCredentials) -> Result<(), String
                 )
             }),
             "notifications/initialized" | "notifications/cancelled" => None,
-            "ping" => id.map(|id| jsonrpc_response(id, json!({}))),
+            "ping" => match broker_request(&credentials, json!({"action": "ping"})).await {
+                Ok(_) => id.map(|id| jsonrpc_response(id, json!({}))),
+                Err(error) => id.map(|id| jsonrpc_error(id, -32001, error)),
+            },
             "tools/list" => {
                 match broker_request(&credentials, json!({"action": "listTools"})).await {
                     Ok(result) => id.map(|id| jsonrpc_response(id, result)),
@@ -529,6 +564,7 @@ mod tests {
             turn_gate: tokio::sync::Mutex::new(()),
             turn_workspaces: tokio::sync::Mutex::new(std::collections::HashMap::new()),
             user_managed: true,
+            permission_mode: std::sync::atomic::AtomicU8::new(0),
             project_id: Some("project-a".to_string()),
             project_name: Some("Project A".to_string()),
             descriptor_path: None,

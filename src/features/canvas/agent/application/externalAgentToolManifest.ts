@@ -176,7 +176,7 @@ function canvasCommandTool(): ExternalCanvasMcpTool {
   return {
     name: 'canvas_command',
     title: 'Canvas command',
-    description: 'Inspect or change the canvas through the application-owned, versioned command registry. Every call requires application approval.',
+    description: 'Inspect or change the canvas through the versioned command registry. Start with {type:"canvas.query",input:{scope:"graph",detail:"summary",limit:20}}. Query scope must be graph, nodes, edges, or selection; viewport is not supported. Missing scope defaults to graph. graph reads the canvas graph, not the visible viewport. Results are bounded pages: follow output.page.nextInput until null; never assume one page is the full canvas. Read full details using nodeIds and detail:"full" (optionally fields). Read-only calls follow the connection policy; changes require approval or are blocked in analysis mode.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -189,6 +189,17 @@ function canvasCommandTool(): ExternalCanvasMcpTool {
         version: { type: 'number', const: CANVAS_COMMAND_VERSION },
         input: { type: 'object', additionalProperties: true },
       },
+      oneOf: canvasCommandRegistry.list().map((definition) => ({
+        type: 'object',
+        required: ['type', 'input'],
+        properties: {
+          type: { const: definition.type },
+          input: definition.type === 'canvas.query'
+            ? { ...definition.schema.input, required: [],
+              description: 'Defaults: scope=graph, detail=summary, limit=20. Continue with output.page.nextInput.' }
+            : definition.schema.input,
+        },
+      })),
     },
     annotations: {
       readOnlyHint: false,
@@ -203,21 +214,21 @@ const toolsByKind: Record<Exclude<AgentToolKind, 'canvas'>, ExternalCanvasMcpToo
   diagnostics: {
     name: 'diagnostics',
     title: 'Canvas diagnostics',
-    description: 'Inspect bounded, redacted runtime and provider evidence after application approval.',
+    description: 'Inspect bounded, redacted runtime and provider evidence under the connection permission policy.',
     inputSchema: diagnosticsSchema,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
   config: {
     name: 'config_patch',
     title: 'Configuration patch',
-    description: 'Preview, apply, or roll back an allowlisted non-secret configuration patch after application approval.',
+    description: 'Preview, apply, or roll back an allowlisted non-secret configuration patch under the connection permission policy.',
     inputSchema: configPatchSchema,
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   },
   'asset-read': {
     name: 'asset_read',
     title: 'Canvas image read',
-    description: 'Read one stable canvas image asset after explicit application approval.',
+    description: 'Read one stable canvas image asset under the connection permission policy.',
     inputSchema: assetReadSchema,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },

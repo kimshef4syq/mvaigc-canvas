@@ -13,6 +13,8 @@ import {
 import {
   createExternalAgentConnection,
   revokeExternalAgentConnection,
+  setExternalAgentConnectionPermission,
+  type ExternalAgentPermissionMode,
   type ExternalAgentProviderConfig,
   type ExternalAgentToolDefinition,
 } from '@/commands/externalAgent';
@@ -55,9 +57,10 @@ export function ExternalAgentConnectionPanel({
   const { t, i18n } = useTranslation();
   const claudeCodeProjectDir = useSettingsStore((s) => s.claudeCodeProjectDir);
   const setClaudeCodeProjectDir = useSettingsStore((s) => s.setClaudeCodeProjectDir);
-  const { connection } = useExternalAgentApprovals();
+  const { connection, approvalBusy, automaticReads } = useExternalAgentApprovals();
+  const [newPermissionMode, setNewPermissionMode] = useState<ExternalAgentPermissionMode>('analysis');
   const [provider, setProvider] = useState<ProviderTab>('codex');
-  const [busy, setBusy] = useState<'create' | 'refresh' | 'revoke' | null>(null);
+  const [busy, setBusy] = useState<'create' | 'refresh' | 'revoke' | 'permission' | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const refresh = async (silent = false) => {
@@ -88,7 +91,7 @@ export function ExternalAgentConnectionPanel({
     setError(null);
     try {
       setExternalAgentConnection(
-        await createExternalAgentConnection({ projectId, projectName, tools, claudeCodeProjectDir })
+        await createExternalAgentConnection({ projectId, projectName, tools, claudeCodeProjectDir, permissionMode: newPermissionMode })
       );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -103,6 +106,20 @@ export function ExternalAgentConnectionPanel({
     setError(null);
     try {
       setExternalAgentConnection(await revokeExternalAgentConnection(connection.connectionId));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handlePermissionChange = async (mode: ExternalAgentPermissionMode) => {
+    if (!connection?.connectionId) { setNewPermissionMode(mode); return; }
+    if (approvalBusy || busy || connection.project?.id !== projectId) return;
+    setBusy('permission');
+    setError(null);
+    try {
+      setExternalAgentConnection(await setExternalAgentConnectionPermission(connection.connectionId, mode));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -163,9 +180,35 @@ export function ExternalAgentConnectionPanel({
           <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide">
             <ShieldCheck className="h-3 w-3" />{t('canvasAgent.externalMcp.approvalMode')}
           </div>
-          <div className="mt-1 font-medium text-text-dark">{t('canvasAgent.externalMcp.manualApproval')}</div>
+          <div className="mt-1 font-medium text-text-dark">{t(`canvasAgent.externalMcp.modes.${connection?.connectionId ? connection.permissionMode : newPermissionMode}`)}</div>
         </div>
       </div>
+
+      <label className="mt-4 flex flex-col gap-1 text-xs">
+        <span className="font-medium text-text-dark">{t('canvasAgent.externalMcp.permissionLabel')}</span>
+        <select
+          value={connection?.connectionId ? connection.permissionMode : newPermissionMode}
+          disabled={busy !== null || approvalBusy || (activeConnection &&
+            (connection?.project?.id !== projectId || connection?.status === 'expired'))}
+          onChange={(event) => { void handlePermissionChange(event.target.value as ExternalAgentPermissionMode); }}
+          className="rounded-lg border border-border-dark bg-bg-dark px-3 py-2 text-text-dark disabled:opacity-40"
+        >
+          {(['analysis', 'collaboration', 'manual'] as const).map((mode) => (
+            <option key={mode} value={mode}>{t(`canvasAgent.externalMcp.modes.${mode}`)}</option>
+          ))}
+        </select>
+        <span className="leading-5 text-text-muted">
+          {t(`canvasAgent.externalMcp.modeHints.${connection?.connectionId ? connection.permissionMode : newPermissionMode}`)}
+        </span>
+      </label>
+      {automaticReads.length > 0 ? (
+        <details className="mt-3 text-[11px] text-text-muted">
+          <summary className="cursor-pointer">{t('canvasAgent.externalMcp.automaticReads')}</summary>
+          <ul className="mt-2 space-y-1">
+            {automaticReads.map((item) => <li key={item.callId}>{item.summary} · {t('canvasAgent.externalMcp.readAllowed')}</li>)}
+          </ul>
+        </details>
+      ) : null}
 
       <label className="mt-4 flex flex-col gap-1 text-[11px]">
         <span className="text-text-muted">{t('canvasAgent.externalMcp.claudeProjectDirLabel')}</span>

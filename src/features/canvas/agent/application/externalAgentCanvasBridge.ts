@@ -1,4 +1,6 @@
-import { resolveExternalAgentToolCall, type ExternalAgentToolResolution } from '@/commands/externalAgent';
+import { readExternalCanvasImage } from './externalAgentImageRead';
+import { assertExternalConnectionActive, externalAgentPermissionDecision } from './externalAgentPermissionPolicy';
+import { inspectExternalAgentConnection, resolveExternalAgentToolCall, type ExternalAgentToolResolution } from '@/commands/externalAgent';
 import { canvasCommandRegistry } from '@/features/canvas/application/canvasCommandService';
 import { CANVAS_COMMAND_VERSION, type CanvasCommand } from '@/features/canvas/domain/canvasCommands';
 import { useCanvasStore } from '@/stores/canvasStore';
@@ -142,7 +144,16 @@ async function executeDiagnostics(argumentsValue: unknown): Promise<unknown> {
   }
   const input = argumentsValue as any;
   switch (input.operation) {
-    case 'health': return inspectCanvasHealth(input);
+    case 'health': {
+      const connection = await inspectExternalAgentConnection();
+      return { ...inspectCanvasHealth(input),
+        checkScope: { canvasMetadata: true, thisMcpCallReachedCanvas: true,
+          localMediaFiles: false, providerAuthentication: false, fullGraphQuery: false },
+        externalConnection: { status: connection.status, projectId: connection.project?.id,
+          permissionMode: connection.permissionMode, expiresAt: connection.expiresAt },
+        note: 'This checks canvas metadata and confirms this MCP call reached the application. It does not verify every local media file, provider credentials, or a separate graph query. Missing media and provider 401 errors are separate from MCP connectivity.',
+      };
+    }
     case 'provider-config': return inspectDiagnosticConfigSnapshot();
     case 'generation-jobs': return inspectPersistedGenerationJobs({ jobId: input.jobId, limit: input.limit });
     case 'application-logs': return loadDiagnosticEvents({
@@ -228,16 +239,26 @@ async function executeApprovedTool(
     case 'canvas_command': return executeCanvasCommand(request, approval);
     case 'diagnostics': return executeDiagnostics(request.arguments);
     case 'config_patch': return executeConfigPatch(request.arguments);
-    case 'asset_read':
-      throw new Error('External image reads must use an explicitly attached, per-turn temporary resource.');
+    case 'asset_read': {
+      if (!isRecord(request.arguments) || typeof request.arguments.assetId !== 'string') {
+        throw new Error('A canvas image assetId is required.');
+      }
+      return readExternalCanvasImage(request.arguments.assetId);
+    }
     case 'profile_search':
       return searchProfiles((request.arguments ?? {}) as any);
     case 'profile_read':
       return await readProfile(request.arguments as any);
     case 'source_read':
-      return await sourceRepository.readSource(request.arguments as any);
-    case 'source_inspect':
-      return await sourceRepository.inspectSource(request.arguments as any);
+    case 'source_inspect': {
+      if (!isRecord(request.arguments) || typeof request.arguments.sourceId !== 'string'
+        || sourceRepository.getSource(request.arguments.sourceId)?.projectId !== approval.projectId) {
+        throw new Error('The source document does not belong to this project.');
+      }
+      return request.toolName === 'source_read'
+        ? sourceRepository.readSource(request.arguments as any)
+        : sourceRepository.inspectSource(request.arguments.sourceId);
+    }
     case 'production_plan': {
       const rawArgs = request.arguments as any;
       if (!isRecord(rawArgs) || typeof rawArgs.action !== 'string') {
@@ -337,9 +358,13 @@ export async function resolveExternalAgentToolApproval(input: {
   projectId: string;
   request: ExternalAgentToolRequest;
   approve: boolean;
+  automatic?: boolean;
+  enforceConnection?: boolean;
+  denialMessage?: string;
 }): Promise<ExternalAgentToolExecutionResult> {
   const approvalId = createApprovalId(input.request.turnId, input.request.toolName, input.request.callId);
   let approval: AgentApprovalRecord | undefined;
+  let canvasImage: { mimeType: string; data: string } | undefined;
   try {
     approval = canvasAgentApprovalStore.get(approvalId);
     if (!approval || approval.projectId !== input.projectId) {
@@ -362,13 +387,28 @@ export async function resolveExternalAgentToolApproval(input: {
       const resolution: ExternalAgentToolResolution = {
         outcome: 'denied',
         errorCode: 'user_denied',
-        message: 'The user denied this Canvas operation.',
+        message: input.denialMessage ?? 'The user denied this Canvas operation.',
         revision: canvasCommandRegistry.getRevision(),
       };
       await deliverExternalToolResolution(input.request, resolution);
       return { approvalId, status: 'denied' };
     }
 
+    // User-managed connections must be checked again immediately before execution.
+    // App-managed runtimes keep their existing approval path.
+    const checkPermission = async () => {
+      if (!input.enforceConnection && !input.automatic) return;
+      const connection = await inspectExternalAgentConnection();
+      assertExternalConnectionActive(connection, input.projectId, input.request.sessionId);
+      const decision = externalAgentPermissionDecision(connection.permissionMode, input.request);
+      if (decision === 'deny' || (input.automatic && decision !== 'automatic')) {
+        throw new Error('Connection permissions changed. This operation requires a new permission decision.');
+      }
+      if (useProjectStore.getState().currentProjectId !== input.projectId) {
+        throw new Error('The active project changed before external Agent execution.');
+      }
+    };
+    await checkPermission();
     const budget = canvasAgentBudgetLedger.reserve(approval);
     if (!budget.allowed) {
       throw new Error(`Agent budget is insufficient; ${budget.remaining ?? 0} credits remain.`);
@@ -394,7 +434,15 @@ export async function resolveExternalAgentToolApproval(input: {
             jobIds: [],
           }
         : undefined,
-      execute: () => executeApprovedTool(input.request, approvedRequest),
+      execute: async () => {
+        await checkPermission();
+        const result = await executeApprovedTool(input.request, approvedRequest);
+        if (input.request.toolName === 'asset_read' && isRecord(result) && isRecord(result.canvasImage)) {
+          canvasImage = result.canvasImage as { mimeType: string; data: string };
+          return result.metadata;
+        }
+        return result;
+      },
       isSuccess: toolSuccess,
       isAccepted: (output) => input.request.toolName === 'canvas_command'
         && commandFromArguments(input.request.arguments).type === 'generation.submit'
@@ -410,7 +458,7 @@ export async function resolveExternalAgentToolApproval(input: {
     const succeeded = execution.receipt.status !== 'failed';
     const resolution: ExternalAgentToolResolution = {
       outcome: succeeded ? 'approved' : 'error',
-      result: output,
+      result: canvasImage ? { metadata: output, canvasImage } : output,
       errorCode: succeeded ? undefined : execution.receipt.errorCode ?? 'canvas_tool_failed',
       message: succeeded ? undefined : 'The approved Canvas operation failed.',
       revision: canvasCommandRegistry.getRevision(),

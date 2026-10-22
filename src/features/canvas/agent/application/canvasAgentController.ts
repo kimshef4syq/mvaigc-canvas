@@ -166,10 +166,19 @@ function invalidCanvasCommandReason(toolName: string, args: unknown): string | n
   const preview = canvasCommandRegistry.inspect(command, 'agent');
   if (preview.valid) return null;
   const detail = preview.errors.map((error) => error.message).filter(Boolean).join(' ');
+  if (command.type === 'canvas.query'
+    && !['graph', 'nodes', 'edges', 'selection'].includes(command.input.scope)) {
+    const repairedInput = Object.fromEntries(Object.entries(command.input)
+      .filter(([key]) => ['detail', 'limit', 'nodeIds', 'offset', 'edgeOffset', 'fields'].includes(key)));
+    const example = redactSensitiveValue({ type: 'canvas.query', version: CANVAS_COMMAND_VERSION,
+      input: { scope: 'graph', ...repairedInput } });
+    return `画布工具参数校验失败：${detail} scope 只支持 graph（节点与连线）、nodes（节点）、edges（连线）、selection（选中节点 ID）。当前不支持 viewport（可见视口），不会自动将它改成全图查询。若要查询全图，可使用：${JSON.stringify(example)}。示例仅修正 scope，保留其他参数；其他字段仍须通过校验。若要查询选中节点，使用 scope:"selection"。请修正参数后重试，无需用户批准这个无效请求，也无需重新连接 MCP。`;
+  }
+
   const repair = command.type === 'generation.submit'
     ? '正确流程：如果是从零生成，先调用 node.create 创建 imageNode/aiVideoNode，并在 configuration 中写入 prompt、modelId、aspectRatio、resolution 等配置；再把 node.create 返回的真实 nodeId 放入 generation.submit.input.nodeIds。generation.submit 不接受 prompt。'
     : command.type === 'canvas.query'
-      ? '正确格式：{"type":"canvas.query","input":{"scope":"graph|nodes|edges|selection","nodeIds":["可选"],"limit":100}}。不存在 filter 字段。'
+      ? '正确格式：{"type":"canvas.query","input":{"scope":"graph","detail":"summary","limit":20}}。scope 的合法值仅为 graph/nodes/edges/selection，不支持 viewport；按 output.page.nextInput 翻页。读取详情用 detail:"full" 和真实 nodeIds，可用 fields 选择 data 字段。不存在 filter 字段。'
       : command.type === 'node.create'
         ? '从零生图的正确格式：{"type":"node.create","input":{"nodeType":"imageNode","position":{"x":0,"y":0},"configuration":{"prompt":"完整提示词","modelId":"当前所选模型","aspectRatio":"16:9","resolution":"2K"}}}。不要写 image、imageEditNode、ratio、size，也不要在创建成功前自造 nodeId。只有返回 ok=true 后才可使用 output.references.nodeId。'
         : CANVAS_COMMAND_TYPES.includes(command.type)

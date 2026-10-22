@@ -10,6 +10,7 @@ import {
   resolveExternalAgentToolCall,
   type ExternalAgentConnectionInfo,
   type ExternalAgentEventV1,
+  type ExternalAgentPermissionMode,
 } from '@/commands/externalAgent';
 import {
   prepareExternalAgentToolRequest,
@@ -19,6 +20,7 @@ import {
   enqueueExternalAgentApproval,
   type ExternalAgentPendingApproval,
 } from '../application/externalAgentApprovalQueue';
+import { assertExternalConnectionActive, externalAgentPermissionDecision } from '../application/externalAgentPermissionPolicy';
 import type { ExternalAgentToolRequest } from '../domain/agentModel';
 
 type ApprovalState = {
@@ -26,6 +28,7 @@ type ApprovalState = {
   pendingApprovals: ExternalAgentPendingApproval[];
   approvalBusy: boolean;
   error: string | null;
+  automaticReads: { callId: string; summary: string }[];
 };
 
 export const useExternalAgentApprovalStore = create<ApprovalState>(() => ({
@@ -33,6 +36,7 @@ export const useExternalAgentApprovalStore = create<ApprovalState>(() => ({
   pendingApprovals: [],
   approvalBusy: false,
   error: null,
+  automaticReads: [],
 }));
 
 function setError(error: unknown): void {
@@ -40,12 +44,17 @@ function setError(error: unknown): void {
 }
 
 export function setExternalAgentConnection(connection: ExternalAgentConnectionInfo): void {
+  const previous = useExternalAgentApprovalStore.getState().connection;
+  const policyChanged = previous?.connectionId === connection.connectionId
+    && previous?.permissionMode !== connection.permissionMode;
+  const active = ['ready', 'connected'].includes(connection.status);
   useExternalAgentApprovalStore.setState((state) => ({
     connection,
-    pendingApprovals: connection.status !== 'expired' && state.connection?.connectionId === connection.connectionId
-      ? state.pendingApprovals
-      : [],
+    pendingApprovals: active && !policyChanged && state.connection?.connectionId === connection.connectionId
+      ? state.pendingApprovals : [],
+    automaticReads: state.connection?.connectionId === connection.connectionId ? state.automaticReads : [],
   }));
+  if (policyChanged && active) void replayExternalAgentPendingToolCalls().catch(setError);
 }
 
 export async function refreshExternalAgentConnection(): Promise<void> {
@@ -99,6 +108,7 @@ function startListener(): () => void {
     const key = `${request.sessionId}:${request.callId}`;
     if (preparing.has(key) || state.pendingApprovals.some((item) => item.request.callId === request.callId)) return;
     preparing.add(key);
+    let evaluatedMode: ExternalAgentPermissionMode | undefined;
     try {
       const projectId = useProjectStore.getState().currentProjectId;
       if (!projectId || connection.project?.id !== projectId) {
@@ -115,6 +125,30 @@ function startListener(): () => void {
         return;
       }
       const approval = await prepareExternalAgentToolRequest({ projectId, request });
+      // Fetch host policy after preparation, so queued/replayed requests use the latest mode.
+      const latest = await inspectExternalAgentConnection();
+      assertExternalConnectionActive(latest, projectId, request.sessionId);
+      evaluatedMode = latest.permissionMode;
+      if (!active) return;
+      if (useProjectStore.getState().currentProjectId !== projectId) {
+        throw new Error(i18n.t('canvasAgent.externalMcp.projectChanged'));
+      }
+      const decision = externalAgentPermissionDecision(latest.permissionMode, request);
+      if (decision !== 'confirm') {
+        const result = await resolveExternalAgentToolApproval({
+          projectId, request, approve: decision === 'automatic',
+          automatic: decision === 'automatic', enforceConnection: true,
+          denialMessage: i18n.t('canvasAgent.externalMcp.analysisDenied'),
+        });
+        if (active && decision === 'automatic' && result.status === 'approved') {
+          useExternalAgentApprovalStore.setState((current) => ({
+            automaticReads: [{ callId: request.callId, summary: approval.summary },
+              ...current.automaticReads.filter((item) => item.callId !== request.callId)].slice(0, 10),
+          }));
+        }
+        if (active && result.status === 'error') setError(result.error ?? 'Canvas operation failed.');
+        return;
+      }
       if (active && useExternalAgentApprovalStore.getState().connection?.connectionId === request.sessionId
         && useProjectStore.getState().currentProjectId === projectId) {
         useExternalAgentApprovalStore.setState((current) => ({
@@ -135,6 +169,15 @@ function startListener(): () => void {
       if (active) setError(message);
     } finally {
       preparing.delete(key);
+      const current = useExternalAgentApprovalStore.getState().connection;
+      if (active && evaluatedMode && current?.connectionId === request.sessionId
+        && current.permissionMode !== evaluatedMode) {
+        // A policy change may have replayed while this request was still preparing.
+        useExternalAgentApprovalStore.setState((state) => ({
+          pendingApprovals: state.pendingApprovals.filter((item) => item.request.callId !== request.callId),
+        }));
+        void replayExternalAgentPendingToolCalls().catch(setError);
+      }
     }
   };
 
@@ -172,7 +215,7 @@ export async function resolveExternalAgentApproval(approve: boolean): Promise<vo
   if (!pendingApproval || !projectId || state.approvalBusy) return;
   useExternalAgentApprovalStore.setState({ approvalBusy: true, error: null });
   try {
-    const result = await resolveExternalAgentToolApproval({ projectId, request: pendingApproval.request, approve });
+    const result = await resolveExternalAgentToolApproval({ projectId, request: pendingApproval.request, approve, enforceConnection: true });
     useExternalAgentApprovalStore.setState((current) => ({
       pendingApprovals: current.pendingApprovals.filter((item) => item.request.callId !== pendingApproval.request.callId),
       error: result.status === 'error' ? result.error ?? i18n.t('canvasAgent.externalMcp.executionFailed') : null,

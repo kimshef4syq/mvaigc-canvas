@@ -62,10 +62,15 @@
     "open": "打开画布 Agent",
     "externalMcp": {
       "title": "接入其他 Agent",
-      "description": "从你自己打开的 Codex 或 Claude Code 连接当前画布。操作请求会显示在画布右侧，可直接批准或拒绝。",
+      "description": "从你自己打开的 Codex 或 Claude Code 连接当前画布。读取和修改按连接权限处理，需要确认的请求会显示在画布右侧。",
       "refresh": "刷新连接状态",
       "statusLabel": "状态",
-      "status": { "disconnected": "未连接", "ready": "等待外部 Agent", "connected": "已连接", "expired": "已过期" },
+      "status": {
+        "disconnected": "未连接",
+        "ready": "等待外部 Agent",
+        "connected": "已连接",
+        "expired": "已过期"
+      },
       "project": "当前项目",
       "noProject": "未打开项目",
       "scope": "工具范围",
@@ -90,7 +95,21 @@
       "projectChangedResolution": "当前项目与该外部 Agent 连接的授权项目不一致。",
       "projectChanged": "项目已切换，该外部 Agent 连接不能操作当前画布。",
       "claudeProjectDirLabel": "Claude Code 项目目录",
-      "claudeProjectDirHint": "OSC 会把画布 MCP 配置写入该目录，在此目录打开 Claude Code 即可连上。留空则关闭自动写入。"
+      "claudeProjectDirHint": "OSC 会把画布 MCP 配置写入该目录，在此目录打开 Claude Code 即可连上。留空则关闭自动写入。",
+      "permissionLabel": "连接权限",
+      "modes": {
+        "analysis": "分析模式（推荐）",
+        "collaboration": "协作模式",
+        "manual": "全部手动"
+      },
+      "modeHints": {
+        "analysis": "读取自动通过；创建、修改、删除、生成及其他非读取操作被阻止。仅授权当前项目。",
+        "collaboration": "读取自动通过；修改、删除、生成和配置变更逐项确认，制作阶段仍需确认。",
+        "manual": "所有操作均需逐项确认，不跟随内置 Agent 的自动模式。"
+      },
+      "analysisDenied": "当前连接处于分析模式，只允许读取。请在画布的连接权限中切换到协作模式，再重新请求此操作。",
+      "automaticReads": "最近自动读取记录",
+      "readAllowed": "读取已自动允许"
     },
     "views": "Agent 视图",
     "conversation": "对话",

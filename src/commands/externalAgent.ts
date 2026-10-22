@@ -53,13 +53,15 @@ export interface ExternalAgentProviderConfig {
   destinationWindows: string;
 }
 
+export type ExternalAgentPermissionMode = 'manual' | 'analysis' | 'collaboration';
+
 export interface ExternalAgentConnectionInfo {
   schemaVersion: 1;
   connectionId: string | null;
   status: ExternalAgentConnectionStatus;
   project: { id: string; name: string } | null;
   scope: string[];
-  permissionMode: 'manual';
+  permissionMode: ExternalAgentPermissionMode;
   createdAt: number | null;
   expiresAt: number | null;
   connectedAt: number | null;
@@ -77,6 +79,7 @@ export interface CreateExternalAgentConnectionRequest {
   projectName: string;
   tools: ExternalAgentToolDefinition[];
   claudeCodeProjectDir?: string;
+  permissionMode?: ExternalAgentPermissionMode;
 }
 
 export interface ExternalAgentAttachment {
@@ -250,6 +253,13 @@ export function createExternalAgentConnection(
   request: CreateExternalAgentConnectionRequest
 ): Promise<ExternalAgentConnectionInfo> {
   return invokeExternalAgent('create_external_agent_connection', { request });
+}
+
+export function setExternalAgentConnectionPermission(
+  connectionId: string,
+  permissionMode: ExternalAgentPermissionMode,
+): Promise<ExternalAgentConnectionInfo> {
+  return invokeExternalAgent('set_external_agent_connection_permission', { connectionId, permissionMode });
 }
 
 export function inspectExternalAgentConnection(): Promise<ExternalAgentConnectionInfo> {

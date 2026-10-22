@@ -92,6 +92,10 @@ export type CanvasQueryCommand = CanvasCommandBase<'canvas.query', {
   scope: 'graph' | 'nodes' | 'edges' | 'selection';
   nodeIds?: string[];
   limit?: number;
+  offset?: number;
+  edgeOffset?: number;
+  detail?: 'summary' | 'full';
+  fields?: string[];
 }>;
 
 export type CreateNodeCommand = CanvasCommandBase<'node.create', {
@@ -394,6 +398,11 @@ export interface CanvasResourceReferences {
 export interface CanvasCommandOutput {
   references: CanvasResourceReferences;
   value?: unknown;
+  page?: {
+    revision: number; detail: string; limit: number; totalNodes: number; totalEdges: number;
+    returnedNodes: number; returnedEdges: number; hasMore: boolean;
+    nextInput: CanvasQueryCommand['input'] | null; detailsOmittedNodeIds?: string[]; warning?: string;
+  };
 }
 
 export type CanvasCommandErrorCode =

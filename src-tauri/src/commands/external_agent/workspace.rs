@@ -330,6 +330,7 @@ mod tests {
             turn_gate: Mutex::new(()),
             turn_workspaces: Mutex::new(HashMap::new()),
             user_managed: false,
+            permission_mode: std::sync::atomic::AtomicU8::new(0),
             project_id: None,
             project_name: None,
             descriptor_path: None,

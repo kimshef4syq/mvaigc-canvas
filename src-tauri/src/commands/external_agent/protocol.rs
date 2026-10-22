@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use std::sync::OnceLock;
 
 use regex::Regex;
@@ -240,7 +241,25 @@ pub(crate) fn validate_tool_resolution(
                 "Tool result exceeds 256 KiB.",
             ));
         }
-        normalized.result = Some(sanitize_json(result)?);
+        // Only this bounded image envelope bypasses text redaction, for MCP vision.
+        // It remains transient and is never included in ToolResolved events.
+        let mut metadata = result.clone();
+        let image = metadata.as_object_mut().and_then(|value| value.remove("canvasImage"));
+        let mut safe = sanitize_json(&metadata)?;
+        if let Some(image) = image {
+            let mime = image.get("mimeType").and_then(Value::as_str);
+            let data = image.get("data").and_then(Value::as_str).unwrap_or_default();
+            if mime != Some("image/jpeg") || data.is_empty() || data.len() > 180_000 {
+                return Err(ExternalAgentCommandError::invalid_request("Invalid canvas image preview."));
+            }
+            let decoded = base64::engine::general_purpose::STANDARD.decode(data)
+                .map_err(|_| ExternalAgentCommandError::invalid_request("Invalid image encoding."))?;
+            if !decoded.starts_with(&[0xff, 0xd8, 0xff]) {
+                return Err(ExternalAgentCommandError::invalid_request("Invalid JPEG preview."));
+            }
+            safe["canvasImage"] = image;
+        }
+        normalized.result = Some(safe);
     }
     normalized.message = normalized.message.as_deref().map(redact_text);
     normalized.error_code = normalized
@@ -257,11 +276,16 @@ pub(crate) fn validate_tool_resolution(
 pub(crate) fn mcp_tool_result(resolution: ExternalAgentToolResolution) -> Value {
     let outcome = resolution.outcome.as_str();
     if outcome == "approved" {
-        let result = resolution.result.unwrap_or(Value::Null);
+        let mut result = resolution.result.unwrap_or(Value::Null);
+        let image = result.as_object_mut().and_then(|value| value.remove("canvasImage"));
         let text = serde_json::to_string(&result)
             .unwrap_or_else(|_| "{\"ok\":false,\"error\":\"serialization_failed\"}".to_string());
+        let mut content = vec![json!({"type": "text", "text": text})];
+        if let Some(image) = image {
+            content.push(json!({"type": "image", "mimeType": image["mimeType"], "data": image["data"]}));
+        }
         return json!({
-            "content": [{"type": "text", "text": text}],
+            "content": content,
             "structuredContent": {
                 "ok": true,
                 "result": result,
@@ -309,6 +333,16 @@ pub(crate) async fn read_bounded_jsonl_line<R>(
 where
     R: AsyncBufRead + Unpin,
 {
+    read_bounded_jsonl_line_with_limit(reader, MAX_JSONL_LINE_BYTES).await
+}
+
+pub(crate) async fn read_bounded_jsonl_line_with_limit<R>(
+    reader: &mut R,
+    max_bytes: usize,
+) -> Result<Option<Vec<u8>>, ExternalAgentCommandError>
+where
+    R: AsyncBufRead + Unpin,
+{
     let mut output = Vec::new();
     loop {
         let available = reader.fill_buf().await.map_err(|error| {
@@ -323,7 +357,7 @@ where
         }
         let newline = available.iter().position(|byte| *byte == b'\n');
         let consumed = newline.map(|index| index + 1).unwrap_or(available.len());
-        if output.len().saturating_add(consumed) > MAX_JSONL_LINE_BYTES {
+        if output.len().saturating_add(consumed) > max_bytes {
             reader.consume(consumed);
             return Err(ExternalAgentCommandError::protocol(
                 "External Agent emitted an oversized JSONL record.",

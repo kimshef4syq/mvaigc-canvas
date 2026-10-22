@@ -62,10 +62,15 @@
     "open": "Open Canvas Agent",
     "externalMcp": {
       "title": "Connect another Agent",
-      "description": "Connect your own Codex or Claude Code to the current canvas. Review and approve or deny requests directly in the right sidebar.",
+      "description": "Connect your own Codex or Claude Code to this canvas. Reads and changes follow the connection permissions; requests requiring approval appear on the right.",
       "refresh": "Refresh connection status",
       "statusLabel": "Status",
-      "status": { "disconnected": "Disconnected", "ready": "Waiting for external Agent", "connected": "Connected", "expired": "Expired" },
+      "status": {
+        "disconnected": "Disconnected",
+        "ready": "Waiting for external Agent",
+        "connected": "Connected",
+        "expired": "Expired"
+      },
       "project": "Active project",
       "noProject": "No project open",
       "scope": "Tool scope",
@@ -90,7 +95,21 @@
       "projectChangedResolution": "The active project does not match the project authorized for this external Agent connection.",
       "projectChanged": "The project changed, so this external Agent connection cannot operate on the current canvas.",
       "claudeProjectDirLabel": "Claude Code project directory",
-      "claudeProjectDirHint": "OSC writes the Canvas MCP config for this directory. Open Claude Code here to connect. Leave blank to disable auto-write."
+      "claudeProjectDirHint": "OSC writes the Canvas MCP config for this directory. Open Claude Code here to connect. Leave blank to disable auto-write.",
+      "permissionLabel": "Connection permissions",
+      "modes": {
+        "analysis": "Analysis (recommended)",
+        "collaboration": "Collaboration",
+        "manual": "Approve everything"
+      },
+      "modeHints": {
+        "analysis": "Reads run automatically. Creating, changing, deleting, generating, and other non-read operations are blocked. Access is limited to this project.",
+        "collaboration": "Reads run automatically. Changes, deletion, generation, configuration, and production stages still require approval.",
+        "manual": "Every operation requires approval, independently of the built-in Agent’s Auto mode."
+      },
+      "analysisDenied": "This connection is in analysis mode and only permits reads. Switch to collaboration mode in the canvas connection permissions, then request the operation again.",
+      "automaticReads": "Recent automatic reads",
+      "readAllowed": "Read automatically allowed"
     },
     "views": "Agent views",
     "conversation": "Chat",

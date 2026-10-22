@@ -1,3 +1,4 @@
+import { readCanvasQueryPage } from './canvasQueryPage';
 import { normalizeNodeCreateCommand } from './normalizeNodeCreateCommand';
 import {
   CANVAS_COMMAND_VERSION,
@@ -33,7 +34,6 @@ import {
   buildCanvasAssetCatalog,
   projectCanvasAssetCatalogItem,
 } from './canvasAssetCatalog';
-import { projectCanvasNodeForRead } from './canvasReadProjection';
 import type { NodeFactory } from './ports';
 import { CanvasGenerationFacade } from './canvasGenerationFacade';
 import { CanvasNavigationFacade } from './canvasNavigationFacade';
@@ -164,9 +164,13 @@ const EFFECTS: Record<CanvasCommandType, CanvasCommandEffect> = {
 
 const INPUT_SCHEMAS: Record<CanvasCommandType, CanvasJsonSchema> = {
   'canvas.query': objectSchema(['scope'], {
-    scope: stringField('Bounded projection to return.', ['graph', 'nodes', 'edges', 'selection']),
+    scope: stringField('Exactly one of: graph (nodes and edges), nodes, edges, selection (selected node IDs). viewport is not supported; graph does not mean the visible viewport.', ['graph', 'nodes', 'edges', 'selection']),
     nodeIds: arrayField('Optional node id filter.'),
-    limit: numberField('Maximum number of records.'),
+    limit: numberField('Page size; effective maximum 100 records per collection.'),
+    offset: numberField('Node/selection offset, or edge offset when scope is edges. Default 0.'),
+    edgeOffset: numberField('Independent edge offset for graph pages. Use page.nextInput to continue.'),
+    detail: stringField('summary for overview; full for node details. External MCP defaults to summary.', ['summary', 'full']),
+    fields: arrayField('Optional data field names to read in full detail. Use nodeIds to narrow the request.'),
   }),
   'node.create': objectSchema(['nodeType', 'position'], {
     nodeType: stringField(
@@ -766,8 +770,24 @@ function validateCommandInput(
 
   switch (command.type) {
     case 'canvas.query':
-      if (!['graph', 'nodes', 'edges', 'selection'].includes(command.input.scope)) errors.push('Invalid query scope.');
+      if (!['graph', 'nodes', 'edges', 'selection'].includes(command.input.scope)) {
+        const scope: unknown = command.input.scope;
+        // Report only short identifier-like values; never echo arbitrary payloads into errors.
+        const received = typeof scope === 'string'
+          ? /^[a-zA-Z0-9_. -]{0,40}$/.test(scope) ? JSON.stringify(scope) : '[invalid string]'
+          : scope === null ? 'null' : typeof scope;
+        errors.push(`Invalid query scope: received ${received}. Allowed values: graph, nodes, edges, selection. viewport is not supported.`);
+      }
       if (command.input.nodeIds !== undefined) validateStringArray(command.input.nodeIds, 'nodeIds', errors, true);
+      for (const key of ['offset', 'edgeOffset'] as const) {
+        const offset = command.input[key];
+        if (offset !== undefined && (!Number.isSafeInteger(offset) || offset < 0)) errors.push(`${key} must be a non-negative safe integer.`);
+      }
+      if (command.input.detail !== undefined && !['summary', 'full'].includes(command.input.detail)) errors.push('Invalid query detail.');
+      if (command.input.fields !== undefined) {
+        validateStringArray(command.input.fields, 'fields', errors, true);
+        if (command.input.fields.length > 30) errors.push('fields accepts at most 30 field names.');
+      }
       break;
     case 'node.create':
       if (!Object.prototype.hasOwnProperty.call(canvasNodeCapabilityManifest, command.input.nodeType)) {
@@ -1431,26 +1451,8 @@ export class CanvasCommandRegistry {
   private async executeNonGraph(command: CanvasCommand): Promise<CanvasCommandOutput> {
     const snapshot = this.dependencies.store.getSnapshot();
     switch (command.type) {
-      case 'canvas.query': {
-        const limit = command.input.limit ?? 100;
-        const nodeFilter = command.input.nodeIds ? new Set(command.input.nodeIds) : null;
-        const nodes = snapshot.nodes.filter((node) => !nodeFilter || nodeFilter.has(node.id)).slice(0, limit);
-        const edges = snapshot.edges
-          .filter((edge) => !nodeFilter || nodeFilter.has(edge.source) || nodeFilter.has(edge.target))
-          .slice(0, limit);
-        const value = command.input.scope === 'nodes'
-          ? nodes.map(projectCanvasNodeForRead)
-          : command.input.scope === 'edges'
-            ? edges.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target }))
-            : command.input.scope === 'selection'
-              ? { selectedNodeIds: snapshot.nodes.filter((node) => node.selected).map((node) => node.id) }
-              : {
-                  revision: snapshot.revision,
-                  nodes: nodes.map(projectCanvasNodeForRead),
-                  edges: edges.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target })),
-                };
-        return { references: { nodeIds: nodes.map((node) => node.id), edgeIds: edges.map((edge) => edge.id) }, value };
-      }
+      case 'canvas.query':
+        return readCanvasQueryPage(snapshot, command.input);
       case 'selection.set': {
         const missing = command.input.nodeIds.find((nodeId) => !snapshot.nodes.some((node) => node.id === nodeId));
         if (missing) throw new CanvasCommandExecutionError('not_found', `Node ${missing} does not exist.`);
