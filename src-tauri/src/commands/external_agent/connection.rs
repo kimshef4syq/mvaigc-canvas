@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tempfile::Builder as TempFileBuilder;
 use tracing::warn;
 use uuid::Uuid;
@@ -22,6 +22,8 @@ use super::{
 };
 
 const CONNECTION_DESCRIPTOR_SCHEMA_VERSION: u8 = 1;
+const HYPIT_PROJECTS_DIR_NAME: &str = "hypit-projects";
+const HYPIT_PROJECT_NAME_MAX_CHARS: usize = 32;
 const CONNECTION_DESCRIPTOR_FILE: &str = "canvas-mcp-current.json";
 const CONNECTION_PARAMS_FILE: &str = "connection-params.json";
 const LEGACY_DESCRIPTOR_PREFIX: &str = "canvas-mcp-";
@@ -109,6 +111,7 @@ pub struct ExternalAgentConnectionInfo {
     pub last_activity_at: Option<u64>,
     pub call_count: u64,
     pub descriptor_path: Option<String>,
+    pub hypit_project_dir: Option<String>,
     pub configs: Option<ExternalAgentConnectionConfigs>,
 }
 
@@ -216,6 +219,82 @@ fn cleanup_legacy_descriptors(descriptor_root: &Path) {
     }
 }
 
+fn is_slug_safe_char(character: char) -> bool {
+    character.is_ascii_alphanumeric()
+        || matches!(character as u32, 0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF)
+}
+
+/// 目录名派生：同一画布项目永远得到同一个视频工程目录，无需额外注册表。
+pub(crate) fn hypit_project_slug(project_id: &str, project_name: &str) -> String {
+    let sanitized: String = project_name
+        .trim()
+        .chars()
+        .map(|character| if is_slug_safe_char(character) { character } else { '-' })
+        .collect();
+    let trimmed = sanitized.trim_matches('-');
+    let name: String = if trimmed.is_empty() {
+        "project".to_string()
+    } else {
+        trimmed.chars().take(HYPIT_PROJECT_NAME_MAX_CHARS).collect()
+    };
+    let id_fragment: String = project_id
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .take(8)
+        .collect();
+    format!("{name}-{id_fragment}")
+}
+
+/// 创建（首次）或复用视频工程目录。已存在时不覆盖 `package.json`，
+/// 以免抹掉 hypit 自己写进该文件的内容。
+pub(crate) fn ensure_hypit_project_dir(
+    app: &AppHandle,
+    project_id: &str,
+    project_name: &str,
+) -> Result<PathBuf, ExternalAgentCommandError> {
+    let app_data_dir = app.path().app_data_dir().map_err(|error| {
+        ExternalAgentCommandError::process(format!(
+            "Failed to resolve the app data directory for the Hypit project: {error}"
+        ))
+    })?;
+    prepare_hypit_project_dir(&app_data_dir, project_id, project_name)
+}
+
+fn prepare_hypit_project_dir(
+    app_data_dir: &Path,
+    project_id: &str,
+    project_name: &str,
+) -> Result<PathBuf, ExternalAgentCommandError> {
+    let slug = hypit_project_slug(project_id, project_name);
+    let directory = app_data_dir.join(HYPIT_PROJECTS_DIR_NAME).join(&slug);
+    std::fs::create_dir_all(&directory).map_err(|error| {
+        ExternalAgentCommandError::process(format!(
+            "Failed to prepare the Hypit project directory: {error}"
+        ))
+    })?;
+    let manifest = directory.join("package.json");
+    if !manifest.exists() {
+        let contents = serde_json::to_vec_pretty(&serde_json::json!({
+            "name": slug,
+            "version": "0.0.0",
+            "private": true,
+            "type": "module",
+            "hypit": { "project": true },
+        }))
+        .map_err(|error| {
+            ExternalAgentCommandError::process(format!(
+                "Failed to encode the Hypit project manifest: {error}"
+            ))
+        })?;
+        std::fs::write(&manifest, contents).map_err(|error| {
+            ExternalAgentCommandError::process(format!(
+                "Failed to write the Hypit project manifest: {error}"
+            ))
+        })?;
+    }
+    Ok(directory)
+}
+
 fn write_connection_params(
     descriptor_root: &Path,
     params: &ConnectionParams,
@@ -318,6 +397,7 @@ fn disconnected_connection() -> ExternalAgentConnectionInfo {
         last_activity_at: None,
         call_count: 0,
         descriptor_path: None,
+        hypit_project_dir: None,
         configs: None,
     }
 }
@@ -361,6 +441,10 @@ pub(crate) fn connection_info(
         last_activity_at: (last_activity_at > 0).then_some(last_activity_at),
         call_count: session.call_count.load(Ordering::SeqCst),
         descriptor_path: Some(descriptor_path.to_string_lossy().into_owned()),
+        hypit_project_dir: session
+            .hypit_project_dir
+            .as_ref()
+            .map(|path| path.to_string_lossy().into_owned()),
         configs: Some(build_provider_configs(&executable, descriptor_path)?),
     })
 }
@@ -449,6 +533,7 @@ pub(crate) async fn establish_connection(
                 "Failed to create the managed MCP workspace: {error}"
             ))
         })?;
+    let hypit_project_dir = ensure_hypit_project_dir(app, &project_id, &project_name)?;
     let broker = BrokerCredentials {
         address: address.to_string(),
         token: capability_token.clone(),
@@ -490,6 +575,7 @@ pub(crate) async fn establish_connection(
         permission_mode: std::sync::atomic::AtomicU8::new(permission_mode.code()),
         project_id: Some(project_id.clone()),
         project_name: Some(project_name.clone()),
+        hypit_project_dir: Some(hypit_project_dir.clone()),
         descriptor_path: Some(descriptor_path.clone()),
         connected_at: std::sync::atomic::AtomicU64::new(0),
         last_activity_at: std::sync::atomic::AtomicU64::new(0),
@@ -779,5 +865,47 @@ mod tests {
         assert!(!root.path().join("canvas-mcp-abc.json").exists());
         assert!(root.path().join("canvas-mcp-current.json").exists());
         assert!(root.path().join("connection-params.json").exists());
+    }
+
+    #[test]
+    fn hypit_slug_is_deterministic_and_path_safe() {
+        let slug = hypit_project_slug("b9c96f36-e167-4d7d-9bbf-5dce6dd121d1", "AI4Animation 移植验收");
+        assert_eq!(slug, "AI4Animation-移植验收-b9c96f36");
+        assert!(!slug.contains('/') && !slug.contains('\\') && !slug.contains(' '));
+        // 同输入必同输出
+        assert_eq!(slug, hypit_project_slug("b9c96f36-e167-4d7d-9bbf-5dce6dd121d1", "AI4Animation 移植验收"));
+    }
+
+    #[test]
+    fn hypit_slug_handles_empty_and_symbol_only_names() {
+        assert_eq!(hypit_project_slug("abcdef0123456789", ""), "project-abcdef01");
+        assert_eq!(hypit_project_slug("abcdef0123456789", "///:::"), "project-abcdef01");
+        assert_eq!(hypit_project_slug("ABCDEF01-2345", "  x  "), "x-ABCDEF01");
+    }
+
+    #[test]
+    fn hypit_slug_truncates_long_names_by_chars_not_bytes() {
+        let slug = hypit_project_slug("id", &"中".repeat(100));
+        assert_eq!(slug.chars().count(), 32 + 1 + 2);
+    }
+
+    #[test]
+    fn hypit_project_dir_marks_the_project_and_is_reused() {
+        let root = tempfile::tempdir().unwrap();
+        let directory =
+            prepare_hypit_project_dir(root.path(), "abcdef0123456789", "验收 项目").unwrap();
+        assert_eq!(directory, root.path().join("hypit-projects").join("验收-项目-abcdef01"));
+
+        let manifest = directory.join("package.json");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&manifest).unwrap()).unwrap();
+        assert_eq!(parsed["hypit"]["project"], true);
+
+        // 重开画布时 hypit 自己写过 package.json 的内容不能被抹掉
+        std::fs::write(&manifest, r#"{"name":"hypit-owned"}"#).unwrap();
+        let again =
+            prepare_hypit_project_dir(root.path(), "abcdef0123456789", "验收 项目").unwrap();
+        assert_eq!(again, directory);
+        assert_eq!(std::fs::read_to_string(&manifest).unwrap(), r#"{"name":"hypit-owned"}"#);
     }
 }

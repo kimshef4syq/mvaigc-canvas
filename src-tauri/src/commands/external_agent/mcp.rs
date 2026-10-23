@@ -567,6 +567,7 @@ mod tests {
             permission_mode: std::sync::atomic::AtomicU8::new(0),
             project_id: Some("project-a".to_string()),
             project_name: Some("Project A".to_string()),
+            hypit_project_dir: None,
             descriptor_path: None,
             connected_at: std::sync::atomic::AtomicU64::new(0),
             last_activity_at: std::sync::atomic::AtomicU64::new(0),

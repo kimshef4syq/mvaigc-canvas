@@ -68,6 +68,7 @@ export interface ExternalAgentConnectionInfo {
   lastActivityAt: number | null;
   callCount: number;
   descriptorPath: string | null;
+  hypitProjectDir: string | null;
   configs: {
     codex: ExternalAgentProviderConfig;
     claude: ExternalAgentProviderConfig;
