@@ -185,3 +185,20 @@ export const videoMapping: GenerationWireMapping = {
   fields: videoMappingFields,
   constants: VIDEO_MAPPING_CONSTANTS,
 };
+
+/**
+ * Read the authored ports off an EndpointRequest's `constraints`.
+ *
+ * `mappingSupportsRequest` expects `{ ports }`, and an EndpointRequest keeps
+ * them under `constraints`. The SDK types that parameter as `unknown`, so
+ * handing it the request object itself compiles and then silently reads no
+ * ports and refuses every request. Failing loudly here turns that class of
+ * mistake into an obvious error instead of a capability that never works.
+ */
+export function portsOfConstraints(constraints: unknown): Record<string, unknown[]> {
+  const ports = (constraints as { ports?: unknown } | undefined)?.ports;
+  if (ports === null || typeof ports !== 'object' || Array.isArray(ports)) {
+    throw new Error('mvaigc supports() received no ports; pass request.constraints, not request');
+  }
+  return ports as Record<string, unknown[]>;
+}

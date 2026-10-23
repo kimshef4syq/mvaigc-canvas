@@ -11,10 +11,10 @@
 import { defineEndpoint } from '@hypit/hypit/endpoint';
 import type { AsyncEndpoint, CredentialRef, EndpointInstance, EndpointRequest } from '@hypit/hypit/endpoint';
 import { generationTypes, mappingSupportsRequest } from '@hypit/generation';
-import type { GenerationWireMapping } from '@hypit/generation';
+import type { GenerationRequest, GenerationWireMapping } from '@hypit/generation';
 
 import { createMvaigcImageEndpoint, createMvaigcVideoEndpoint } from './lifecycle.js';
-import { imageCapability, imageMapping, videoCapability, videoMapping } from './provider.js';
+import { imageCapability, imageMapping, portsOfConstraints, videoCapability, videoMapping } from './provider.js';
 
 export interface MvaigcProviderOptions {
   instance: string;
@@ -47,11 +47,18 @@ export function createMvaigcEndpoints(options: MvaigcProviderOptions): {
 }
 
 function supportFor(mapping: GenerationWireMapping) {
-  return (request: EndpointRequest) => (
-    mappingSupportsRequest(mapping, request)
+  // `mappingSupportsRequest` reads `{ ports }`, which lives on
+  // `request.constraints` — an EndpointRequest has no `ports` of its own. Its
+  // parameter is typed `unknown`, so passing the wrong object compiles; it then
+  // reads no ports and refuses every request. The SDK's own example passes
+  // `request.constraints` (examples/provider-package/packages/provider-videos).
+  return (request: EndpointRequest) => {
+    const constraints = request.constraints as unknown as GenerationRequest;
+    portsOfConstraints(constraints);
+    return mappingSupportsRequest(mapping, constraints)
       ? { status: 'supported' as const }
-      : { status: 'unsupported' as const, reason: `mvaigc cannot serve this ${mapping.capability.name} request shape` }
-  );
+      : { status: 'unsupported' as const, reason: `mvaigc cannot serve this ${mapping.capability.name} request shape` };
+  };
 }
 
 /** The Endpoint instance Hypit loads, covering both capabilities on one account. */
