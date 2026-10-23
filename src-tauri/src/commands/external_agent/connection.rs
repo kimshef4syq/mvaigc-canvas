@@ -295,6 +295,17 @@ fn prepare_hypit_project_dir(
     Ok(directory)
 }
 
+/// `~/.claude.json` 里要写画布 MCP 条目的目录。视频工程目录总是写；用户设置的
+/// `claudeCodeProjectDir` 为空时跳过，保持既有语义。
+fn mcp_target_dirs(claude_code_project_dir: Option<&str>, hypit_project_dir: &Path) -> Vec<String> {
+    let mut dirs = Vec::new();
+    if let Some(dir) = claude_code_project_dir.filter(|dir| !dir.trim().is_empty()) {
+        dirs.push(dir.to_string());
+    }
+    dirs.push(hypit_project_dir.to_string_lossy().into_owned());
+    dirs
+}
+
 fn write_connection_params(
     descriptor_root: &Path,
     params: &ConnectionParams,
@@ -597,27 +608,26 @@ pub(crate) async fn establish_connection(
         permission_mode,
     };
     let _ = write_connection_params(&descriptor_root, &params);
-    if let Some(dir) = claude_code_project_dir.as_deref().filter(|d| !d.trim().is_empty()) {
-        if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
-            let executable = std::env::current_exe()
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let args = vec![
-                "--external-agent-mcp".to_string(),
-                descriptor_path.to_string_lossy().into_owned(),
-            ];
-            if let Err(error) = super::claude_config::write_local_mcp_server(
-                &home.join(".claude.json"),
-                dir,
-                "storyboard_canvas",
-                &executable,
-                &args,
-            ) {
-                warn!("未能写入 Claude Code 配置（不影响画布内使用）：{error}");
-            }
-        } else {
-            warn!("未找到 HOME 目录，跳过写入 Claude Code 配置");
+    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+        let executable = std::env::current_exe()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let args = vec![
+            "--external-agent-mcp".to_string(),
+            descriptor_path.to_string_lossy().into_owned(),
+        ];
+        let target_dirs = mcp_target_dirs(claude_code_project_dir.as_deref(), &hypit_project_dir);
+        if let Err(error) = super::claude_config::write_local_mcp_server(
+            &home.join(".claude.json"),
+            &target_dirs,
+            "storyboard_canvas",
+            &executable,
+            &args,
+        ) {
+            warn!("未能写入 Claude Code 配置（不影响画布内使用）：{error}");
         }
+    } else {
+        warn!("未找到 HOME 目录，跳过写入 Claude Code 配置");
     }
 
     connection_info(&session)
@@ -887,6 +897,22 @@ mod tests {
     fn hypit_slug_truncates_long_names_by_chars_not_bytes() {
         let slug = hypit_project_slug("id", &"中".repeat(100));
         assert_eq!(slug.chars().count(), 32 + 1 + 2);
+    }
+
+    #[test]
+    fn mcp_target_dirs_always_include_the_hypit_project() {
+        let hypit = Path::new("/app/hypit-projects/p-abcdef01");
+        assert_eq!(
+            mcp_target_dirs(Some("/proj"), hypit),
+            vec!["/proj".to_string(), "/app/hypit-projects/p-abcdef01".to_string()],
+        );
+        // 空或未设置的 claudeCodeProjectDir 不影响视频工程目录
+        for empty in [None, Some(""), Some("   ")] {
+            assert_eq!(
+                mcp_target_dirs(empty, hypit),
+                vec!["/app/hypit-projects/p-abcdef01".to_string()],
+            );
+        }
     }
 
     #[test]
