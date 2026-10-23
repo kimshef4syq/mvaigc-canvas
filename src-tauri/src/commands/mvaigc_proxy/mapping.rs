@@ -165,15 +165,15 @@ pub fn map_video_request(openai: &Value, api_name: &str) -> Value {
         .map(|(index, url)| json!({"audioUrl": url, "name": format!("音频{}", index + 1)}))
         .collect();
     // The node's resolution tier travels as `size` (OSC sends 480p/720p/1080p);
-    // an explicit `resolution` wins. Default only when the request omits both,
-    // so a 480p pick is never silently upgraded to 1080p.
+    // an explicit `resolution` wins. Default 720p only when the request omits
+    // both, so a 480p pick is never silently upgraded.
     let resolution = str_field(openai, "resolution")
         .filter(|value| !value.contains(':') && !value.contains('x'))
         .or_else(|| {
             str_field(openai, "size")
                 .filter(|value| !value.contains(':') && !value.contains('x'))
         })
-        .unwrap_or_else(|| "1080p".to_string());
+        .unwrap_or_else(|| "720p".to_string());
     // Reference audio already flowed through `audios`; this is the separate
     // "generate audio" toggle, which must follow the request too.
     let audio = openai.get("audio").and_then(Value::as_bool).unwrap_or(false);
@@ -359,7 +359,7 @@ mod tests {
             "aspect_ratio": "16:9", "seconds": 5
         });
         let out = map_video_request(&openai, "Seedance-2.0");
-        assert_eq!(out["resolution"], "1080p");
+        assert_eq!(out["resolution"], "720p");
     }
 
     #[test]
@@ -388,7 +388,7 @@ mod tests {
                 "model": "botsmart_seedance_2", "prompt": "一只猫", "size": size, "seconds": 5
             });
             let out = map_video_request(&openai, "Seedance-2.0");
-            assert_eq!(out["resolution"], "1080p", "size {size} is not a resolution tier");
+            assert_eq!(out["resolution"], "720p", "size {size} is not a resolution tier");
         }
     }
 }
