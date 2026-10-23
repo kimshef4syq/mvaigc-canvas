@@ -301,6 +301,12 @@ const mediaImportSchema = {
       additionalProperties: false,
       properties: { nodeId: { type: 'string' } },
     },
+    group: {
+      type: 'object',
+      additionalProperties: false,
+      description: 'Collect this batch into one group, with finished video(s) placed at the lower right.',
+      properties: { name: { type: 'string', maxLength: 200 } },
+    },
   },
 };
 

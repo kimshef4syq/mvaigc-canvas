@@ -277,6 +277,11 @@ export type ImportAssetsCommand = CanvasCommandBase<'asset.import', {
     position: XYPosition;
     data: Record<string, unknown>;
   }>;
+  /**
+   * Collect the imported nodes into one group. Omit to leave them loose, which
+   * is the original behaviour.
+   */
+  group?: { name?: string };
 }>;
 
 export type ListAssetsCommand = CanvasCommandBase<'asset.list', {

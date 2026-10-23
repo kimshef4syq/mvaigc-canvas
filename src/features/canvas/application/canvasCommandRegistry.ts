@@ -315,6 +315,9 @@ const INPUT_SCHEMAS: Record<CanvasCommandType, CanvasJsonSchema> = {
         data: objectField('Node data written verbatim by the preparing caller.', undefined, undefined, true),
       }, ['nodeType', 'position', 'data'], false),
     ),
+    group: objectField('Optional: collect this batch into one group, with finished video(s) placed at the lower right.', {
+      name: stringField('Optional group name; defaults to a numbered Hypit name.'),
+    }, [], false),
   }),
   'asset.list': objectSchema([], {
     generatedOnly: booleanField('Only return final generated assets (images or videos); exclude screenshots, inputs and references.'),
@@ -842,6 +845,14 @@ function validateCommandInput(
       if (!Array.isArray(command.input.nodes) || command.input.nodes.length === 0) {
         errors.push('asset.import requires a non-empty nodes array.');
         break;
+      }
+      if (command.input.group !== undefined) {
+        if (!isPlainRecord(command.input.group)) {
+          errors.push('asset.import group must be an object.');
+        } else if (command.input.group.name !== undefined
+          && typeof command.input.group.name !== 'string') {
+          errors.push('asset.import group name must be a string.');
+        }
       }
       for (const input of command.input.nodes) {
         if (!isPlainRecord(input)) {

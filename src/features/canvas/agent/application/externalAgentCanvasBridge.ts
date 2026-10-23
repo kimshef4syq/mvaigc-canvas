@@ -215,7 +215,18 @@ async function executeAssetsImport(
     position: resolveImportPosition(anchorId, index),
     data: entry.data,
   }));
-  const command: CanvasCommand = { type: 'asset.import', version: CANVAS_COMMAND_VERSION, input: { nodes } };
+  // A batch that carries a group request collects its products into one group,
+  // with finished video(s) at the lower right.
+  const groupRequest = isRecord(request.arguments) && isRecord(request.arguments.group)
+    ? (typeof request.arguments.group.name === 'string'
+        ? { name: request.arguments.group.name }
+        : {})
+    : undefined;
+  const command: CanvasCommand = {
+    type: 'asset.import',
+    version: CANVAS_COMMAND_VERSION,
+    input: groupRequest === undefined ? { nodes } : { nodes, group: groupRequest },
+  };
   return executeCanvasCommand({ ...request, arguments: command }, approval);
 }
 

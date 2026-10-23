@@ -1316,3 +1316,81 @@ describe('asset.import', () => {
     expect(useCanvasStore.getState().revision).toBe(before);
   });
 });
+
+
+describe('asset.import grouping', () => {
+  beforeEach(resetCanvas);
+
+  const node = (type: CanvasNodeType, data: Record<string, unknown> = {}) => ({
+    nodeType: type,
+    position: { x: 10, y: 20 },
+    data: { imageUrl: '/abs/imports/a.png', aspectRatio: '16:9', ...data },
+  });
+
+  it('groups the batch and puts the video at the group lower right', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    const result = await canvasCommandRegistry.executeApproved(
+      {
+        type: 'asset.import', version: CANVAS_COMMAND_VERSION,
+        input: {
+          group: {},
+          nodes: [
+            node(CANVAS_NODE_TYPES.upload, { imageUrl: '/abs/imports/still.png' }),
+            node(CANVAS_NODE_TYPES.upload, { imageUrl: '/abs/imports/still2.png' }),
+            node(CANVAS_NODE_TYPES.video, { localVideoUrl: '/abs/imports/clip.mp4' }),
+          ],
+        },
+      },
+      before,
+      'agent',
+    );
+    expect(result.ok).toBe(true);
+    const nodes = useCanvasStore.getState().nodes;
+    const group = nodes.find((n) => n.type === CANVAS_NODE_TYPES.group);
+    expect(group).toBeDefined();
+    const members = nodes.filter((n) => n.parentId === group!.id);
+    expect(members).toHaveLength(3);
+    expect(members.every((n) => n.extent === 'parent')).toBe(true);
+
+    const video = members.find((n) => n.type === CANVAS_NODE_TYPES.video)!;
+    const images = members.filter((n) => n.type === CANVAS_NODE_TYPES.upload);
+    // 视频在图片下方、且在组的右侧区域
+    expect(video.position.y).toBeGreaterThan(Math.max(...images.map((n) => n.position.y)));
+    expect(video.position.x).toBeGreaterThan(Math.min(...images.map((n) => n.position.x)));
+  });
+
+  it('names the group hypit复刻 with an incrementing number', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION,
+        input: { group: {}, nodes: [node(CANVAS_NODE_TYPES.upload)] } },
+      before, 'agent',
+    );
+    const group = useCanvasStore.getState().nodes.find((n) => n.type === CANVAS_NODE_TYPES.group)!;
+    expect(group.data.displayName).toMatch(/^hypit复刻 \d+$/);
+  });
+
+  it('honours an explicit group name', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION,
+        input: { group: { name: '橘猫窗台' }, nodes: [node(CANVAS_NODE_TYPES.upload)] } },
+      before, 'agent',
+    );
+    const group = useCanvasStore.getState().nodes.find((n) => n.type === CANVAS_NODE_TYPES.group)!;
+    expect(group.data.displayName).toBe('橘猫窗台');
+  });
+
+  it('leaves nodes ungrouped when no group is requested', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    const result = await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION,
+        input: { nodes: [node(CANVAS_NODE_TYPES.upload)] } },
+      before, 'agent',
+    );
+    expect(result.ok).toBe(true);
+    const nodes = useCanvasStore.getState().nodes;
+    expect(nodes.some((n) => n.type === CANVAS_NODE_TYPES.group)).toBe(false);
+    expect(nodes.every((n) => n.parentId === undefined)).toBe(true);
+  });
+});
