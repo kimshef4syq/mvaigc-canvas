@@ -12,7 +12,8 @@
 | 环节 | 核实到的事实 |
 |---|---|
 | 终端 claude 连画布 | 已通。`~/.claude.json` 的 `projects["…/000OD"].mcpServers.storyboard_canvas` 存在，指向画布 debug 二进制 |
-| 画布面板拉起的 claude | `claude.rs:44-71` 传 `--tools ""` + `--disable-slash-commands` + `--setting-sources ""` → **Bash 与技能全关**，永远跑不了 hypit。本轮不改这一处 |
+| 画布面板的 agent | 跑的是**内置 agent**（`CanvasAgentDock.tsx:694` → `canvasAgentController.runCanvasAgentTurn`），用设置里选的模型 provider。不是 Claude CLI |
+| 画布面板的 claude runtime 通路 | **已退役、无 UI 入口**。`CanvasAgentRuntimePicker.tsx` 只被自己的测试引用；`useExternalAgentRuntime` 无任何调用方；`agentPanelStore.ts:26` 自注 `retired in-panel external runtime hook`。`claude.rs:44-71`（`--tools ""` + `--disable-slash-commands` + `--setting-sources ""`）**无 UI 能触发**。以上均为**上游基线状态**，非二次开发改动。本轮不碰这条通路 |
 | 读画布元数据 | `canvas_command{canvas.query}` 可用 |
 | 读画布图片 | `asset_read` 走 `externalAgentImageRead.ts`，取 `asset.previewUrl \|\| asset.url` → **优先给预览缩略图**，再压到 ≤1280px / JPEG 0.75 / ≤180KB base64。**不是原图** |
 | 读画布视频/音频 | **完全不存在**。`asset_read` 只认 `asset.kind === 'image'` |
@@ -25,7 +26,9 @@
 
 ## 2. 目标
 
-让终端里的 claude 能完整走通：**读画布物料（完整原图 / 视频 / 音频）→ 跑 hypit 出片 → 结果回写画布成节点。**
+让**用户自己在终端开的** claude 能完整走通：**读画布物料（完整原图 / 视频 / 音频）→ 跑 hypit 出片 → 结果回写画布成节点。**
+
+这里"终端里的 claude"特指用户在 `000OD` 或视频工程目录手动 `claude` 起的那个（完整能力：Bash、技能、文件系统）。画布面板里的内置 agent 与已退役的 claude runtime 通路都不是本次对象（见 §1、§3）。
 
 三个决定（用户已确认）：
 
@@ -35,7 +38,7 @@
 
 ## 3. 非目标
 
-- 不改画布面板拉起的 claude（`--tools ""` 那套安全设计保持不动）。
+- **不复活画布面板的 claude runtime 通路。** 它在上游就已退役（无 UI 入口，见 §1）。要让它能跑 hypit，需要恢复 `CanvasAgentRuntimePicker` 的渲染、复活 `useExternalAgentRuntime`、再放开 `--tools ""` 那套限制 —— 那是独立的一个项目，不属本次范围。`claude.rs` 的代码保持原样。
 - 不在画布内做导出/编码/合成。
 - 不自动拉起终端应用。
 - 不替用户把 hypit 接到模型服务（需要 hypit 账号，属另一件事）。
@@ -118,7 +121,7 @@ sanitize: 保留 ASCII 字母数字与 CJK 字符，其余（空格、/、: 等�
 
 ### 4.4 回写：新增 `assets_import`
 
-新增一个 MCP 工具，只对终端 agent 暴露（画布面板内那个 claude 拿不到）。
+新增一个 MCP 工具，只对终端 agent 暴露（画布面板的内置 agent 走的是另一条通路，不经过 MCP manifest）。
 
 **input**：
 
@@ -233,7 +236,7 @@ sanitize: 保留 ASCII 字母数字与 CJK 字符，其余（空格、/、: 等�
 ## 7. 不做
 
 - 不改 application identifier / 目录名（后续独立一步）
-- 不改画布面板 claude 的工具限制
+- 不复活画布面板的 claude runtime 通路，也不改其工具限制（§3）
 - 不实现真 ffmpeg `media_postprocess`
 - 不做运行中滚动刷新令牌
 - 不动 Camera 相关代码
