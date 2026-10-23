@@ -60,6 +60,10 @@
     "title": "画布 Agent",
     "panel": "画布 Agent 面板",
     "open": "打开画布 Agent",
+    "hypitProjectDirLabel": "Hypit 视频工程",
+    "hypitProjectMissing": "未创建（重建连接后生成）",
+    "hypitProjectDirHint": "在终端里打开此目录再运行 claude，即可同时使用 hypit 与画布。",
+    "assetsImportNeedsReconnect": "当前连接建立于本次升级之前，需重建连接后才能使用 assets_import。",
     "externalMcp": {
       "title": "接入其他 Agent",
       "description": "从你自己打开的 Codex 或 Claude Code 连接当前画布。读取和修改按连接权限处理，需要确认的请求会显示在画布右侧。",

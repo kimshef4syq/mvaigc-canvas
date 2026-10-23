@@ -84,6 +84,7 @@ export function ExternalAgentConnectionPanel({
       ? 'border-amber-500/30 bg-amber-500/[0.08] text-amber-700 dark:text-amber-300'
       : 'border-border-dark bg-text-dark/[0.035] text-text-muted';
   const scope = useMemo(() => connection?.scope.join('、') || '—', [connection?.scope]);
+  const hypitProjectDir = connection?.hypitProjectDir ?? null;
 
   const handleCreate = async () => {
     if (!projectId || !projectName) return;
@@ -229,6 +230,16 @@ export function ExternalAgentConnectionPanel({
             <dt>{t('canvasAgent.externalMcp.lastActivity')}</dt><dd className="text-text-dark">{formatDate(connection?.lastActivityAt ?? null, i18n.language)}</dd>
             <dt>{t('canvasAgent.externalMcp.calls')}</dt><dd className="text-text-dark">{connection?.callCount ?? 0}</dd>
           </dl>
+          <div className="mt-3 rounded-lg border border-border-dark bg-bg-dark px-3 py-2 text-[11px] text-text-muted">
+            <div className="text-[10px] uppercase tracking-wide">{t('canvasAgent.hypitProjectDirLabel')}</div>
+            <div className="mt-1 truncate font-mono text-text-dark">
+              {hypitProjectDir ?? t('canvasAgent.hypitProjectMissing')}
+            </div>
+            <div className="mt-1 text-text-muted/70">{t('canvasAgent.hypitProjectDirHint')}</div>
+            {!connection?.scope.includes('assets_import') ? (
+              <div className="mt-1 text-amber-700 dark:text-amber-300">{t('canvasAgent.assetsImportNeedsReconnect')}</div>
+            ) : null}
+          </div>
 
           <div className="mt-4 flex rounded-lg border border-border-dark bg-bg-dark p-1" role="tablist" aria-label={t('canvasAgent.externalMcp.providerTabs')}>
             {(['codex', 'claude'] as const).map((item) => (

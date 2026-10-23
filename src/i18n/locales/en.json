@@ -60,6 +60,10 @@
     "title": "Canvas Agent",
     "panel": "Canvas Agent panel",
     "open": "Open Canvas Agent",
+    "hypitProjectDirLabel": "Hypit video project",
+    "hypitProjectMissing": "Not created yet (recreate the connection).",
+    "hypitProjectDirHint": "Open claude in this directory to use Hypit and the canvas together.",
+    "assetsImportNeedsReconnect": "This connection predates the upgrade. Recreate it to enable assets_import.",
     "externalMcp": {
       "title": "Connect another Agent",
       "description": "Connect your own Codex or Claude Code to this canvas. Reads and changes follow the connection permissions; requests requiring approval appear on the right.",
