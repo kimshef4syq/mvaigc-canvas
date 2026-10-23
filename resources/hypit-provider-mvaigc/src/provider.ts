@@ -42,14 +42,37 @@ export function buildVideoPayload(ports: MvaigcVideoPorts): {
   body: Record<string, unknown>;
 } {
   const model = mvaigcVideoModelForTier(ports.resolution);
+  // Hypit declares first/last frame as two ports; mvaigc takes one switch plus
+  // one image array (first at [0], last at [1]). Hypit's own port constraints
+  // keep frames and reference images mutually exclusive, so the mode is clear.
+  const frames = ports.firstFrameUrl !== undefined || ports.lastFrameUrl !== undefined;
+  const frameUrls = [ports.firstFrameUrl, ports.lastFrameUrl].filter(
+    (url): url is string => url !== undefined,
+  );
   const body: Record<string, unknown> = {
     prompt: ports.prompt,
     seconds: ports.durationSeconds,
-    reference_images: ports.referenceImages,
+    frames,
+    reference_images: frames ? frameUrls : ports.referenceImages,
     reference_videos: ports.referenceVideos,
     reference_audios: ports.referenceAudioUrls,
     audio: ports.generateAudio,
   };
   if (ports.aspectRatio !== undefined) body.aspect_ratio = ports.aspectRatio;
   return { model, body };
+}
+
+/**
+ * Refuse shapes mvaigc cannot honour, rather than sending a request that would
+ * drop part of the author's intent. Hypit's rule: a service that cannot carry a
+ * field must refuse it, never discard it silently.
+ */
+export function assertSupportedVideoPorts(ports: MvaigcVideoPorts): void {
+  const frames = ports.firstFrameUrl !== undefined || ports.lastFrameUrl !== undefined;
+  if (frames && ports.referenceAudioUrls.length > 0) {
+    throw new Error(
+      'mvaigc cannot carry reference audio together with a first/last frame; '
+      + 'whether its frames mode accepts audio is unverified',
+    );
+  }
 }
