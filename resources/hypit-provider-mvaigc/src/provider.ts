@@ -43,13 +43,15 @@ export function buildImagePayload(ports: MvaigcImagePorts): {
   body: Record<string, unknown>;
 } {
   // `outputFormat` is accepted and not forwarded. It is a REQUIRED nano-banana
-  // port, so refusing it would make the whole capability unreachable; mvaigc
-  // has no such field and ignores unknown ones, and the format it picks is
-  // still a correct image. Only a silent change of *resolution* would be a
-  // wrong result, and that is handled explicitly below.
+  // port, so refusing it would make the whole capability unreachable; mvaigc has
+  // no such field and ignores unknown ones, and every format it can return is a
+  // correct image, so nothing is silently degraded.
   //
-  // The authored tier is likewise discarded: mvaigc resolves the tier from the
-  // pixel size the canvas sends, so 2K is the only one this endpoint can honour.
+  // `resolution` is the one value this endpoint DOES silently substitute: the
+  // authored tier is overwritten with 2K below, because mvaigc resolves the tier
+  // from the pixel size the Canvas sends and 2K is the only one it can honour.
+  // That is sanctioned (spec §4, the user ruled 图片总是 2k 没关系), but note it
+  // is a substitution, not a refusal — `supports()` accepts 1K and 4K.
   const body: Record<string, unknown> = {
     prompt: ports.prompt,
     resolution: '2K',
@@ -115,6 +117,11 @@ export function buildVideoPayload(ports: MvaigcVideoPorts): {
  * field must refuse it, never discard it silently.
  */
 export function assertSupportedVideoPorts(ports: MvaigcVideoPorts): void {
+  // Unreachable through Hypit: minimax-h3's own port table forbids the
+  // combination (atMostOneOf referenceAudio/firstFrame and /lastFrame), so the
+  // platform rejects it before a Provider sees the request. Kept as defence in
+  // depth for a direct caller, and because mvaigc's frames-audio behaviour is
+  // unverified — but it is not a limitation a Hypit user can reach.
   const frames = ports.firstFrameUrl !== undefined || ports.lastFrameUrl !== undefined;
   if (frames && ports.referenceAudioUrls.length > 0) {
     throw new Error(
@@ -219,6 +226,15 @@ export function secretFor(
   if (typeof secret !== 'string' || secret.length === 0) {
     throw new Error(
       'mvaigc account:password is not available for this request; run hypit auth login mvaigc.local',
+    );
+  }
+  // The proxy splits on ':' and, finding none, silently falls back to the
+  // Canvas's own stored credentials — billing the wrong account rather than
+  // saying what to type. Require the shape here.
+  const separator = secret.indexOf(':');
+  if (separator <= 0 || separator === secret.length - 1) {
+    throw new Error(
+      'mvaigc credential must be <account>:<password>; run hypit auth login mvaigc.local',
     );
   }
   return secret;

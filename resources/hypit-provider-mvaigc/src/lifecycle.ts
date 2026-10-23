@@ -5,19 +5,18 @@
  * Everything here takes an injected `fetch`, so the whole lifecycle is
  * exercisable without a network or a Hypit runtime.
  */
-import { wakeAfter } from '@hypit/hypit/endpoint';
 import type {
   AsyncEndpoint,
-  CredentialRef,
   EndpointPollContext,
   EndpointStartContext,
 } from '@hypit/hypit/endpoint';
-import { canonicalize } from '@hypit/hypit/endpoint';
+import { canonicalize, wakeAfter } from '@hypit/hypit/endpoint';
 import { sealGeneratedImageSet, sealGeneratedVideoSet } from '@hypit/generation';
-import type { GenerationMediaValue, GenerationRequest } from '@hypit/generation';
+import type { GenerationMediaValue } from '@hypit/generation';
 
 import {
   assertSupportedVideoPorts,
+  portsOfConstraints,
   secretFor,
   buildImagePayload,
   buildVideoPayload,
@@ -29,6 +28,39 @@ export interface MvaigcEndpointOptions {
   baseUrl: string;
   pollIntervalMs?: number;
   fetch?: typeof globalThis.fetch;
+}
+
+/**
+ * Accept only an HTTPS URL or loopback HTTP for the media download.
+ *
+ * The URL is re-read from persisted handle state, so it is not necessarily the
+ * one this process received, and it receives no credential — but a bad scheme
+ * (file:, data:) would have the provider fetch something that is not the
+ * service's media.
+ */
+function outputAddress(value: string): string {
+  const url = new URL(value);
+  const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    throw new Error(`mvaigc returned a non-HTTPS media url (${url.protocol})`);
+  }
+  return url.href;
+}
+
+/**
+ * The service base URL, restricted to HTTPS or loopback HTTP.
+ *
+ * Every request carries the account password in plaintext, so a mistyped or
+ * hostile baseUrl would send the user's mvaigc credentials to an arbitrary
+ * endpoint. Both official Providers apply the same restriction.
+ */
+function serviceBase(value: string): string {
+  const url = new URL(value);
+  const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    throw new Error(`mvaigc baseUrl must be HTTPS or loopback HTTP, got ${url.protocol}//${url.hostname}`);
+  }
+  return url.href.replace(/\/+$/u, '');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -47,11 +79,11 @@ function withoutUrls(value: string): string {
   return value.replace(/https?:\/\/\S+/giu, '[redacted-url]');
 }
 
+// One helper, so a wrong-shape mistake fails with the same directive message
+// everywhere instead of silently reading no ports (the bug that disabled every
+// request).
 function portsOf(context: EndpointStartContext): Record<string, unknown[]> {
-  const request = context.need.constraints as unknown as GenerationRequest;
-  const ports = (request as { ports?: Record<string, unknown[]> }).ports;
-  if (ports === undefined) throw new Error('mvaigc request carries no ports');
-  return ports;
+  return portsOfConstraints(context.need.constraints);
 }
 
 function firstOf<T>(ports: Record<string, unknown[]>, name: string): T | undefined {
@@ -123,7 +155,7 @@ function createLifecycle(
   build: (context: EndpointStartContext) => Promise<{ model: string; body: Record<string, unknown> }>,
   guard?: (context: EndpointStartContext) => Promise<void>,
 ): AsyncEndpoint {
-  const base = options.baseUrl.replace(/\/+$/u, '');
+  const base = serviceBase(options.baseUrl);
   const fetcher = options.fetch ?? globalThis.fetch;
   const interval = options.pollIntervalMs ?? 5_000;
 
@@ -140,7 +172,21 @@ function createLifecycle(
       },
     });
     if (!response.ok) {
-      throw new Error(`mvaigc ${init.method ?? 'GET'} ${path} returned HTTP ${response.status}`);
+      // The proxy reports failures as {"error":{"message":"…"}}, and that message
+      // is the only thing separating a bad credential from a bad model id from
+      // insufficient balance. Dropping it leaves the user with a bare status.
+      let detail = '';
+      try {
+        const body: unknown = await response.json();
+        if (isRecord(body) && isRecord(body.error) && typeof body.error.message === 'string') {
+          detail = `: ${withoutUrls(body.error.message)}`;
+        }
+      } catch {
+        // A non-JSON error body leaves the status as the only evidence.
+      }
+      throw new Error(
+        `mvaigc ${init.method ?? 'GET'} ${path} returned HTTP ${response.status}${detail}`,
+      );
     }
     const parsed: unknown = await response.json();
     if (!isRecord(parsed)) throw new Error(`mvaigc ${path} returned a non-object body`);
@@ -196,8 +242,11 @@ function createLifecycle(
 
     async collect(context: EndpointPollContext) {
       const handle = context.handle as { url?: unknown };
-      const url = text(handle?.url, 'output url');
-      const response = await fetcher(url);
+      const url = outputAddress(text(handle?.url, 'output url'));
+      // The download goes straight to the media URL, not through the proxy, so
+      // the proxy's own request timeout does not bound it. Without a deadline a
+      // stalled connection wedges a collect slot while poll keeps reporting progress.
+      const response = await fetcher(url, { signal: AbortSignal.timeout(600_000) });
       if (!response.ok) throw new Error(`mvaigc download returned HTTP ${response.status}`);
       const mediaType = response.headers.get('content-type')?.split(';')[0]?.trim();
       if (mediaType === undefined || !mediaType.startsWith(`${mediaKind}/`)) {
@@ -227,4 +276,3 @@ export function createMvaigcImageEndpoint(options: MvaigcEndpointOptions): Async
   });
 }
 
-export type { CredentialRef };

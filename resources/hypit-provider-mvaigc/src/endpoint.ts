@@ -51,12 +51,24 @@ function supportFor(mapping: GenerationWireMapping) {
   // parameter is typed `unknown`, so passing the wrong object compiles; it then
   // reads no ports and refuses every request. The SDK's own example passes
   // `request.constraints` (examples/provider-package/packages/provider-videos).
+  //
+  // Everything `start` can refuse must be refused here too, or `plan` reports
+  // "supported" and the refusal only surfaces after a paid job is submitted.
   return (request: EndpointRequest) => {
     const constraints = request.constraints as unknown as GenerationRequest;
     portsOfConstraints(constraints);
-    return mappingSupportsRequest(mapping, constraints)
-      ? { status: 'supported' as const }
-      : { status: 'unsupported' as const, reason: `mvaigc cannot serve this ${mapping.capability.name} request shape` };
+    if (!mappingSupportsRequest(mapping, constraints)) {
+      return { status: 'unsupported' as const, reason: `mvaigc cannot serve this ${mapping.capability.name} request shape` };
+    }
+    const ports = portsOfConstraints(constraints);
+    const tiers = ports.resolution;
+    if (mapping === videoMapping && tiers !== undefined) {
+      const tier = String(tiers[0]);
+      if (tier !== '768P' && tier !== '2K') {
+        return { status: 'unsupported' as const, reason: `mvaigc renders 768P or 2K, not ${tier}` };
+      }
+    }
+    return { status: 'supported' as const };
   };
 }
 
