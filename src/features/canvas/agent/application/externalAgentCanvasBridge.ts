@@ -1,4 +1,4 @@
-import { readExternalCanvasImage } from './externalAgentImageRead';
+import { exportCanvasAsset } from './externalAgentAssetExport';
 import { assertExternalConnectionActive, externalAgentPermissionDecision } from './externalAgentPermissionPolicy';
 import { inspectExternalAgentConnection, resolveExternalAgentToolCall, type ExternalAgentToolResolution } from '@/commands/externalAgent';
 import { canvasCommandRegistry } from '@/features/canvas/application/canvasCommandService';
@@ -241,9 +241,10 @@ async function executeApprovedTool(
     case 'config_patch': return executeConfigPatch(request.arguments);
     case 'asset_read': {
       if (!isRecord(request.arguments) || typeof request.arguments.assetId !== 'string') {
-        throw new Error('A canvas image assetId is required.');
+        throw new Error('A canvas asset read requires an assetId.');
       }
-      return readExternalCanvasImage(request.arguments.assetId);
+      const connection = await inspectExternalAgentConnection();
+      return exportCanvasAsset(request.arguments.assetId, connection.hypitProjectDir);
     }
     case 'profile_search':
       return searchProfiles((request.arguments ?? {}) as any);
@@ -364,7 +365,6 @@ export async function resolveExternalAgentToolApproval(input: {
 }): Promise<ExternalAgentToolExecutionResult> {
   const approvalId = createApprovalId(input.request.turnId, input.request.toolName, input.request.callId);
   let approval: AgentApprovalRecord | undefined;
-  let canvasImage: { mimeType: string; data: string } | undefined;
   try {
     approval = canvasAgentApprovalStore.get(approvalId);
     if (!approval || approval.projectId !== input.projectId) {
@@ -436,12 +436,7 @@ export async function resolveExternalAgentToolApproval(input: {
         : undefined,
       execute: async () => {
         await checkPermission();
-        const result = await executeApprovedTool(input.request, approvedRequest);
-        if (input.request.toolName === 'asset_read' && isRecord(result) && isRecord(result.canvasImage)) {
-          canvasImage = result.canvasImage as { mimeType: string; data: string };
-          return result.metadata;
-        }
-        return result;
+        return await executeApprovedTool(input.request, approvedRequest);
       },
       isSuccess: toolSuccess,
       isAccepted: (output) => input.request.toolName === 'canvas_command'
@@ -458,7 +453,7 @@ export async function resolveExternalAgentToolApproval(input: {
     const succeeded = execution.receipt.status !== 'failed';
     const resolution: ExternalAgentToolResolution = {
       outcome: succeeded ? 'approved' : 'error',
-      result: canvasImage ? { metadata: output, canvasImage } : output,
+      result: output,
       errorCode: succeeded ? undefined : execution.receipt.errorCode ?? 'canvas_tool_failed',
       message: succeeded ? undefined : 'The approved Canvas operation failed.',
       revision: canvasCommandRegistry.getRevision(),
