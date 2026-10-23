@@ -3,9 +3,10 @@
  *
  * The proxy speaks an OpenAI-ish shape on loopback (`/v1/images/generations`,
  * `/v1/videos`, `/v1/tasks/{id}`); Hypit speaks port tables. This module owns
- * only the translation and the task lifecycle — no policy, no storage.
+ * only the translation. It imports nothing from the Hypit SDK at runtime, so
+ * it is unit-testable under plain Node; the SDK-facing wiring lives in
+ * `./endpoint.ts` and `./lifecycle.ts`.
  */
-
 export const providerModule = { name: 'mvaigc-provider', version: '1' } as const;
 
 export const videoCapability = {
