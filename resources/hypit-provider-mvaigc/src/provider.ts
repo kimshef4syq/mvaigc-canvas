@@ -13,6 +13,42 @@ export const videoCapability = {
   name: 'minimax-h3',
 } as const;
 
+export const imageCapability = {
+  module: { name: '@hypit/nano-banana', version: '1' },
+  name: 'nano-banana-pro',
+} as const;
+
+export interface MvaigcImagePorts {
+  prompt: string;
+  aspectRatio?: string;
+  referenceImages: string[];
+  outputFormat?: string;
+}
+
+/** mvaigc's image model id for the Nano Banana Pro tier. */
+const IMAGE_MODEL = 'Nano-Banana-Pro';
+
+/**
+ * The canvas never told mvaigc which image tier to use — it sends a pixel size,
+ * and the proxy resolves that to 2K itself — so 2K is the only tier this
+ * endpoint can honestly claim (user ruling, spec §4).
+ */
+export function buildImagePayload(ports: MvaigcImagePorts): {
+  model: string;
+  body: Record<string, unknown>;
+} {
+  if (ports.outputFormat !== undefined) {
+    throw new Error('mvaigc has no outputFormat field, so it cannot be honoured');
+  }
+  const body: Record<string, unknown> = {
+    prompt: ports.prompt,
+    resolution: '2K',
+    reference_images: ports.referenceImages,
+  };
+  if (ports.aspectRatio !== undefined) body.aspect_ratio = ports.aspectRatio;
+  return { model: IMAGE_MODEL, body };
+}
+
 export interface MvaigcVideoPorts {
   prompt: string;
   durationSeconds: number;
