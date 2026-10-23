@@ -41,6 +41,11 @@ import { sourceRepository, computeSha256 } from '../infrastructure/sourceReposit
 import { productionPlanService } from './productionPlanService';
 import { assertWorkflowGenerationAllowed, assertWorkflowReviewReady } from './workflowGenerationGuard';
 import { buildCanvasAssetCatalog } from '@/features/canvas/application/canvasAssetCatalog';
+import { inspectImportMediaPaths } from '@/commands/image';
+import { prepareNodeImage } from '@/features/canvas/application/imageData';
+import { prepareVideoNodeDataFromSource } from '@/features/canvas/application/videoUpload';
+import { prepareAudioNodeDataFromSource } from '@/features/canvas/application/audioUpload';
+import { CANVAS_NODE_TYPES, type CanvasNodeType } from '@/features/canvas/domain/canvasNodes';
 import { mediaPostprocessService } from './mediaPostprocessService';
 
 export interface ExternalAgentToolExecutionResult {
@@ -98,6 +103,115 @@ async function persistCanvas(projectId: string): Promise<void> {
   const canvas = useCanvasStore.getState();
   project.saveCurrentProject(canvas.nodes, canvas.edges, canvas.currentViewport, canvas.history);
   await project.waitForProjectPersistence(projectId);
+}
+
+const IMPORTABLE_KINDS = ['image', 'video', 'audio'] as const;
+const IMPORT_MAX_BYTES = { image: 64 * 1024 * 1024, video: 512 * 1024 * 1024, audio: 512 * 1024 * 1024 } as const;
+type ImportKind = (typeof IMPORTABLE_KINDS)[number];
+interface ImportRequestFile { path: string; kind: ImportKind; title?: string }
+
+const IMPORT_KIND_EXTENSIONS: Record<string, ImportKind> = {
+  png: 'image', jpg: 'image', jpeg: 'image', webp: 'image', gif: 'image', bmp: 'image', avif: 'image',
+  mp4: 'video', mov: 'video', webm: 'video', m4v: 'video', mkv: 'video', avi: 'video',
+  mp3: 'audio', wav: 'audio', m4a: 'audio', aac: 'audio', ogg: 'audio', opus: 'audio', flac: 'audio',
+};
+
+function inferKindFromPath(path: string): ImportKind | null {
+  const extension = path.split('?')[0].split('#')[0].match(/\.([A-Za-z0-9]{1,5})$/)?.[1];
+  return extension ? IMPORT_KIND_EXTENSIONS[extension.toLowerCase()] ?? null : null;
+}
+
+function parseImportFiles(argumentsValue: unknown): ImportRequestFile[] {
+  if (!isRecord(argumentsValue) || !Array.isArray(argumentsValue.files)) {
+    throw new Error('An assets import requires a files array.');
+  }
+  const entries = argumentsValue.files;
+  if (entries.length === 0 || entries.length > 16) {
+    throw new Error('An assets import requires between 1 and 16 files.');
+  }
+  return entries.map((entry) => {
+    if (!isRecord(entry) || typeof entry.path !== 'string' || !entry.path.trim()) {
+      throw new Error('Every imported file needs an absolute path.');
+    }
+    const path = entry.path.trim();
+    if (!path.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(path)) {
+      throw new Error(`Cannot import ${path}: the path must be absolute.`);
+    }
+    const kind = typeof entry.kind === 'string'
+      ? (IMPORTABLE_KINDS as readonly string[]).includes(entry.kind)
+        ? entry.kind as ImportKind
+        : null
+      : inferKindFromPath(path);
+    if (!kind) throw new Error(`Cannot import ${path}: its media kind could not be determined.`);
+    const title = typeof entry.title === 'string' && entry.title.trim() ? entry.title.trim() : undefined;
+    return { path, kind, title };
+  });
+}
+
+/** 校验通过则返回，否则抛出首个失败项。先于任何文件与节点产生。 */
+export async function validateImportFilesForTest(files: ImportRequestFile[]): Promise<void> {
+  const checks = await inspectImportMediaPaths(files.map((file) => file.path));
+  for (const [index, check] of checks.entries()) {
+    const kind = files[index].kind;
+    if (!check.exists) throw new Error(`Cannot import ${check.path}: it does not exist.`);
+    if (!check.isFile) throw new Error(`Cannot import ${check.path}: directories, symlinks and special files are refused.`);
+    if (check.bytes === 0) throw new Error(`Cannot import ${check.path}: it is empty.`);
+    if (check.bytes > IMPORT_MAX_BYTES[kind]) {
+      throw new Error(`Cannot import ${check.path}: it exceeds the ${kind} size limit.`);
+    }
+  }
+}
+
+function resolveImportPosition(anchorId: string | null, index: number): { x: number; y: number } {
+  const nodes = useCanvasStore.getState().nodes;
+  if (anchorId) {
+    const anchor = nodes.find((node) => node.id === anchorId);
+    if (!anchor) throw new Error(`Anchor node ${anchorId} does not exist.`);
+    return { x: anchor.position.x + 48, y: anchor.position.y + 48 + index * 96 };
+  }
+  if (nodes.length === 0) return { x: 0, y: 0 };
+  const rightEdge = Math.max(...nodes.map((node) => node.position.x + (node.measured?.width ?? node.width ?? 220)));
+  const top = Math.min(...nodes.map((node) => node.position.y));
+  return { x: rightEdge + 160, y: top + index * 96 };
+}
+
+async function executeAssetsImport(
+  request: ExternalAgentToolRequest,
+  approval: AgentApprovalRecord,
+): Promise<unknown> {
+  const files = parseImportFiles(request.arguments);
+  const anchorId = isRecord(request.arguments) && isRecord(request.arguments.anchor)
+    && typeof request.arguments.anchor.nodeId === 'string'
+    ? request.arguments.anchor.nodeId
+    : null;
+  await validateImportFilesForTest(files);
+
+  // Media preparation is asynchronous (video posters are captured in the
+  // browser), so re-check the project before committing nodes.
+  const projectId = approval.projectId;
+  const prepared: Array<{ nodeType: CanvasNodeType; data: Record<string, unknown> }> = [];
+  for (const file of files) {
+    const data = file.kind === 'image'
+      ? { ...await prepareNodeImage(file.path), sourceFileName: file.title ?? null }
+      : file.kind === 'video'
+        ? await prepareVideoNodeDataFromSource(file.path, file.title ?? null)
+        : await prepareAudioNodeDataFromSource(file.path, file.title ?? null);
+    const nodeType = file.kind === 'image'
+      ? CANVAS_NODE_TYPES.upload
+      : file.kind === 'video' ? CANVAS_NODE_TYPES.video : CANVAS_NODE_TYPES.audio;
+    prepared.push({ nodeType, data: data as Record<string, unknown> });
+  }
+  if (useProjectStore.getState().currentProjectId !== projectId) {
+    throw new Error('The active project changed before imported media could be added.');
+  }
+
+  const nodes = prepared.map((entry, index) => ({
+    nodeType: entry.nodeType,
+    position: resolveImportPosition(anchorId, index),
+    data: entry.data,
+  }));
+  const command: CanvasCommand = { type: 'asset.import', version: CANVAS_COMMAND_VERSION, input: { nodes } };
+  return executeCanvasCommand({ ...request, arguments: command }, approval);
 }
 
 async function executeCanvasCommand(
@@ -237,6 +351,7 @@ async function executeApprovedTool(
 ): Promise<unknown> {
   switch (request.toolName) {
     case 'canvas_command': return executeCanvasCommand(request, approval);
+    case 'assets_import': return executeAssetsImport(request, approval);
     case 'diagnostics': return executeDiagnostics(request.arguments);
     case 'config_patch': return executeConfigPatch(request.arguments);
     case 'asset_read': {

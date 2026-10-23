@@ -1,4 +1,4 @@
-import { loadAudioSourceDataUrl } from '@/commands/image';
+import { persistAudioSource } from '@/commands/image';
 import { resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
 import type { AudioNodeData } from '@/features/canvas/domain/canvasNodes';
 
@@ -118,10 +118,10 @@ export async function prepareAudioNodeDataFromSource(
   source: string,
   sourceFileName?: string | null
 ): Promise<Partial<AudioNodeData>> {
-  const dataUrl = await loadAudioSourceDataUrl(source);
-  const metadata = await readAudioSourceMetadata(dataUrl);
+  const localAudioUrl = await persistAudioSource(source);
+  const metadata = await readAudioSourceMetadata(localAudioUrl);
   return buildUploadedAudioNodeData(
-    dataUrl,
+    localAudioUrl,
     metadata,
     sourceFileName?.trim() || fileNameFromSource(source)
   );
