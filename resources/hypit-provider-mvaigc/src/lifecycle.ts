@@ -18,6 +18,7 @@ import type { GenerationMediaValue, GenerationRequest } from '@hypit/generation'
 
 import {
   assertSupportedVideoPorts,
+  secretFor,
   buildImagePayload,
   buildVideoPayload,
   type MvaigcImagePorts,
@@ -26,7 +27,6 @@ import {
 
 export interface MvaigcEndpointOptions {
   baseUrl: string;
-  getSecret: () => string;
   pollIntervalMs?: number;
   fetch?: typeof globalThis.fetch;
 }
@@ -127,12 +127,16 @@ function createLifecycle(
   const fetcher = options.fetch ?? globalThis.fetch;
   const interval = options.pollIntervalMs ?? 5_000;
 
-  async function call(path: string, init: RequestInit = {}): Promise<Record<string, unknown>> {
+  async function call(
+    context: { credentials: Readonly<Record<string, { secret?: string }>> },
+    path: string,
+    init: RequestInit = {},
+  ): Promise<Record<string, unknown>> {
     const response = await fetcher(`${base}${path}`, {
       ...init,
       headers: {
         ...init.headers,
-        authorization: `Bearer ${options.getSecret()}`,
+        authorization: `Bearer ${secretFor(context)}`,
       },
     });
     if (!response.ok) {
@@ -147,7 +151,7 @@ function createLifecycle(
     async start(context) {
       await guard?.(context);
       const { model, body } = await build(context);
-      const task = await call(submitPath, {
+      const task = await call(context, submitPath, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ...body, model }),
@@ -164,7 +168,7 @@ function createLifecycle(
     async poll(context) {
       const handle = context.handle as { id?: unknown };
       const id = text(handle?.id, 'task id');
-      const task = await call(`/v1/tasks/${encodeURIComponent(id)}`);
+      const task = await call(context, `/v1/tasks/${encodeURIComponent(id)}`);
       const status = text(task.status, 'task status');
       if (status === 'processing') {
         return wakeAfter({ id }, interval, Date.now(), { phase: 'processing' });

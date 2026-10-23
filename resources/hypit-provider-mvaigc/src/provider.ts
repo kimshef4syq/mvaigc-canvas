@@ -202,3 +202,24 @@ export function portsOfConstraints(constraints: unknown): Record<string, unknown
   }
   return ports as Record<string, unknown[]>;
 }
+
+/**
+ * Read the account secret for one invocation.
+ *
+ * The secret is revealed per request on `context.credentials`, never at
+ * activation time: a `CredentialRef` carries only `{ store, key }`, where `key`
+ * is the store's lookup name. Capturing `.key` at activation and sending it as
+ * the bearer token produced `Bearer mvaigc.local`, which the proxy rejects
+ * because it wants `<account>:<password>`.
+ */
+export function secretFor(
+  context: { credentials?: Readonly<Record<string, { secret?: string }>> },
+): string {
+  const secret = context.credentials?.apiKey?.secret;
+  if (typeof secret !== 'string' || secret.length === 0) {
+    throw new Error(
+      'mvaigc account:password is not available for this request; run hypit auth login mvaigc.local',
+    );
+  }
+  return secret;
+}

@@ -36,7 +36,6 @@ export function createMvaigcEndpoints(options: MvaigcProviderOptions): {
 } {
   const shared = {
     baseUrl: options.baseUrl,
-    getSecret: () => options.apiKey.key,
     ...(options.pollIntervalMs === undefined ? {} : { pollIntervalMs: options.pollIntervalMs }),
     ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
   };
