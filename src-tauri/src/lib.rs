@@ -259,6 +259,7 @@ pub fn run() {
             image::prepare_external_image_source,
             image::prepare_external_video_source,
             image::persist_video_source,
+            image::persist_audio_source,
             image::persist_image_binary,
             image::rename_local_media_files,
             image::save_image_source_to_downloads,

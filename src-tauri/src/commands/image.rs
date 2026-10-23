@@ -2126,6 +2126,41 @@ fn persist_video_bytes(app: &AppHandle, bytes: &[u8], extension: &str) -> Result
     Ok(output_path.to_string_lossy().to_string())
 }
 
+fn resolve_audio_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to resolve app data dir: {}", e))?;
+
+    let audio_dir = app_data_dir.join("audio");
+    std::fs::create_dir_all(&audio_dir)
+        .map_err(|e| format!("Failed to create audio dir: {}", e))?;
+
+    Ok(audio_dir)
+}
+
+fn persist_audio_bytes_in(
+    directory: &Path,
+    bytes: &[u8],
+    extension: &str,
+) -> Result<String, String> {
+    let digest = md5::compute(bytes);
+    let filename = format!("{:x}.{}", digest, normalize_audio_extension(extension));
+    let output_path = directory.join(filename);
+
+    if !output_path.exists() {
+        std::fs::write(&output_path, bytes)
+            .map_err(|e| format!("Failed to persist generated audio: {}", e))?;
+    }
+
+    Ok(output_path.to_string_lossy().to_string())
+}
+
+fn persist_audio_bytes(app: &AppHandle, bytes: &[u8], extension: &str) -> Result<String, String> {
+    let audio_dir = resolve_audio_dir(app)?;
+    persist_audio_bytes_in(&audio_dir, bytes, extension)
+}
+
 fn normalize_extension(raw_ext: &str) -> String {
     let ext = raw_ext.trim().trim_start_matches('.').to_ascii_lowercase();
     if ext.is_empty() {
@@ -3192,6 +3227,29 @@ pub async fn persist_video_source(
 }
 
 #[tauri::command]
+pub async fn persist_audio_source(app: AppHandle, source: String) -> Result<String, String> {
+    let started = Instant::now();
+    let trimmed = source.trim();
+    if trimmed.is_empty() {
+        return Err("Audio source is empty".to_string());
+    }
+
+    info!(source = %describe_remote_media_url(trimmed), "persist_audio_source started");
+    let (bytes, extension) = resolve_audio_source_bytes(trimmed).await.map_err(|error| {
+        warn!(elapsed_ms = started.elapsed().as_millis(), error = %error, "persist_audio_source failed");
+        error
+    })?;
+    let output = persist_audio_bytes(&app, &bytes, &extension)?;
+    info!(
+        "persist_audio_source done: bytes={}, ext={}, elapsed={}ms",
+        bytes.len(),
+        extension,
+        started.elapsed().as_millis()
+    );
+    Ok(output)
+}
+
+#[tauri::command]
 pub async fn persist_image_binary(
     app: AppHandle,
     bytes: Vec<u8>,
@@ -4194,5 +4252,27 @@ mod remote_media_tests {
                 ..
             }
         ));
+    }
+}
+
+#[cfg(test)]
+mod persist_audio_tests {
+    use super::*;
+
+    #[test]
+    fn audio_bytes_are_content_addressed_and_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let bytes = b"RIFF\x00\x00\x00\x00WAVEfmt ";
+        let first = persist_audio_bytes_in(dir.path(), bytes, "wav").unwrap();
+        assert!(first.ends_with(".wav"));
+        assert_eq!(std::fs::read(dir.path().join(&first)).unwrap(), bytes);
+        assert_eq!(persist_audio_bytes_in(dir.path(), bytes, "wav").unwrap(), first);
+    }
+
+    #[test]
+    fn unknown_audio_extension_falls_back_to_wav() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = persist_audio_bytes_in(dir.path(), b"abc", "totally-unknown").unwrap();
+        assert!(path.ends_with(".wav"));
     }
 }

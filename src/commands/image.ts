@@ -202,6 +202,10 @@ export async function persistVideoSource(
   return await invoke('persist_video_source', { source, headers, network });
 }
 
+export async function persistAudioSource(source: string): Promise<string> {
+  return await invoke('persist_audio_source', { source });
+}
+
 export async function persistImageBinary(
   bytes: Uint8Array,
   extension = 'png'
