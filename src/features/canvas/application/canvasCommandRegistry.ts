@@ -154,6 +154,7 @@ const EFFECTS: Record<CanvasCommandType, CanvasCommandEffect> = {
   'group.ungroup': 'graph',
   'selection.set': 'navigation',
   'viewport.focus': 'navigation',
+  'asset.import': 'graph',
   'asset.list': 'read',
   'asset.locate': 'navigation',
   'generation.submit': 'generation',
@@ -302,6 +303,19 @@ const INPUT_SCHEMAS: Record<CanvasCommandType, CanvasJsonSchema> = {
     padding: numberField('Viewport padding from zero to one.'),
     select: booleanField('Whether to select focused nodes.'),
   }),
+  'asset.import': objectSchema(['nodes'], {
+    nodes: arrayField(
+      'Imported media nodes. Each entry supplies a finished node type, a canvas position, and its node data.',
+      objectField('One imported node.', {
+        nodeType: stringField(
+          'Finished node type that receives imported media.',
+          [CANVAS_NODE_TYPES.upload, CANVAS_NODE_TYPES.video, CANVAS_NODE_TYPES.audio],
+        ),
+        position: finitePositionField,
+        data: objectField('Node data written verbatim by the preparing caller.', undefined, undefined, true),
+      }, ['nodeType', 'position', 'data'], false),
+    ),
+  }),
   'asset.list': objectSchema([], {
     generatedOnly: booleanField('Only return final generated assets (images or videos); exclude screenshots, inputs and references.'),
     kind: stringField('Optional image, video, or audio filter.'),
@@ -344,6 +358,8 @@ function summarizeCommand(command: CanvasCommand): string {
       return `Update model configuration for node ${command.input.nodeId}.`;
     case 'node.create':
       return `Create ${command.input.nodeType} node.`;
+    case 'asset.import':
+      return `Import ${command.input.nodes.length} generated media node(s).`;
     case 'node.setEnabled':
       return `${command.input.enabled ? 'Enable' : 'Disable'} ${command.input.nodeIds.length} tag item(s).`;
     case 'node.duplicate':
@@ -820,6 +836,32 @@ function validateCommandInput(
       }
       if (command.input.configuration !== undefined) {
         validateCreateConfiguration(command.input.nodeType, command.input.configuration, errors);
+      }
+      break;
+    case 'asset.import':
+      if (!Array.isArray(command.input.nodes) || command.input.nodes.length === 0) {
+        errors.push('asset.import requires a non-empty nodes array.');
+        break;
+      }
+      for (const input of command.input.nodes) {
+        if (!isPlainRecord(input)) {
+          errors.push('asset.import node entries must be objects.');
+          continue;
+        }
+        const importableNodeTypes: readonly CanvasNodeType[] = [
+          CANVAS_NODE_TYPES.upload,
+          CANVAS_NODE_TYPES.video,
+          CANVAS_NODE_TYPES.audio,
+        ];
+        if (!importableNodeTypes.includes(input.nodeType as CanvasNodeType)) {
+          errors.push(`asset.import cannot create node type ${String(input.nodeType)}.`);
+        }
+        validateFinitePosition(input.position, 'position', errors);
+        if (!isPlainRecord(input.data)) {
+          errors.push('asset.import node data must be an object.');
+        } else {
+          validateJsonConfiguration(input.data, 'data', errors);
+        }
       }
       break;
     case 'node.tool.run':

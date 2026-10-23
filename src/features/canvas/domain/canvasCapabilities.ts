@@ -167,6 +167,7 @@ export const canvasActionCapabilityManifest = {
   'group.ungroup': { status: 'supported' },
   'selection.set': { status: 'supported' },
   'viewport.focus': { status: 'supported' },
+  'asset.import': { status: 'supported' },
   'asset.list': { status: 'supported' },
   'asset.locate': { status: 'supported' },
   'generation.submit': { status: 'supported' },

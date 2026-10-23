@@ -5,6 +5,7 @@ import {
   type ImageSize,
   type CanvasNode,
   type CanvasNodeData,
+  type CanvasNodeType,
   isEligibleTagGroupMember,
   isTagGroupNode,
   isTagNode,
@@ -55,6 +56,7 @@ export const CANVAS_GRAPH_COMMAND_TYPES = new Set<CanvasCommand['type']>([
   'edge.disconnect',
   'group.create',
   'group.ungroup',
+  'asset.import',
 ]);
 
 export function resolveAgentNodeCreationPosition(
@@ -982,6 +984,42 @@ function applyDisconnectEdges(
   );
 }
 
+// 导入的节点类型不在 `canCreateCanvasNodeDirectly` 白名单内（videoNode/audioNode
+// 的 directCreate 是 false），所以这里用显式白名单而不是查能力表。
+const IMPORTABLE_NODE_TYPES: readonly CanvasNodeType[] = [
+  CANVAS_NODE_TYPES.upload,
+  CANVAS_NODE_TYPES.video,
+  CANVAS_NODE_TYPES.audio,
+];
+
+function applyImportAssets(
+  command: Extract<CanvasCommand, { type: 'asset.import' }>,
+  draft: CanvasGraphDraft,
+  nodeFactory: NodeFactory,
+): CanvasGraphCommandPreparation {
+  const inputs = command.input.nodes;
+  const unsupported = inputs.find((input) => !IMPORTABLE_NODE_TYPES.includes(input.nodeType));
+  if (unsupported) {
+    return reject(
+      `Node type ${unsupported.nodeType} cannot receive imported media.`,
+      'unsupported_command',
+    );
+  }
+  const created = inputs.map((input) => nodeFactory.createNode(
+    input.nodeType,
+    { ...input.position },
+    input.data as Partial<CanvasNodeData>,
+  ));
+  return success(
+    { ...draft, nodes: [...draft.nodes, ...created] },
+    impact(`Import ${created.length} generated media node(s) into the canvas.`, {
+      affectedNodeIds: created.map((node) => node.id),
+      creates: { nodes: created.length, edges: 0, groups: 0 },
+    }),
+    { references: { nodeIds: created.map((node) => node.id) } },
+  );
+}
+
 function applyCreateGroup(
   command: Extract<CanvasCommand, { type: 'group.create' }>,
   draft: CanvasGraphDraft,
@@ -1168,6 +1206,8 @@ export function applyCanvasGraphCommand(
       return applyCreateGroup(command, draft, nodeFactory);
     case 'group.ungroup':
       return applyUngroup(command, draft);
+    case 'asset.import':
+      return applyImportAssets(command, draft, nodeFactory);
     default:
       return reject(`Command ${command.type} is not atomic graph work.`, 'not_atomic');
   }

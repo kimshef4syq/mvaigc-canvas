@@ -7,7 +7,7 @@ import {
   type CanvasCommand,
   type CanvasTransaction,
 } from '../domain/canvasCommands';
-import { CANVAS_NODE_TYPES } from '../domain/canvasNodes';
+import { CANVAS_NODE_TYPES, type CanvasNodeType } from '../domain/canvasNodes';
 import { canvasCommandRegistry } from './canvasCommandService';
 import { canvasEventBus } from './canvasServices';
 import { CanvasTransactionCoordinator } from './canvasTransactionCoordinator';
@@ -1269,5 +1269,50 @@ describe('shared node.create field compatibility', () => {
     const command = { type: 'node.create', version: CANVAS_COMMAND_VERSION, input: { type: CANVAS_NODE_TYPES.aiVideo, nodeType: CANVAS_NODE_TYPES.imageEdit, position: { x: 0, y: 0 } } } as unknown as CanvasCommand;
     expect(canvasCommandRegistry.inspect(command, 'agent').valid).toBe(false);
     expect(useCanvasStore.getState().nodes).toHaveLength(0);
+  });
+});
+
+
+describe('asset.import', () => {
+  beforeEach(resetCanvas);
+
+  const node = (type: CanvasNodeType) => ({
+    nodeType: type,
+    position: { x: 10, y: 20 },
+    data: { imageUrl: '/abs/imports/a.png', aspectRatio: '16:9' },
+  });
+
+  it('adds imported nodes and advances the revision', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    const result = await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION, input: { nodes: [node(CANVAS_NODE_TYPES.upload)] } },
+      before,
+      'agent',
+    );
+    expect(result.ok).toBe(true);
+    expect(useCanvasStore.getState().revision).toBe(before + 1);
+    expect(useCanvasStore.getState().nodes.some((n) => n.data.imageUrl === '/abs/imports/a.png')).toBe(true);
+  });
+
+  it('rejects node types outside the import allowlist', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    const result = await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION, input: { nodes: [node(CANVAS_NODE_TYPES.blueprint)] } },
+      before,
+      'agent',
+    );
+    expect(result.ok).toBe(false);
+    expect(useCanvasStore.getState().revision).toBe(before);
+  });
+
+  it('rejects a revision conflict without touching the graph', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    const result = await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION, input: { nodes: [node(CANVAS_NODE_TYPES.upload)] } },
+      before - 1,
+      'agent',
+    );
+    expect(result.ok).toBe(false);
+    expect(useCanvasStore.getState().revision).toBe(before);
   });
 });

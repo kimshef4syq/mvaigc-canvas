@@ -50,6 +50,7 @@ export const CANVAS_COMMAND_TYPES = [
   'group.ungroup',
   'selection.set',
   'viewport.focus',
+  'asset.import',
   'asset.list',
   'asset.locate',
   'generation.submit',
@@ -270,6 +271,14 @@ export type FocusViewportCommand = CanvasCommandBase<'viewport.focus', {
   select?: boolean;
 }>;
 
+export type ImportAssetsCommand = CanvasCommandBase<'asset.import', {
+  nodes: Array<{
+    nodeType: CanvasNodeType;
+    position: XYPosition;
+    data: Record<string, unknown>;
+  }>;
+}>;
+
 export type ListAssetsCommand = CanvasCommandBase<'asset.list', {
   generatedOnly?: boolean;
   kind?: 'image' | 'video' | 'audio';
@@ -332,6 +341,7 @@ export type CanvasCommand =
   | UngroupCommand
   | SetSelectionCommand
   | FocusViewportCommand
+  | ImportAssetsCommand
   | ListAssetsCommand
   | LocateAssetCommand
   | SubmitGenerationCommand
