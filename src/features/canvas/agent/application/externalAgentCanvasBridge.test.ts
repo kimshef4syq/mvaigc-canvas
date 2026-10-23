@@ -9,7 +9,17 @@ import {
 import type { ExternalAgentToolRequest } from '../domain/agentModel';
 
 const commandMocks = vi.hoisted(() => ({ resolve: vi.fn() }));
-vi.mock('@/commands/externalAgent', () => ({ resolveExternalAgentToolCall: commandMocks.resolve }));
+vi.mock('@/commands/externalAgent', () => ({
+  resolveExternalAgentToolCall: commandMocks.resolve,
+  inspectExternalAgentConnection: async () => ({
+    connectionId: 'session-1',
+    status: 'connected',
+    project: { id: 'project-1', name: 'Project' },
+    scope: [],
+    expiresAt: Date.now() + 60_000,
+    hypitProjectDir: '/tmp/hypit-project',
+  }),
+}));
 
 function request(): ExternalAgentToolRequest {
   return {
@@ -128,7 +138,9 @@ describe('external Agent Canvas approval bridge', () => {
 
     expect(result).toMatchObject({
       status: 'error',
-      error: expect.stringMatching(/temporary resource/i),
+      // project-1 has no such asset, so the read fails with a comprehensible
+      // sentence rather than a crash.
+      error: expect.stringMatching(/no longer exists/i),
     });
     expect(commandMocks.resolve).toHaveBeenLastCalledWith(expect.objectContaining({
       sessionId: 'session-1',
