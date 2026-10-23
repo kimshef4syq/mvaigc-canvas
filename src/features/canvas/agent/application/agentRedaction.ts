@@ -5,12 +5,18 @@ const RAW_BASE64 = /(?:^|[^A-Za-z0-9+/_-])[A-Za-z0-9+/_-]{512,}={0,2}(?:$|[^A-Za
 const CREDENTIAL_ASSIGNMENT = /((?:api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|secret|password)\s*[:=]\s*)[^\s,;&#]+/gi;
 const SECRET_QUERY_VALUE = /([?&](?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|signature|sig|auth|authorization|credential|x-amz-signature)=)[^&#]+/gi;
 
+// `asset_read`'s result is a path inside the Hypit project's `imports/` transit
+// directory and nothing else useful — redacting it would empty the result. The
+// shape is narrow on purpose, and Rust validates the same shape before the result
+// is allowed to carry a path at all.
+const IMPORT_EXPORT_PATH = /^(?:\/|[A-Za-z]:[\\/])[^\0]*[\\/]imports[\\/][^\\/]+$/;
+
 export function redactSensitiveValue<T>(value: T, depth = 0): T {
   if (depth > 6) return '[redacted-depth]' as T;
   if (typeof value === 'string') {
     const trimmed = value.trim();
     if (DATA_PAYLOAD.test(trimmed) || RAW_BASE64.test(trimmed)) return '[redacted-media]' as T;
-    if (ABSOLUTE_PATH.test(value)) return '[redacted-path]' as T;
+    if (!IMPORT_EXPORT_PATH.test(value) && ABSOLUTE_PATH.test(value)) return '[redacted-path]' as T;
     if (value.length > 5000) return `[redacted-long-value:${value.length}]` as T;
     return value
       .replace(/(Bearer\s+)[^\s]+/gi, '$1[redacted]')

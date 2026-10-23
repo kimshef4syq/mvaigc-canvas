@@ -42,3 +42,17 @@ describe('exportCanvasAsset', () => {
     await expect(exportCanvasAsset('missing', '/hypit')).rejects.toThrow(/no longer exists/i);
   });
 });
+
+describe('exported paths survive result redaction', () => {
+  it('keeps the imports/ path the bridge itself produced', async () => {
+    const { redactSensitiveValue } = await import('./agentRedaction');
+    const exported = '/Users/me/Library/Application Support/app/hypit-projects/p-abcdef01/imports/asset-1.mp4';
+    expect(redactSensitiveValue({ assetId: 'asset-1', kind: 'video', path: exported }))
+      .toEqual({ assetId: 'asset-1', kind: 'video', path: exported });
+  });
+
+  it('still redacts an arbitrary absolute path', async () => {
+    const { redactSensitiveValue } = await import('./agentRedaction');
+    expect(redactSensitiveValue('/Users/me/Documents/private/secret.png')).toBe('[redacted-path]');
+  });
+});
