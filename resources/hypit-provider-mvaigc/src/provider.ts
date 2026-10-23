@@ -42,11 +42,14 @@ export function buildImagePayload(ports: MvaigcImagePorts): {
   model: string;
   body: Record<string, unknown>;
 } {
-  if (ports.outputFormat !== undefined) {
-    throw new Error('mvaigc has no outputFormat field, so it cannot be honoured');
-  }
-  // The authored tier is discarded: mvaigc resolves the tier from the pixel
-  // size the canvas sends, so 2K is the only one this endpoint can honour.
+  // `outputFormat` is accepted and not forwarded. It is a REQUIRED nano-banana
+  // port, so refusing it would make the whole capability unreachable; mvaigc
+  // has no such field and ignores unknown ones, and the format it picks is
+  // still a correct image. Only a silent change of *resolution* would be a
+  // wrong result, and that is handled explicitly below.
+  //
+  // The authored tier is likewise discarded: mvaigc resolves the tier from the
+  // pixel size the canvas sends, so 2K is the only one this endpoint can honour.
   const body: Record<string, unknown> = {
     prompt: ports.prompt,
     resolution: '2K',

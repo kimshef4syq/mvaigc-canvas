@@ -235,7 +235,11 @@ const model = tier === "2K" ? "minimax_h3" : "minimax_h3_768p";
 | `resolution` | — | **固定发 2K**（用户裁定） |
 | `outputFormat` | — | **声明不支持** |
 
-`outputFormat` 在 `supports` 里拒绝：mvaigc 不认这个字段，按 Hypit 的硬规矩「服务接不住的字段必须拒绝，绝不静默丢弃」。
+`outputFormat`：**接受但不转发**。
+
+原始设计说「在 `supports` 里拒绝」，那是错的 —— 实现时才发现：`outputFormat` 是 nano-banana 的**必填端口**，而 Hypit 要求 mapping 覆盖每个端口、并且拒绝未映射的端口会让**整个能力不可达**。所以省略或拒绝它都会让图片功能完全不可用。
+
+改为：映射该端口让请求通过校验，`buildImagePayload` 接受它但**不写进 mvaigc 请求体**（mvaigc 没有该字段，且会忽略未知字段）。作者选的 png/jpg 不生效，输出格式由 mvaigc 决定 —— 但出图结果是正确的，所以这不是「静默降级」。真正会造成错误结果的静默降级是**分辨率**，那一项已明确处理（恒发 2K，不做静默替换）。
 
 ### 6.6 生命周期
 
