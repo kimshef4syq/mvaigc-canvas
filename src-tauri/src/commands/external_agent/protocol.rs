@@ -1,4 +1,3 @@
-use base64::Engine as _;
 use std::sync::OnceLock;
 
 use regex::Regex;
@@ -264,29 +263,12 @@ pub(crate) fn validate_tool_resolution(
                 "Tool result exceeds 256 KiB.",
             ));
         }
-        // Only this bounded image envelope bypasses text redaction, for MCP vision.
-        // It remains transient and is never included in ToolResolved events.
-        let mut metadata = result.clone();
-        let image = metadata.as_object_mut().and_then(|value| value.remove("canvasImage"));
-        let mut safe = sanitize_json(&metadata)?;
-        if let Some(image) = image {
-            let mime = image.get("mimeType").and_then(Value::as_str);
-            let data = image.get("data").and_then(Value::as_str).unwrap_or_default();
-            if mime != Some("image/jpeg") || data.is_empty() || data.len() > 180_000 {
-                return Err(ExternalAgentCommandError::invalid_request("Invalid canvas image preview."));
-            }
-            let decoded = base64::engine::general_purpose::STANDARD.decode(data)
-                .map_err(|_| ExternalAgentCommandError::invalid_request("Invalid image encoding."))?;
-            if !decoded.starts_with(&[0xff, 0xd8, 0xff]) {
-                return Err(ExternalAgentCommandError::invalid_request("Invalid JPEG preview."));
-            }
-            safe["canvasImage"] = image;
-        }
         // `asset_read` returns a path inside the Hypit project's `imports/` transit
         // directory and nothing else useful — redacting it would empty the result.
         // Validated narrowly so this bypass can never carry an arbitrary path.
-        if let Some(path) = metadata.get("path").and_then(Value::as_str) {
-            if metadata.get("assetId").and_then(Value::as_str).is_some() {
+        let mut safe = sanitize_json(result)?;
+        if let Some(path) = result.get("path").and_then(Value::as_str) {
+            if result.get("assetId").and_then(Value::as_str).is_some() {
                 validate_import_export_path(path)?;
                 safe["path"] = Value::String(path.to_string());
             }
@@ -308,14 +290,10 @@ pub(crate) fn validate_tool_resolution(
 pub(crate) fn mcp_tool_result(resolution: ExternalAgentToolResolution) -> Value {
     let outcome = resolution.outcome.as_str();
     if outcome == "approved" {
-        let mut result = resolution.result.unwrap_or(Value::Null);
-        let image = result.as_object_mut().and_then(|value| value.remove("canvasImage"));
+        let result = resolution.result.unwrap_or(Value::Null);
         let text = serde_json::to_string(&result)
             .unwrap_or_else(|_| "{\"ok\":false,\"error\":\"serialization_failed\"}".to_string());
-        let mut content = vec![json!({"type": "text", "text": text})];
-        if let Some(image) = image {
-            content.push(json!({"type": "image", "mimeType": image["mimeType"], "data": image["data"]}));
-        }
+        let content = vec![json!({"type": "text", "text": text})];
         return json!({
             "content": content,
             "structuredContent": {
