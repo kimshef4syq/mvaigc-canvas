@@ -206,6 +206,17 @@ export async function persistAudioSource(source: string): Promise<string> {
   return await invoke('persist_audio_source', { source });
 }
 
+export interface ImportMediaPathCheck {
+  path: string;
+  exists: boolean;
+  isFile: boolean;
+  bytes: number;
+}
+
+export async function inspectImportMediaPaths(paths: string[]): Promise<ImportMediaPathCheck[]> {
+  return await invoke('inspect_import_media_paths', { paths });
+}
+
 export async function persistImageBinary(
   bytes: Uint8Array,
   extension = 'png'

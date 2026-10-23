@@ -3166,6 +3166,45 @@ mod external_video_tests {
     }
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportMediaPathCheck {
+    pub path: String,
+    pub exists: bool,
+    pub is_file: bool,
+    pub bytes: u64,
+}
+
+/// Classifies candidate import paths without opening them. `symlink_metadata`
+/// keeps directories, symlinks and special files (FIFOs, devices) out of the
+/// import path, where reading a FIFO would block the canvas indefinitely.
+#[tauri::command]
+pub fn inspect_import_media_paths(paths: Vec<String>) -> Result<Vec<ImportMediaPathCheck>, String> {
+    if paths.is_empty() || paths.len() > 16 {
+        return Err("Import media paths must contain between 1 and 16 entries.".to_string());
+    }
+    Ok(paths
+        .into_iter()
+        .map(|path| {
+            let trimmed = path.trim().to_string();
+            match std::fs::symlink_metadata(&trimmed) {
+                Ok(metadata) => ImportMediaPathCheck {
+                    path: trimmed,
+                    exists: true,
+                    is_file: metadata.file_type().is_file(),
+                    bytes: metadata.len(),
+                },
+                Err(_) => ImportMediaPathCheck {
+                    path: trimmed,
+                    exists: false,
+                    is_file: false,
+                    bytes: 0,
+                },
+            }
+        })
+        .collect())
+}
+
 #[tauri::command]
 pub async fn prepare_external_video_source(app: AppHandle, source: String) -> Result<ExternalVideoFile, String> {
     let (bytes, extension) = resolve_video_source_bytes_with_headers(source.trim(), None, None).await?;
@@ -4274,5 +4313,50 @@ mod persist_audio_tests {
         let dir = tempfile::tempdir().unwrap();
         let path = persist_audio_bytes_in(dir.path(), b"abc", "totally-unknown").unwrap();
         assert!(path.ends_with(".wav"));
+    }
+}
+
+#[cfg(test)]
+mod import_media_path_tests {
+    use super::*;
+
+    #[test]
+    fn classifies_files_directories_and_missing_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("clip.mp4");
+        std::fs::write(&file, b"\x00\x00\x00\x18ftypisom").unwrap();
+
+        let checks = inspect_import_media_paths(vec![
+            file.to_string_lossy().into_owned(),
+            dir.path().to_string_lossy().into_owned(),
+            dir.path().join("nope.mp4").to_string_lossy().into_owned(),
+        ])
+        .unwrap();
+
+        assert!(checks[0].exists && checks[0].is_file && checks[0].bytes == 12);
+        assert!(checks[1].exists && !checks[1].is_file);
+        assert!(!checks[2].exists && !checks[2].is_file);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_symlinks_and_fifos_without_opening_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("real.mp4");
+        std::fs::write(&real, b"data").unwrap();
+        let link = dir.path().join("link.mp4");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let fifo = dir.path().join("pipe.mp4");
+        let fifo_c = std::ffi::CString::new(fifo.to_string_lossy().as_bytes()).unwrap();
+        unsafe { libc::mkfifo(fifo_c.as_ptr(), 0o600) };
+
+        let checks = inspect_import_media_paths(vec![
+            link.to_string_lossy().into_owned(),
+            fifo.to_string_lossy().into_owned(),
+        ])
+        .unwrap();
+
+        assert!(!checks[0].is_file, "symlinks must not be importable");
+        assert!(!checks[1].is_file, "FIFOs must not be importable");
     }
 }
