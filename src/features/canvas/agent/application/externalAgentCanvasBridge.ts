@@ -137,11 +137,11 @@ function parseImportFiles(argumentsValue: unknown): ImportRequestFile[] {
     if (!path.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(path)) {
       throw new Error(`Cannot import ${path}: the path must be absolute.`);
     }
-    const kind = typeof entry.kind === 'string'
-      ? (IMPORTABLE_KINDS as readonly string[]).includes(entry.kind)
-        ? entry.kind as ImportKind
-        : null
-      : inferKindFromPath(path);
+    const declaredKind = typeof entry.kind === 'string' ? entry.kind : null;
+    if (declaredKind !== null && !(IMPORTABLE_KINDS as readonly string[]).includes(declaredKind)) {
+      throw new Error(`Cannot import ${path}: ${declaredKind} is not a supported media kind.`);
+    }
+    const kind = (declaredKind as ImportKind | null) ?? inferKindFromPath(path);
     if (!kind) throw new Error(`Cannot import ${path}: its media kind could not be determined.`);
     const title = typeof entry.title === 'string' && entry.title.trim() ? entry.title.trim() : undefined;
     return { path, kind, title };
@@ -153,6 +153,11 @@ export async function validateImportFilesForTest(files: ImportRequestFile[]): Pr
   const checks = await inspectImportMediaPaths(files.map((file) => file.path));
   for (const [index, check] of checks.entries()) {
     const kind = files[index].kind;
+    // 扩展名与 kind 必须相符，否则会把 PNG 当成视频交给视频 prepare 流程。
+    const inferredKind = inferKindFromPath(check.path);
+    if (inferredKind && inferredKind !== kind) {
+      throw new Error(`Cannot import ${check.path}: the ${kind} kind does not match its file extension.`);
+    }
     if (!check.exists) throw new Error(`Cannot import ${check.path}: it does not exist.`);
     if (!check.isFile) throw new Error(`Cannot import ${check.path}: directories, symlinks and special files are refused.`);
     if (check.bytes === 0) throw new Error(`Cannot import ${check.path}: it is empty.`);

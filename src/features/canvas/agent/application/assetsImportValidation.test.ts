@@ -41,3 +41,20 @@ describe('assets_import validation precedes side effects', () => {
     await expect(validateImportFilesForTest([{ path: '/big.png', kind: 'image' }])).rejects.toThrow(/size limit/i);
   });
 });
+
+describe('assets_import kind matches the file extension', () => {
+  it('refuses an explicit kind that contradicts the extension', async () => {
+    inspectImportMediaPaths.mockResolvedValue([
+      { path: '/x/still.png', exists: true, isFile: true, bytes: 2048 },
+    ]);
+    await expect(validateImportFilesForTest([{ path: '/x/still.png', kind: 'video' }]))
+      .rejects.toThrow(/kind|extension/i);
+  });
+
+  it('accepts an explicit kind that agrees with the extension', async () => {
+    inspectImportMediaPaths.mockResolvedValue([
+      { path: '/x/clip.mp4', exists: true, isFile: true, bytes: 2048 },
+    ]);
+    await expect(validateImportFilesForTest([{ path: '/x/clip.mp4', kind: 'video' }])).resolves.toBeUndefined();
+  });
+});
