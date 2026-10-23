@@ -93,7 +93,6 @@ async function videoPorts(
     referenceImages: await inlineMedia(context, ports, 'referenceImage'),
     referenceVideos: await inlineMedia(context, ports, 'referenceVideo'),
     referenceAudioUrls: await inlineMedia(context, ports, 'referenceAudio'),
-    generateAudio: firstOf<boolean>(ports, 'generateAudio') === true,
   };
   const resolution = firstOf<string>(ports, 'resolution');
   if (resolution !== undefined) resolved.resolution = resolution;

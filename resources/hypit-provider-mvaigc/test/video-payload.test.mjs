@@ -3,20 +3,20 @@ import assert from 'node:assert/strict';
 import { buildVideoPayload, mvaigcVideoModelForTier } from '../dist/provider.js';
 
 const base = { prompt: '一只猫跑过', durationSeconds: 5, referenceImages: [],
-  referenceVideos: [], referenceAudioUrls: [], generateAudio: false };
+  referenceVideos: [], referenceAudioUrls: [] };
 
 test('maps Hypit ports onto mvaigc field names', () => {
   const { body } = buildVideoPayload({ ...base, resolution: '768P', aspectRatio: '16:9',
     referenceImages: ['data:image/png;base64,AAA'],
     referenceVideos: ['data:video/mp4;base64,BBB'],
-    referenceAudioUrls: ['data:audio/mpeg;base64,CCC'],
-    generateAudio: true });
+    referenceAudioUrls: ['data:audio/mpeg;base64,CCC'] });
   assert.equal(body.prompt, '一只猫跑过');
   assert.equal(body.seconds, 5, 'duration must be renamed to seconds');
   assert.deepEqual(body.reference_images, ['data:image/png;base64,AAA']);
   assert.deepEqual(body.reference_videos, ['data:video/mp4;base64,BBB']);
   assert.deepEqual(body.reference_audios, ['data:audio/mpeg;base64,CCC']);
-  assert.equal(body.audio, true);
+  // minimax-h3 declares no generate-audio port, so audio is a mapping constant.
+  assert.equal(body.audio, false);
   assert.equal(body.aspect_ratio, '16:9');
 });
 

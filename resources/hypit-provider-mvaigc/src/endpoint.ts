@@ -14,41 +14,7 @@ import { generationTypes, mappingSupportsRequest } from '@hypit/generation';
 import type { GenerationWireMapping } from '@hypit/generation';
 
 import { createMvaigcImageEndpoint, createMvaigcVideoEndpoint } from './lifecycle.js';
-import { imageCapability, videoCapability } from './provider.js';
-
-/**
- * Port tables this Provider can carry. Only the ports it actually maps appear
- * here, so `mappingSupportsRequest` refuses anything else rather than letting
- * an unmappable port reach mvaigc.
- */
-export const videoMapping: GenerationWireMapping = {
-  capability: videoCapability,
-  result: 'video',
-  routes: [{ model: 'minimax_h3_768p' }],
-  fields: {
-    prompt: { as: 'value', field: 'prompt' },
-    duration: { as: 'value', field: 'seconds' },
-    resolution: { as: 'value', field: 'resolution' },
-    aspectRatio: { as: 'value', field: 'aspect_ratio' },
-    generateAudio: { as: 'value', field: 'audio' },
-    referenceImage: { as: 'urlArray', field: 'reference_images' },
-    referenceVideo: { as: 'urlArray', field: 'reference_videos' },
-    referenceAudio: { as: 'urlArray', field: 'reference_audios' },
-    firstFrame: { as: 'url', field: 'first_frame' },
-    lastFrame: { as: 'url', field: 'last_frame' },
-  },
-};
-
-export const imageMapping: GenerationWireMapping = {
-  capability: imageCapability,
-  result: 'image',
-  routes: [{ model: 'Nano-Banana-Pro' }],
-  fields: {
-    prompt: { as: 'value', field: 'prompt' },
-    aspectRatio: { as: 'value', field: 'aspect_ratio' },
-    images: { as: 'urlArray', field: 'reference_images' },
-  },
-};
+import { imageCapability, imageMapping, videoCapability, videoMapping } from './provider.js';
 
 export interface MvaigcProviderOptions {
   instance: string;
