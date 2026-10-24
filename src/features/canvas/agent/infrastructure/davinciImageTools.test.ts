@@ -149,7 +149,7 @@ describe('canvas images to current DaVinci timeline', () => {
   it('executes the generated Python with quoted paths and appends in order to the existing timeline end', () => {
     const paths = ['/tmp/引号"和\\字符.png', '/tmp/two.png'];
     const fixture = `import json, sys
-paths = json.loads(sys.stdin.read())
+paths = json.loads(${JSON.stringify(JSON.stringify(paths))})
 class Timeline:
     def GetSetting(self, key): return "24000/1001"
     def GetEndFrame(self): return 1200
@@ -181,7 +181,11 @@ resolve = Resolve()
       const tmp = path.join(os.tmpdir(), `davinci-test-${Date.now()}-${Math.random().toString(36).slice(2)}.py`);
       fs.writeFileSync(tmp, code, 'utf8');
       try {
-        return execFileSync('python3', [tmp], { input, encoding: 'utf8' });
+        return execFileSync('python3', [tmp], {
+          input,
+          encoding: 'utf8',
+          env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+        });
       } finally {
         try { fs.unlinkSync(tmp); } catch {}
       }
