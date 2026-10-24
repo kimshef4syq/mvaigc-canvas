@@ -142,13 +142,25 @@ pub fn map_video_request(openai: &Value, api_name: &str) -> Value {
     // Prefer OSC's explicit aspect_ratio over the pixel size.
     let ratio = str_field(openai, "aspect_ratio")
         .filter(|value| value.contains(':'))
-        .or_else(|| if size.contains(':') { Some(size) } else { None })
+        .or_else(|| if size.contains(':') { Some(size.clone()) } else { None })
         .unwrap_or_else(|| "16:9".to_string());
     let duration = openai
         .get("seconds")
         .and_then(Value::as_i64)
         .unwrap_or(5)
         .max(1);
+    // OSC may provide the selected tier as `resolution` / `resolutionType`,
+    // or as `size` in OpenAI-compatible requests. `size` can also contain an
+    // aspect ratio, so only use it as a resolution when it is not a ratio.
+    let resolution = ["resolution", "resolutionType", "resolution_type"]
+        .iter()
+        .find_map(|key| str_field(openai, key))
+        .or_else(|| (!size.contains(':') && !size.is_empty()).then_some(size))
+        .unwrap_or_else(|| "720p".to_string());
+    let audio = ["audio", "generate_audio", "generateAudio"]
+        .iter()
+        .find_map(|key| openai.get(*key).and_then(Value::as_bool))
+        .unwrap_or(false);
     let images: Vec<Value> = reference_image_urls(openai)
         .into_iter()
         .enumerate()
@@ -173,8 +185,8 @@ pub fn map_video_request(openai: &Value, api_name: &str) -> Value {
         "audios": audios,
         "ratio": ratio,
         "duration": duration,
-        "resolution": "1080p",
-        "audio": false,
+        "resolution": resolution,
+        "audio": audio,
         "optimizedPrompt": false,
     })
 }

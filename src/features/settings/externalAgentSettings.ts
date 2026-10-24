@@ -1,5 +1,5 @@
 /** Default Claude Code project directory that new connections write descriptors into. */
-export const DEFAULT_CLAUDE_CODE_PROJECT_DIR = '/Users/spic007/Downloads/07-项目文件/000OD';
+export const DEFAULT_CLAUDE_CODE_PROJECT_DIR = '';
 
 /**
  * Normalize the user-entered Claude Code project directory. Surrounding
