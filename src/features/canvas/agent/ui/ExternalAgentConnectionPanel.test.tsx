@@ -39,7 +39,7 @@ describe('ExternalAgentConnectionPanel', () => {
     }));
     expect(markup).toContain('canvasAgent.externalMcp.title');
     expect(markup).toContain('canvasAgent.externalMcp.description');
-    expect(markup).toContain('canvasAgent.externalMcp.manualApproval');
+    expect(markup).toContain('canvasAgent.externalMcp.modes.manual');
     expect(markup).not.toContain('启动 Codex');
     expect(markup).not.toContain('启动 Claude');
   });

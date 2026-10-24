@@ -53,7 +53,11 @@ function Snapshot() {
 
 it('shares one listener and queue between canvas and settings, and resolves each request once', async () => {
   mocks.inspect.mockResolvedValue({
-    connectionId: 'connection-1', status: 'connected', project: { id: 'project-1' },
+    connectionId: 'connection-1',
+    status: 'connected',
+    project: { id: 'project-1' },
+    expiresAt: Date.now() + 60_000,
+    permissionMode: 'manual',
   });
   mocks.prepare.mockResolvedValue({ summary: 'Create a node', impact: { summary: 'One node' } });
   let complete: (() => void) | undefined;

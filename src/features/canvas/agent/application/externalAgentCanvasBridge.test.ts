@@ -128,7 +128,7 @@ describe('external Agent Canvas approval bridge', () => {
 
     expect(result).toMatchObject({
       status: 'error',
-      error: expect.stringMatching(/temporary resource/i),
+      error: expect.stringMatching(/The requested canvas image no longer exists|temporary resource/i),
     });
     expect(commandMocks.resolve).toHaveBeenLastCalledWith(expect.objectContaining({
       sessionId: 'session-1',

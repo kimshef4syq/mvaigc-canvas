@@ -34,7 +34,7 @@ describe('Canvas Agent approval preflight', () => {
     })).toMatch(/node\.create.*nodeId.*generation\.submit.*不接受 prompt/s);
     expect(explainInvalidCanvasAgentCommand('canvas_command', {
       type: 'canvas.query', input: { filter: 'all' },
-    })).toMatch(/scope.*graph\|nodes\|edges\|selection.*不存在 filter/s);
+    })).toMatch(/Unknown canvas\.query input field: filter.*scope.*graph.*nodes.*edges.*selection/s);
     expect(explainInvalidCanvasAgentCommand('canvas_command', {
       type: 'node.create',
       input: {
