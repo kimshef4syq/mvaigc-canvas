@@ -165,10 +165,15 @@ async fn authorized_session(
 }
 
 fn normalize_tool_input(name: &str, mut input: Value) -> Value {
-    if name == "canvas_command" && input.get("type").and_then(Value::as_str) == Some("canvas.query") {
+    if name == "canvas_command" && input.get("type").and_then(Value::as_str) == Some("canvas.query")
+    {
         if let Some(args) = input.get_mut("input").and_then(Value::as_object_mut) {
             args.entry("scope").or_insert_with(|| json!("graph"));
-            let detail = if args.contains_key("fields") { "full" } else { "summary" };
+            let detail = if args.contains_key("fields") {
+                "full"
+            } else {
+                "summary"
+            };
             args.entry("detail").or_insert_with(|| json!(detail));
             args.entry("limit").or_insert_with(|| json!(20));
         }
@@ -188,11 +193,17 @@ async fn write_broker_response<W: AsyncWrite + Unpin>(
             "message": "Canvas result exceeds the broker response limit. Query detail=summary with limit=20, follow output.page.nextInput, or narrow nodeIds/fields. The broker connection is healthy."
         }})).map_err(|_| ExternalAgentCommandError::protocol("Failed to encode broker error."))?;
     }
-    writer.write_all(&encoded).await
+    writer
+        .write_all(&encoded)
+        .await
         .map_err(|error| ExternalAgentCommandError::protocol(error.to_string()))?;
-    writer.write_all(b"\n").await
+    writer
+        .write_all(b"\n")
+        .await
         .map_err(|error| ExternalAgentCommandError::protocol(error.to_string()))?;
-    writer.flush().await
+    writer
+        .flush()
+        .await
         .map_err(|error| ExternalAgentCommandError::protocol(error.to_string()))
 }
 
@@ -210,8 +221,14 @@ pub(crate) async fn handle_broker_connection(
     };
     let request: Value = match serde_json::from_slice(&line) {
         Ok(value) => value,
-        Err(_) => return write_broker_response(reader.get_mut(), json!({"ok": false,
-            "error": {"code": "invalid_request", "message": "Malformed Canvas broker JSON."}})).await,
+        Err(_) => {
+            return write_broker_response(
+                reader.get_mut(),
+                json!({"ok": false,
+            "error": {"code": "invalid_request", "message": "Malformed Canvas broker JSON."}}),
+            )
+            .await
+        }
     };
     let session_id = request
         .get("sessionId")
@@ -249,7 +266,9 @@ pub(crate) async fn handle_broker_connection(
         .and_then(Value::as_str)
         .unwrap_or_default();
     let response = match action {
-        "ping" => json!({"ok": true, "result": {"projectId": session.project_id, "expiresAt": session.capability_expires_at}}),
+        "ping" => {
+            json!({"ok": true, "result": {"projectId": session.project_id, "expiresAt": session.capability_expires_at}})
+        }
         "listTools" => {
             let mut tools = session.tools.values().cloned().collect::<Vec<_>>();
             tools.sort_by(|left, right| left.name.cmp(&right.name));
@@ -347,7 +366,10 @@ async fn broker_request(
             .pointer("/error/message")
             .and_then(Value::as_str)
             .unwrap_or("Canvas broker rejected the request.");
-        let code = response.pointer("/error/code").and_then(Value::as_str).unwrap_or("broker_error");
+        let code = response
+            .pointer("/error/code")
+            .and_then(Value::as_str)
+            .unwrap_or("broker_error");
         return Err(format!("{code}: {message}"));
     }
     Ok(response.get("result").cloned().unwrap_or(Value::Null))

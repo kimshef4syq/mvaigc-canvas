@@ -1,4 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RunContext } from '@openai/agents';
 import { callMcpTool, listMcpServers, type McpServerView } from '@/commands/mcpClient';
@@ -174,8 +177,18 @@ class Resolve:
 project = Project()
 resolve = Resolve()
 `;
+    function runPythonScript(code: string, input?: string): string {
+      const tmp = path.join(os.tmpdir(), `davinci-test-${Date.now()}-${Math.random().toString(36).slice(2)}.py`);
+      fs.writeFileSync(tmp, code, 'utf8');
+      try {
+        return execFileSync('python3', [tmp], { input, encoding: 'utf8' });
+      } finally {
+        try { fs.unlinkSync(tmp); } catch {}
+      }
+    }
+
     const script = fixture + buildDavinciAppendImagesScript(paths, 5) + '\nprint(json.dumps(result))';
-    const output = execFileSync('python3', ['-c', script], { input: JSON.stringify(paths), encoding: 'utf8' });
+    const output = runPythonScript(script, JSON.stringify(paths));
     expect(JSON.parse(output)).toMatchObject({ ok: true, appended: 2, timeline: 'Existing timeline', trackIndex: 2 });
     const videoFixture = fixture + `
 def append_videos(clips):
@@ -184,15 +197,15 @@ def append_videos(clips):
     return clips
 project.pool.AppendToTimeline = append_videos
 `;
-    const videoOutput = execFileSync('python3', ['-c', videoFixture + buildDavinciAppendVideosScript(paths) + '\nprint(json.dumps(result))'], { input: JSON.stringify(paths), encoding: 'utf8' });
+    const videoOutput = runPythonScript(videoFixture + buildDavinciAppendVideosScript(paths) + '\nprint(json.dumps(result))', JSON.stringify(paths));
     expect(JSON.parse(videoOutput)).toMatchObject({ canvas_append_videos: true, ok: true, imported: 2, appended: 2 });
-    const failed = execFileSync('python3', ['-c', fixture + '\nproject = None\n' + buildDavinciAppendImagesScript(paths, 5) + '\nprint(json.dumps(result))'], { input: JSON.stringify(paths), encoding: 'utf8' });
+    const failed = runPythonScript(fixture + '\nproject = None\n' + buildDavinciAppendImagesScript(paths, 5) + '\nprint(json.dumps(result))', JSON.stringify(paths));
     expect(JSON.parse(failed)).toMatchObject({ ok: false, stage: 'resolve-project', outcome: 'failed', appended: 0, error: { type: 'RuntimeError' } });
-    const dryRun = execFileSync('python3', ['-c', fixture + '\nproject.pool.ImportMedia = lambda clips: (_ for _ in ()).throw(RuntimeError("must not import"))\n' + buildDavinciAppendImagesScript(paths, 5, true) + '\nprint(json.dumps(result))'], { input: JSON.stringify(paths), encoding: 'utf8' });
+    const dryRun = runPythonScript(fixture + '\nproject.pool.ImportMedia = lambda clips: (_ for _ in ()).throw(RuntimeError("must not import"))\n' + buildDavinciAppendImagesScript(paths, 5, true) + '\nprint(json.dumps(result))', JSON.stringify(paths));
     expect(JSON.parse(dryRun)).toMatchObject({ ok: true, stage: 'preflight', appended: 0, imported: 0 });
-    const importFailure = execFileSync('python3', ['-c', fixture + '\nproject.pool.ImportMedia = lambda clips: []\n' + buildDavinciAppendImagesScript(paths, 5) + '\nprint(json.dumps(result))'], { input: JSON.stringify(paths), encoding: 'utf8' });
+    const importFailure = runPythonScript(fixture + '\nproject.pool.ImportMedia = lambda clips: []\n' + buildDavinciAppendImagesScript(paths, 5) + '\nprint(json.dumps(result))', JSON.stringify(paths));
     expect(JSON.parse(importFailure)).toMatchObject({ ok: false, outcome: 'failed', stage: 'media-pool-import', appended: 0, imported: 0, error: { message: expect.stringContaining('ImportMedia') } });
-    const appendFailure = execFileSync('python3', ['-c', fixture + '\nproject.pool.AppendToTimeline = lambda clips: (_ for _ in ()).throw(RuntimeError("append interrupted"))\n' + buildDavinciAppendImagesScript(paths, 5) + '\nprint(json.dumps(result))'], { input: JSON.stringify(paths), encoding: 'utf8' });
+    const appendFailure = runPythonScript(fixture + '\nproject.pool.AppendToTimeline = lambda clips: (_ for _ in ()).throw(RuntimeError("append interrupted"))\n' + buildDavinciAppendImagesScript(paths, 5) + '\nprint(json.dumps(result))', JSON.stringify(paths));
     expect(JSON.parse(appendFailure)).toMatchObject({ ok: false, outcome: 'unknown', stage: 'timeline-append', appended: null, imported: 2, error: { message: 'append interrupted' } });
   });
 });

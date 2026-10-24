@@ -1065,10 +1065,14 @@ pub(crate) fn get_project_record_impl(
         match result {
             Ok(mut record) => {
                 let mut needs_migration = !collect_project_assets(&record.nodes_json).is_empty();
-                let stored_history: Option<String> = conn.query_row(
-                    "SELECT history_json FROM project_histories WHERE project_id = ?1",
-                    params![project_id], |row| row.get(0),
-                ).optional().map_err(|e| format!("Failed to read project history: {e}"))?;
+                let stored_history: Option<String> = conn
+                    .query_row(
+                        "SELECT history_json FROM project_histories WHERE project_id = ?1",
+                        params![project_id],
+                        |row| row.get(0),
+                    )
+                    .optional()
+                    .map_err(|e| format!("Failed to read project history: {e}"))?;
                 if let Some(history) = stored_history {
                     record.history_json = history;
                 } else if record.history_json != "{}" {
@@ -1204,7 +1208,8 @@ pub(crate) fn upsert_project_record_impl(
             "INSERT INTO project_histories (project_id, history_json) VALUES (?1, ?2) \
              ON CONFLICT(project_id) DO UPDATE SET history_json = excluded.history_json",
             params![record.id, record.history_json],
-        ).map_err(|e| format!("Failed to save project history: {e}"))?;
+        )
+        .map_err(|e| format!("Failed to save project history: {e}"))?;
 
         tx.execute(
             "DELETE FROM project_image_refs WHERE project_id = ?1",
@@ -1306,8 +1311,11 @@ pub fn delete_project_record(
 
         tx.execute("DELETE FROM projects WHERE id = ?1", params![project_id])
             .map_err(|e| format!("Failed to delete project: {}", e))?;
-        tx.execute("DELETE FROM project_histories WHERE project_id = ?1", params![project_id])
-            .map_err(|e| format!("Failed to delete project history: {e}"))?;
+        tx.execute(
+            "DELETE FROM project_histories WHERE project_id = ?1",
+            params![project_id],
+        )
+        .map_err(|e| format!("Failed to delete project history: {e}"))?;
         tx.execute(
             "DELETE FROM project_image_refs WHERE project_id = ?1",
             params![project_id],

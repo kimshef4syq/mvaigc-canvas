@@ -354,7 +354,9 @@ pub(crate) fn connection_info(
             name: session.project_name.clone().unwrap_or_default(),
         }),
         scope,
-        permission_mode: ExternalAgentPermissionMode::from_code(session.permission_mode.load(Ordering::SeqCst)),
+        permission_mode: ExternalAgentPermissionMode::from_code(
+            session.permission_mode.load(Ordering::SeqCst),
+        ),
         created_at: Some(session.created_at),
         expires_at: Some(session.capability_expires_at),
         connected_at: (connected_at > 0).then_some(connected_at),
@@ -511,7 +513,10 @@ pub(crate) async fn establish_connection(
         permission_mode,
     };
     let _ = write_connection_params(&descriptor_root, &params);
-    if let Some(dir) = claude_code_project_dir.as_deref().filter(|d| !d.trim().is_empty()) {
+    if let Some(dir) = claude_code_project_dir
+        .as_deref()
+        .filter(|d| !d.trim().is_empty())
+    {
         if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
             let executable = std::env::current_exe()
                 .map(|p| p.to_string_lossy().into_owned())
@@ -593,20 +598,41 @@ pub async fn set_external_agent_connection_permission(
     permission_mode: ExternalAgentPermissionMode,
 ) -> Result<ExternalAgentConnectionInfo, ExternalAgentCommandError> {
     if state.inner.managed_connection_id.read().await.as_deref() != Some(connection_id.as_str()) {
-        return Err(ExternalAgentCommandError::not_found("External Agent connection not found."));
+        return Err(ExternalAgentCommandError::not_found(
+            "External Agent connection not found.",
+        ));
     }
-    let session = state.inner.sessions.read().await.get(&connection_id).cloned()
-        .ok_or_else(|| ExternalAgentCommandError::not_found("External Agent connection not found."))?;
-    if !session.user_managed || session.cancelled.load(Ordering::SeqCst) || now_millis() >= session.capability_expires_at {
-        return Err(ExternalAgentCommandError::permission_denied("The Canvas connection is no longer active."));
+    let session = state
+        .inner
+        .sessions
+        .read()
+        .await
+        .get(&connection_id)
+        .cloned()
+        .ok_or_else(|| {
+            ExternalAgentCommandError::not_found("External Agent connection not found.")
+        })?;
+    if !session.user_managed
+        || session.cancelled.load(Ordering::SeqCst)
+        || now_millis() >= session.capability_expires_at
+    {
+        return Err(ExternalAgentCommandError::permission_denied(
+            "The Canvas connection is no longer active.",
+        ));
     }
-    let root = state.inner.connection_descriptor_root.lock()
-        .map_err(|_| ExternalAgentCommandError::process("Descriptor root lock is poisoned."))?.clone();
+    let root = state
+        .inner
+        .connection_descriptor_root
+        .lock()
+        .map_err(|_| ExternalAgentCommandError::process("Descriptor root lock is poisoned."))?
+        .clone();
     if let Some(mut params) = read_connection_params(&root) {
         params.permission_mode = permission_mode;
         write_connection_params(&root, &params)?;
     }
-    session.permission_mode.store(permission_mode.code(), Ordering::SeqCst);
+    session
+        .permission_mode
+        .store(permission_mode.code(), Ordering::SeqCst);
     connection_info(&session)
 }
 

@@ -420,7 +420,8 @@ mod tests {
 
     #[test]
     fn envelope_returns_data_on_200() {
-        let body = serde_json::json!({"code":200,"message":"成功","data":{"token":"T","userId":"U"}});
+        let body =
+            serde_json::json!({"code":200,"message":"成功","data":{"token":"T","userId":"U"}});
         assert_eq!(parse_envelope(body).unwrap()["token"], "T");
     }
 
@@ -458,7 +459,9 @@ mod tests {
         // 401/103 code is NOT the first colon-separated segment.
         assert!(is_auth_error("Provider error: 401: 未授权"));
         assert!(is_auth_error("Provider error: 103: 登录失效"));
-        assert!(!is_auth_error("Provider error: 1147: 找不到此API计费单元信息"));
+        assert!(!is_auth_error(
+            "Provider error: 1147: 找不到此API计费单元信息"
+        ));
     }
 
     #[test]
@@ -482,11 +485,13 @@ mod tests {
         // Two concurrent requests both hit 401. The first re-logs in and caches
         // a fresh token; the second's stale-token removal must NOT wipe it.
         let client = MvaigcClient::new();
-        client
-            .tokens
-            .lock()
-            .unwrap()
-            .insert("acct".into(), CachedToken { token: "T1".into(), user_id: "u".into() });
+        client.tokens.lock().unwrap().insert(
+            "acct".into(),
+            CachedToken {
+                token: "T1".into(),
+                user_id: "u".into(),
+            },
+        );
         client.forget_token_if("acct", "T2"); // mismatch → no-op
         assert!(client.tokens.lock().unwrap().contains_key("acct"));
         client.forget_token_if("acct", "T1"); // match → removed

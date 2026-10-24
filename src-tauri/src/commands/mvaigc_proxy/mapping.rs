@@ -142,7 +142,13 @@ pub fn map_video_request(openai: &Value, api_name: &str) -> Value {
     // Prefer OSC's explicit aspect_ratio over the pixel size.
     let ratio = str_field(openai, "aspect_ratio")
         .filter(|value| value.contains(':'))
-        .or_else(|| if size.contains(':') { Some(size.clone()) } else { None })
+        .or_else(|| {
+            if size.contains(':') {
+                Some(size.clone())
+            } else {
+                None
+            }
+        })
         .unwrap_or_else(|| "16:9".to_string());
     let duration = openai
         .get("seconds")
@@ -268,7 +274,8 @@ mod tests {
 
     #[test]
     fn text_to_image_without_references_has_no_mention_tokens() {
-        let openai = serde_json::json!({"model": "gpt_image2", "prompt": "一只猫", "size": "1024x1024"});
+        let openai =
+            serde_json::json!({"model": "gpt_image2", "prompt": "一只猫", "size": "1024x1024"});
         let out = map_image_request(&openai, "GPT-Image-2");
         assert_eq!(out["text"], "一只猫");
         assert_eq!(out["textHtml"], "一只猫");
@@ -317,13 +324,22 @@ mod tests {
             "model": "gpt_image2", "prompt": "改", "size": "1024x1024",
             "reference_images": "data:image/png;base64,AAA"
         });
-        assert_eq!(map_image_request(&image, "GPT-Image-2")["images"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            map_image_request(&image, "GPT-Image-2")["images"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
 
         let video = serde_json::json!({
             "model": "minimax_h3", "prompt": "动", "size": "16:9", "seconds": 5,
             "reference_images": "data:image/png;base64,BBB"
         });
         let out = map_video_request(&video, "MiniMax-H3-2K");
-        assert_eq!(out["images"].as_array().unwrap()[0]["imageUrl"], "data:image/png;base64,BBB");
+        assert_eq!(
+            out["images"].as_array().unwrap()[0]["imageUrl"],
+            "data:image/png;base64,BBB"
+        );
     }
 }

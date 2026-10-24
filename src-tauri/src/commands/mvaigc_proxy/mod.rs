@@ -149,7 +149,11 @@ async fn resolve_credentials(
 
 /// Build an error response in the `{"error":{"message":...}}` shape.
 fn error_response(status: StatusCode, message: impl Into<String>) -> Response {
-    (status, Json(json!({ "error": { "message": message.into() } }))).into_response()
+    (
+        status,
+        Json(json!({ "error": { "message": message.into() } })),
+    )
+        .into_response()
 }
 
 /// The field holding an inline media URL: video/audio entries use
@@ -163,7 +167,11 @@ fn inline_media_url_key(entry: &Value) -> Option<&'static str> {
 /// Replace base64 `data:` URLs in `url` fields with a short static URL by
 /// uploading them to mvaigc first. mvaigc stores the request's `oper_info` in
 /// a DB column, so base64 payloads blow past its length limit.
-async fn upload_inline_media(state: &SharedState, token: &str, payload: &mut Value) -> Result<(), String> {
+async fn upload_inline_media(
+    state: &SharedState,
+    token: &str,
+    payload: &mut Value,
+) -> Result<(), String> {
     for field in ["images", "videos", "audios"] {
         let Some(list) = payload.get_mut(field).and_then(Value::as_array_mut) else {
             continue;
@@ -256,13 +264,17 @@ async fn list_models(State(state): State<SharedState>, headers: HeaderMap) -> Re
     let mut models = Vec::new();
     if let Some(map) = image.get("model").and_then(Value::as_object) {
         for key in map.keys() {
-            models.push(json!({"id": key, "object": "model", "owned_by": "mvaigc", "media": "image"}));
+            models.push(
+                json!({"id": key, "object": "model", "owned_by": "mvaigc", "media": "image"}),
+            );
         }
     }
     if let Some(list) = video.as_array() {
         for entry in list {
             if let Some(name) = entry.get("api_name").and_then(Value::as_str) {
-                models.push(json!({"id": name, "object": "model", "owned_by": "mvaigc", "media": "video"}));
+                models.push(
+                    json!({"id": name, "object": "model", "owned_by": "mvaigc", "media": "video"}),
+                );
             }
         }
     }
@@ -449,10 +461,7 @@ pub async fn mvaigc_set_credentials(
     password: String,
     port: u16,
 ) -> Result<String, String> {
-    state
-        .state
-        .set_credentials(account, password)
-        .await;
+    state.state.set_credentials(account, password).await;
     match ensure_started(&state.state, port) {
         Ok(_) => Ok(format!("running:{port}")),
         Err(err) => Err(err),
