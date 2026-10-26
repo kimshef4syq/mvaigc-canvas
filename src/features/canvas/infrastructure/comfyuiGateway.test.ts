@@ -32,6 +32,11 @@ const workflow = {
   '10': { class_type: 'LoadImage', inputs: { image: 'old.png' } },
 };
 
+const dualPromptWorkflow = {
+  ...workflow,
+  '7': { class_type: 'CLIPTextEncode', inputs: { text: 'negative prompt' } },
+};
+
 const audioWorkflow = {
   '1': { class_type: 'LoadAudio', inputs: { audio: '' } },
   '2': { class_type: 'FB_Qwen3TTSVoiceClone', inputs: { target_text: ['3', 0], ref_audio: ['1', 0] } },
@@ -45,6 +50,30 @@ const voiceDesignWorkflow = {
   '3': { class_type: 'SaveAudio', inputs: { audio: ['1', 0] } },
   '10': { class_type: 'JjkText', inputs: { text: 'BODY' } },
   '11': { class_type: 'JjkText', inputs: { text: 'VOICE' } },
+};
+
+const voiceCloneWorkflow = {
+  '40': { class_type: 'LoadAudio', inputs: { audio: 'server.wav' } },
+  '42': { class_type: 'Text', inputs: { text: 'BODY' } },
+  '43': { class_type: 'FB_Qwen3TTSVoiceClone', inputs: { target_text: ['42', 0], ref_audio: ['40', 0] } },
+  '44': { class_type: 'Apply Whisper', inputs: { audio: ['40', 0], prompt: '' } },
+  '52': { class_type: 'SaveAudioMP3', inputs: { audio: ['43', 0] } },
+};
+
+const musicCoverWorkflow = {
+  '10': { class_type: 'SaveAudioAdvanced', inputs: { audio: ['33:9', 0] } },
+  '45': { class_type: 'LoadAudio', inputs: { audio: 'server.mp3' } },
+  '33:25': { class_type: 'YuE2GenerateMusic', inputs: { style: 'pop', lyrics: '[Verse]' } },
+};
+
+const text2MusicWorkflow = {
+  '10': { class_type: 'SaveAudioAdvanced', inputs: { audio: ['33:9', 0] } },
+  '42': { class_type: 'CR Text', inputs: { text: 'ABC' } },
+  '33:24': { class_type: 'YuE2GenerateABC', inputs: { style: ['33:36', 0], lyrics: ['33:37', 0] } },
+  '33:25': { class_type: 'YuE2GenerateMusic', inputs: { style: ['33:36', 0], lyrics: ['33:37', 0] } },
+  '33:31': { class_type: 'PrimitiveBoolean', inputs: { value: ['42', 0] } },
+  '33:36': { class_type: 'PrimitiveStringMultiline', inputs: { value: 'pop' } },
+  '33:37': { class_type: 'PrimitiveStringMultiline', inputs: { value: '[Verse]' } },
 };
 
 function provider(overrides: Partial<CustomProviderConfig> = {}): CustomProviderConfig {
@@ -137,10 +166,6 @@ describe('ComfyUI workflow gateway', () => {
   });
 
   it('requires an explicit positive prompt binding when a workflow has positive and negative text nodes', () => {
-    const dualPromptWorkflow = {
-      ...workflow,
-      '7': { class_type: 'CLIPTextEncode', inputs: { text: 'negative prompt' } },
-    };
     const base = provider({ extraParams: { comfyui: { workflow: dualPromptWorkflow, outputNodeIds: ['9'] } } });
     const unmapped = parseComfyUIConfig(base);
     expect(() => validateComfyUIRequest(unmapped, { ...request, reference_images: [] }))
@@ -482,5 +507,63 @@ describe('ComfyUI binding compatibility', () => {
       bindings: { audios: [{ nodeId: '1', input: 'audio' }], images: [] },
     } } }));
     expect(getComfyUIAudioReferenceRequirements(empty)).toEqual({ min: 1, max: 1 });
+  });
+});
+
+describe('ComfyUI audio text slot detection', () => {
+  it('binds both voice-design slots through their consumers', () => {
+    expect(suggestComfyUIBindings(voiceDesignWorkflow).texts).toEqual([
+      { nodeId: '10', input: 'text', label: '目标文本' },
+      { nodeId: '11', input: 'text', label: '音色描述' },
+    ]);
+  });
+
+  it('binds the voice-clone target text and skips the whisper prompt', () => {
+    const suggested = suggestComfyUIBindings(voiceCloneWorkflow);
+    expect(suggested.texts).toEqual([{ nodeId: '42', input: 'text', label: '目标文本' }]);
+    expect(suggested.audios).toEqual([{ nodeId: '40', input: 'audio' }]);
+  });
+
+  it('reports no bindable text slot for inline literals', () => {
+    expect(suggestComfyUIBindings(musicCoverWorkflow).texts).toEqual([]);
+  });
+
+  it('binds shared upstream slots once and ignores control-flow text', () => {
+    const texts = suggestComfyUIBindings(text2MusicWorkflow).texts!;
+    expect(texts.map(textSlotKey)).toEqual(['33:36.value', '33:37.value']);
+    expect(texts.map((slot) => slot.label)).toEqual(['曲风', '歌词']);
+  });
+
+  it('drops an ambiguous field name when unrelated candidates share it', () => {
+    const ambiguousWorkflow = {
+      '1': { class_type: 'SomeGenerator', inputs: { text: ['10', 0], instruct: ['11', 0] } },
+      '2': { class_type: 'OtherGenerator', inputs: { text: ['12', 0] } },
+      '10': { class_type: 'JjkText', inputs: { text: 'A' } },
+      '11': { class_type: 'JjkText', inputs: { text: 'B' } },
+      '12': { class_type: 'JjkText', inputs: { text: 'C' } },
+    };
+    // Two unrelated `text` candidates leave the field name unusable; `instruct` is still unambiguous.
+    expect(suggestComfyUIBindings(ambiguousWorkflow).texts)
+      .toEqual([{ nodeId: '11', input: 'text', label: '音色描述' }]);
+  });
+
+  it('still requires an explicit prompt binding for a dual CLIPTextEncode workflow', () => {
+    expect(suggestComfyUIBindings(dualPromptWorkflow).texts).toEqual([]);
+    const unmapped = parseComfyUIConfig(provider({ extraParams: { comfyui: { workflow: dualPromptWorkflow, outputNodeIds: ['9'] } } }));
+    expect(() => validateComfyUIRequest(unmapped, { ...request, reference_images: [] }))
+      .toThrow('请选择 ComfyUI 提示词节点');
+  });
+
+  it('keeps an explicit prompt binding instead of detected slots', () => {
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
+      workflow: voiceDesignWorkflow,
+      outputNodeIds: ['3'],
+      bindings: { prompt: { nodeId: '11', input: 'text' }, images: [], audios: [] },
+    } } }));
+    expect(effectiveTextSlots(config.bindings).map(textSlotKey)).toEqual(['11.text']);
+    // Detection must not leak in: the prompt lands on the user's slot, not on detected slot 0.
+    const patched = prepareComfyUIWorkflow(config, { ...request, reference_images: [], prompt: 'NEW' });
+    expect(patched['11'].inputs).toMatchObject({ text: 'NEW' });
+    expect(patched['10'].inputs).toMatchObject({ text: 'BODY' });
   });
 });

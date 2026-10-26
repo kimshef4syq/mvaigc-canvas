@@ -36,6 +36,8 @@ export interface ComfyUIConfig {
   pollIntervalMs: number;
   pollTimeoutMs: number;
   mediaType?: ComfyUIMediaType;
+  // True when the stored config maps at least one text slot, so auto-detection must not apply.
+  textBindingsExplicit: boolean;
 }
 
 export interface ComfyUITransport {
@@ -233,13 +235,17 @@ export function parseComfyUIConfig(cfg: CustomProviderConfig): ComfyUIConfig {
     }
   }
   const bindings = parseBindings(raw.bindings);
+  // Decided from the stored config, before any inference below, so auto-detection can never override
+  // a slot the user mapped explicitly.
+  const textBindingsExplicit = Boolean(bindings.prompt) || Boolean(bindings.texts?.length);
   // A config that maps no text slot at all still resolves the workflow's unambiguous prompt node,
   // so `bindings` alone describes the effective slots for `effectiveTextSlots` callers. Detected
   // multi-slot results stay out of the stored shape; `effectiveBindings` merges them at runtime.
-  const unbound = !bindings.prompt && !bindings.texts?.length;
+  const unbound = !textBindingsExplicit;
   return {
     workflow,
     mediaType: cfg.mediaType === 'audio' ? 'audio' : cfg.mediaType === 'video' ? 'video' : 'image',
+    textBindingsExplicit,
     bindings: {
       ...bindings,
       prompt: bindings.prompt ?? (unbound ? suggestComfyUIBindings(workflow).prompt : undefined),
@@ -291,21 +297,107 @@ export function isLocalH3Workflow(workflowInput: unknown): boolean {
   return Object.values(asRecord(workflowInput) ?? {}).some((node) => LOCAL_H3_NODE.test(nonemptyString(asRecord(node)?.class_type)));
 }
 
+const TEXT_INPUT_FIELDS = ['target_text', 'text', 'style', 'lyrics', 'instruct', 'ref_text', 'prompt'];
+// Fields a switch/forwarding node exposes so a link can be followed through it.
+const TEXT_TRACE_FIELDS = ['value', 'text', 'style', 'lyrics'];
+const TEXT_LITERAL_NODE = /^(?:PrimitiveString|PrimitiveStringMultiline|JjkText|Text|CR Text|String|CR Prompt Text)$/i;
+const TEXT_FIELD_LABELS: Record<string, string> = {
+  target_text: '目标文本',
+  text: '目标文本',
+  instruct: '音色描述',
+  style: '曲风',
+  lyrics: '歌词',
+  ref_text: '参考文本',
+};
+const MAX_TEXT_TRACE_HOPS = 12;
+
+function linkTarget(value: unknown): string | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const nodeId = value[0];
+  return typeof nodeId === 'string' || typeof nodeId === 'number' ? String(nodeId) : null;
+}
+
+// Follows a link through forwarding nodes until it reaches the node holding the literal string.
+function literalTextSlot(
+  workflow: Record<string, JsonRecord>,
+  startNodeId: string,
+): ComfyUIInputBinding | null {
+  const visited = new Set<string>();
+  let nodeId = startNodeId;
+  for (let hop = 0; hop < MAX_TEXT_TRACE_HOPS; hop += 1) {
+    if (visited.has(nodeId)) return null;
+    visited.add(nodeId);
+    const node = asRecord(workflow[nodeId]);
+    const inputs = asRecord(node?.inputs);
+    if (!node || !inputs) return null;
+    if (TEXT_LITERAL_NODE.test(nonemptyString(node.class_type))) {
+      const literal = Object.entries(inputs).find(([, value]) => typeof value === 'string');
+      return literal ? { nodeId, input: literal[0] } : null;
+    }
+    const next = TEXT_TRACE_FIELDS.map((field) => linkTarget(inputs[field])).find((id) => id !== null);
+    if (!next) return null;
+    nodeId = next;
+  }
+  return null;
+}
+
+// Field-driven detection: a bindable slot is always a literal node reached through a consumer's text field.
+// Inline literals stay with the workflow, and a field name that resolves to unrelated slots is dropped as
+// ambiguous rather than guessed at.
+function suggestTextSlots(workflow: Record<string, JsonRecord>): ComfyUITextBinding[] {
+  const hits: { field: string; slot: ComfyUIInputBinding }[] = [];
+  for (const node of Object.values(workflow)) {
+    const inputs = asRecord(node.inputs);
+    if (!inputs || TEXT_LITERAL_NODE.test(nonemptyString(node.class_type))) continue;
+    for (const field of TEXT_INPUT_FIELDS) {
+      const target = linkTarget(inputs[field]);
+      const slot = target ? literalTextSlot(workflow, target) : null;
+      if (slot) hits.push({ field, slot });
+    }
+  }
+  const slotsPerField = new Map<string, Set<string>>();
+  for (const { field, slot } of hits) {
+    const keys = slotsPerField.get(field) ?? new Set<string>();
+    keys.add(textSlotKey(slot));
+    slotsPerField.set(field, keys);
+  }
+  const slots: ComfyUITextBinding[] = [];
+  const seen = new Set<string>();
+  for (const { field, slot } of hits) {
+    if ((slotsPerField.get(field)?.size ?? 0) > 1) continue;
+    const key = textSlotKey(slot);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    slots.push({ ...slot, label: TEXT_FIELD_LABELS[field] ?? key });
+  }
+  return slots;
+}
+
 export function suggestComfyUIBindings(workflowInput: unknown): ComfyUIBindings {
   const workflow = cloneWorkflow(workflowInput);
   const imageNodes = Object.entries(workflow).filter(([, node]) =>
     /^LoadImage$/i.test(nonemptyString(node.class_type))
     && Object.prototype.hasOwnProperty.call(asRecord(node.inputs) ?? {}, 'image')
   );
+  const audioNodes = Object.entries(workflow).filter(([, node]) =>
+    /^LoadAudio$/i.test(nonemptyString(node.class_type))
+    && Object.prototype.hasOwnProperty.call(asRecord(node.inputs) ?? {}, 'audio')
+  );
+  const prompt = findInput(workflow, LOCAL_H3_NODE, 'prompt') ?? findInput(workflow, /^CLIPTextEncode$/i, 'text');
+  const detected = suggestTextSlots(workflow);
+  // The legacy single-prompt rule keeps its slot, and keeps it first, so image/video workflows that
+  // only ever had a CLIPTextEncode or H3 prompt write `request.prompt` exactly where they used to.
+  const legacySlot = prompt && !detected.some((slot) => textSlotKey(slot) === textSlotKey(prompt)) ? [prompt] : [];
   return {
-    prompt: findInput(workflow, LOCAL_H3_NODE, 'prompt') ?? findInput(workflow, /^CLIPTextEncode$/i, 'text'),
+    prompt,
+    texts: [...legacySlot, ...detected],
     seed: findInput(workflow, /^KSampler$/i, 'seed')
       ?? findInput(workflow, /^(?:KSamplerAdvanced|RandomNoise)$/i, 'noise_seed'),
     width: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'width') ?? findInput(workflow, /^EmptyLatentImage$/i, 'width'),
     height: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'height') ?? findInput(workflow, /^EmptyLatentImage$/i, 'height'),
     duration: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'length'),
     images: imageNodes.map(([nodeId]) => ({ nodeId, input: 'image' })),
-    audios: [],
+    audios: audioNodes.map(([nodeId]) => ({ nodeId, input: 'audio' })),
   };
 }
 
@@ -326,7 +418,9 @@ function effectiveBindings(config: ComfyUIConfig): ComfyUIBindings {
   }
   result.images = config.bindings.images.length ? config.bindings.images : suggested.images;
   result.audios = config.bindings.audios.length ? config.bindings.audios : suggested.audios;
-  if (config.bindings.texts?.length) result.texts = config.bindings.texts;
+  // An explicit prompt or texts mapping suppresses detection entirely; only a config that mapped
+  // nothing falls back to the detected slots.
+  if (config.textBindingsExplicit) result.texts = config.bindings.texts?.length ? config.bindings.texts : undefined;
   return result;
 }
 
