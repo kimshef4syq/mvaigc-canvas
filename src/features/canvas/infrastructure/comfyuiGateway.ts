@@ -390,6 +390,9 @@ export function suggestComfyUIBindings(workflowInput: unknown): ComfyUIBindings 
   const legacySlot = prompt && !detected.some((slot) => textSlotKey(slot) === textSlotKey(prompt)) ? [prompt] : [];
   return {
     prompt,
+    // `texts` here is a suggestion, not a stored binding. Callers that persist this result (the settings
+    // workbench import path writes it into the bindings JSON) must strip `texts`, otherwise the detected
+    // slots become explicit config and permanently disable detection for that provider.
     texts: [...legacySlot, ...detected],
     seed: findInput(workflow, /^KSampler$/i, 'seed')
       ?? findInput(workflow, /^(?:KSamplerAdvanced|RandomNoise)$/i, 'noise_seed'),
@@ -418,9 +421,14 @@ function effectiveBindings(config: ComfyUIConfig): ComfyUIBindings {
   }
   result.images = config.bindings.images.length ? config.bindings.images : suggested.images;
   result.audios = config.bindings.audios.length ? config.bindings.audios : suggested.audios;
-  // An explicit prompt or texts mapping suppresses detection entirely; only a config that mapped
-  // nothing falls back to the detected slots.
-  if (config.textBindingsExplicit) result.texts = config.bindings.texts?.length ? config.bindings.texts : undefined;
+  // Detected slots are only trusted for audio, the one media type whose workflow shape cannot tell a
+  // positive prompt from a negative one. Image and video keep the legacy prompt-or-throw behaviour, so
+  // an ambiguous workflow can never have `request.prompt` written into a negative-prompt source.
+  // An explicit prompt or texts mapping suppresses detection entirely.
+  const useDetected = config.mediaType === 'audio' && !config.textBindingsExplicit;
+  result.texts = useDetected
+    ? config.bindings.texts?.length ? config.bindings.texts : suggested.texts
+    : config.bindings.texts?.length ? config.bindings.texts : undefined;
   return result;
 }
 

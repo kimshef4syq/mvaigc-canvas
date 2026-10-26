@@ -554,6 +554,40 @@ describe('ComfyUI audio text slot detection', () => {
       .toThrow('请选择 ComfyUI 提示词节点');
   });
 
+  it('traces a text slot through a forwarding node to the literal it reads', () => {
+    const switchedWorkflow = {
+      '1': { class_type: 'SomeTTS', inputs: { text: ['20', 0] } },
+      '20': { class_type: 'ComfySwitchNode', inputs: { on_true: ['21', 0], on_false: ['21', 0], value: ['22', 0] } },
+      '22': { class_type: 'PrimitiveStringMultiline', inputs: { value: 'SPOKEN' } },
+      '30': { class_type: 'SaveAudio', inputs: { audio: ['1', 0] } },
+    };
+    expect(suggestComfyUIBindings(switchedWorkflow).texts)
+      .toEqual([{ nodeId: '22', input: 'value', label: '目标文本' }]);
+  });
+
+  it('does not let detection bind a linked negative prompt in an image workflow', () => {
+    const linkedNegativeWorkflow = {
+      '6': { class_type: 'CLIPTextEncode', inputs: { text: 'positive inline' } },
+      '7': { class_type: 'CLIPTextEncode', inputs: { text: ['12', 0] } },
+      '9': { class_type: 'SaveImage', inputs: { images: ['6', 0] } },
+      '12': { class_type: 'PrimitiveStringMultiline', inputs: { value: 'ugly, blurry' } },
+    };
+    // Two CLIPTextEncode nodes leave `prompt` unresolved; the single detected slot is the negative one,
+    // so detection must not apply and the legacy guard must still fire.
+    const imageConfig = parseComfyUIConfig(provider({ extraParams: { comfyui: {
+      workflow: linkedNegativeWorkflow, outputNodeIds: ['9'],
+    } } }));
+    expect(() => prepareComfyUIWorkflow(imageConfig, { ...request, reference_images: [] }))
+      .toThrow('请选择 ComfyUI 提示词节点');
+
+    // The same shape is usable for audio, where the slot UI is what tells the user which slot is which.
+    const audioConfig = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
+      workflow: linkedNegativeWorkflow, outputNodeIds: ['9'],
+    } } }));
+    const patched = prepareComfyUIWorkflow(audioConfig, { ...request, reference_images: [], prompt: 'SPOKEN' });
+    expect(patched['12'].inputs).toMatchObject({ value: 'SPOKEN' });
+  });
+
   it('keeps an explicit prompt binding instead of detected slots', () => {
     const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
       workflow: voiceDesignWorkflow,
