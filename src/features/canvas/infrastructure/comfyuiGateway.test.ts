@@ -407,7 +407,7 @@ describe('ComfyUI audio workflow contracts', () => {
   it('does not apply image geometry to an audio workflow', () => {
     const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
       comfyui: {
-        workflow: audioWorkflow,
+        workflow: { ...audioWorkflow, '1': { class_type: 'LoadAudio', inputs: { audio: 'server.wav' } } },
         outputNodeIds: ['4'],
         bindings: { prompt: { nodeId: '3', input: 'text' }, images: [] },
       },
@@ -419,6 +419,7 @@ describe('ComfyUI audio workflow contracts', () => {
   it('leaves an explicitly bound audio size untouched instead of rewriting it as image geometry', () => {
     const sizedAudioWorkflow = {
       ...audioWorkflow,
+      '1': { class_type: 'LoadAudio', inputs: { audio: 'server.wav' } },
       '6': { class_type: 'EmptyLatentAudio', inputs: { width: 512, height: 512 } },
     };
     const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
@@ -435,6 +436,53 @@ describe('ComfyUI audio workflow contracts', () => {
     } }));
     const patched = prepareComfyUIWorkflow(config, { ...request, reference_images: [], size: '1024x768' });
     expect(patched['6'].inputs).toMatchObject({ width: 512, height: 512 });
+  });
+});
+
+describe('ComfyUI reference audio uploads', () => {
+  it('uploads reference audio through /upload/image and writes the LoadAudio slot', async () => {
+    const client = transport();
+    client.multipart.mockResolvedValueOnce({ name: 'ref-audio-1.mp3', subfolder: 'input' });
+    client.json.mockResolvedValue({ prompt_id: 'p-audio' });
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
+      workflow: voiceCloneWorkflow, outputNodeIds: ['52'],
+      bindings: { texts: [{ nodeId: '42', input: 'text' }], audios: [{ nodeId: '40', input: 'audio' }], images: [] },
+    } } }));
+
+    await submitComfyUIWorkflow(config, {
+      ...request, reference_images: [], reference_audios: ['data:audio/mpeg;base64,AAAA'],
+    }, client);
+
+    expect(client.multipart).toHaveBeenLastCalledWith('/upload/image', expect.objectContaining({
+      files: [expect.objectContaining({ name: 'image', fileName: 'canvas-audio-1.mp3' })],
+    }));
+    expect(client.json).toHaveBeenCalledWith('/prompt', 'POST', expect.objectContaining({
+      prompt: expect.objectContaining({
+        '40': expect.objectContaining({ inputs: { audio: 'input/ref-audio-1.mp3' } }),
+        '42': expect.objectContaining({ inputs: { text: 'a castle at dawn' } }),
+      }),
+    }));
+  });
+
+  it('rejects reference audio when the workflow has no audio slot', async () => {
+    const client = transport();
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
+      workflow: voiceDesignWorkflow, outputNodeIds: ['3'], bindings: { images: [], audios: [] },
+    } } }));
+    await expect(submitComfyUIWorkflow(config, {
+      ...request, reference_images: [], reference_audios: ['data:audio/mpeg;base64,AAAA'],
+    }, client)).rejects.toThrow('没有音频输入槽');
+    expect(client.multipart).not.toHaveBeenCalled();
+  });
+
+  it('rejects more reference audio than the workflow accepts', async () => {
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
+      workflow: voiceCloneWorkflow, outputNodeIds: ['52'],
+      bindings: { audios: [{ nodeId: '40', input: 'audio' }], images: [] },
+    } } }));
+    expect(() => prepareComfyUIWorkflow(config, {
+      ...request, reference_images: [], reference_audios: ['data:audio/mpeg;base64,AA', 'data:audio/mpeg;base64,BB'],
+    }, [], ['a.mp3', 'b.mp3'])).toThrow('只有 1 个参考音频输入');
   });
 });
 

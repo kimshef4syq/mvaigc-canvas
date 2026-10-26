@@ -493,6 +493,7 @@ export function prepareComfyUIWorkflow(
   config: ComfyUIConfig,
   request: GenerateRequest,
   uploadedNames: string[] = [],
+  uploadedAudioNames: string[] = [],
 ): Record<string, JsonRecord> {
   const workflow = cloneWorkflow(config.workflow);
   const bindings = effectiveBindings(config);
@@ -521,7 +522,7 @@ export function prepareComfyUIWorkflow(
   }
   const h3 = isLocalH3Workflow(workflow);
   const nonImage = config.mediaType === 'video' || config.mediaType === 'audio' || h3;
-  if (nonImage && ((request.reference_videos?.length ?? 0) > 0 || (request.reference_audios?.length ?? 0) > 0)) {
+  if (nonImage && (request.reference_videos?.length ?? 0) > 0) {
     throw new Error('ComfyUI 当前只支持画布参考图上传；视频和音频输入请在服务器工作流中配置。');
   }
   if (h3 && bindings.width && bindings.height) {
@@ -577,12 +578,30 @@ export function prepareComfyUIWorkflow(
   }
   if (uploadedNames.length !== referenceCount) throw new Error('ComfyUI 参考图上传结果数量不匹配。');
   uploadedNames.forEach((name, index) => setInput(workflow, bindings.images[index], name));
+
+  const audioCount = request.reference_audios?.length ?? 0;
+  if (audioCount > 0 && bindings.audios.length === 0) {
+    throw new Error('ComfyUI 工作流没有音频输入槽；请在服务器工作流中添加 LoadAudio 映射。');
+  }
+  const audioRequirements = getComfyUIAudioReferenceRequirements(config);
+  if (audioCount < audioRequirements.min) throw new Error(`工作流至少需要 ${audioRequirements.min} 个参考音频；请连接音频卡片或在工作流中填写服务器音频文件名。`);
+  if (audioCount > bindings.audios.length) {
+    throw new Error(`工作流只有 ${bindings.audios.length} 个参考音频输入，画布传入 ${audioCount} 个；请增加 LoadAudio 映射或减少参考音频。`);
+  }
+  if (uploadedAudioNames.length !== audioCount) throw new Error('ComfyUI 参考音频上传结果数量不匹配。');
+  uploadedAudioNames.forEach((name, index) => setInput(workflow, bindings.audios[index], name));
   return workflow;
 }
 
 export function validateComfyUIRequest(config: ComfyUIConfig, request: GenerateRequest): void {
   const count = request.reference_images?.length ?? 0;
-  prepareComfyUIWorkflow(config, request, Array.from({ length: count }, (_, index) => `reference-${index + 1}.png`));
+  const audioCount = request.reference_audios?.length ?? 0;
+  prepareComfyUIWorkflow(
+    config,
+    request,
+    Array.from({ length: count }, (_, index) => `reference-${index + 1}.png`),
+    Array.from({ length: audioCount }, (_, index) => `reference-audio-${index + 1}.mp3`),
+  );
 }
 
 function uploadedImageName(payload: unknown): string {
@@ -617,7 +636,21 @@ export async function submitComfyUIWorkflow(
     });
     uploadedNames.push(uploadedImageName(response));
   }
-  const workflow = prepareComfyUIWorkflow(config, request, uploadedNames);
+  const uploadedAudioNames: string[] = [];
+  for (const [index, source] of (request.reference_audios ?? []).entries()) {
+    if (!/^data:audio\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/i.test(source)) {
+      throw new Error('ComfyUI 参考音频必须先转换为本地 data URL，不能直接上传远程地址。');
+    }
+    const mimeType = source.slice(5, source.indexOf(';'));
+    // ComfyUI's upload route only accepts the hardcoded `image` field, and its file type is never checked.
+    const extension = mimeType.split('/')[1]?.replace('mpeg', 'mp3') || 'wav';
+    const response = await transport.multipart('/upload/image', {
+      fields: [{ name: 'type', value: 'input' }],
+      files: [{ name: 'image', fileName: `canvas-audio-${index + 1}.${extension}`, mimeType, dataUrl: source }],
+    });
+    uploadedAudioNames.push(uploadedImageName(response));
+  }
+  const workflow = prepareComfyUIWorkflow(config, request, uploadedNames, uploadedAudioNames);
   const parsed = asRecord(await transport.json('/prompt', 'POST', { prompt: workflow }));
   const promptId = nonemptyString(parsed?.prompt_id);
   if (!promptId) {
