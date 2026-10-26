@@ -7,7 +7,7 @@ import { resilientLocalStorage } from './persistStorage';
  * real deployments are reverse proxies / aggregators with non-standard shapes,
  * so we store the raw fields and let the generation adapter reshape them.
  */
-export type CustomProviderMediaType = 'image' | 'video' | 'chat';
+export type CustomProviderMediaType = 'image' | 'video' | 'chat' | 'audio';
 
 export interface CustomProviderChatModelMetadata {
   supportsMultimodal?: boolean;
@@ -69,6 +69,9 @@ export function customProviderMediaType(provider: Pick<CustomProviderConfig, 'me
   if (provider.mediaType === 'video' || provider.extraParams?.mediaType === 'video') {
     return 'video';
   }
+  if (provider.mediaType === 'audio' || provider.extraParams?.mediaType === 'audio') {
+    return 'audio';
+  }
   return 'image';
 }
 
@@ -82,6 +85,10 @@ export function isImageCustomProvider(provider: Pick<CustomProviderConfig, 'medi
 
 export function isChatCustomProvider(provider: Pick<CustomProviderConfig, 'mediaType' | 'extraParams'>): boolean {
   return customProviderMediaType(provider) === 'chat';
+}
+
+export function isAudioCustomProvider(provider: Pick<CustomProviderConfig, 'mediaType' | 'extraParams'>): boolean {
+  return customProviderMediaType(provider) === 'audio';
 }
 
 interface CustomProvidersState {

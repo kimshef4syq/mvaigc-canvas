@@ -66,6 +66,15 @@ function uniqueStrings(value: unknown, fallback: string[] = []): string[] {
   return result;
 }
 
+/** ComfyUI workflows can emit images, videos or audio. Every other api style
+ *  keeps the old image-only flattening this editor was built around. */
+export function comfyMediaType(value: unknown): 'image' | 'video' | 'audio' {
+  if (!isPlainRecord(value) || value.apiStyle !== 'comfyui') return 'image';
+  if (value.mediaType === 'audio') return 'audio';
+  if (value.mediaType === 'video') return 'video';
+  return 'image';
+}
+
 function stringRecord(value: unknown): Record<string, string> {
   if (!isPlainRecord(value)) return {};
   return Object.fromEntries(
@@ -396,7 +405,7 @@ export function customImageProviderConfigToDraft(provider: CustomProviderConfig)
   return {
     ...provider,
     id: provider.id,
-    mediaType: provider.apiStyle === 'comfyui' && provider.mediaType === 'video' ? 'video' : 'image',
+    mediaType: comfyMediaType(provider),
     endpointPath: provider.endpointPath ?? '',
     modelListEndpointPath: provider.modelListEndpointPath ?? '/models',
     httpMethod: provider.httpMethod ?? 'POST',
@@ -479,7 +488,7 @@ export function customImageProviderDraftFromUnknown(
   const value: CustomImageProviderDraft = {
     ...baseDraft,
     id: typeof input.id === 'string' && input.id.trim() ? input.id.trim() : baseDraft.id,
-    mediaType: input.apiStyle === 'comfyui' && input.mediaType === 'video' ? 'video' : 'image',
+    mediaType: comfyMediaType(input),
     label: String(input.label ?? baseDraft.label ?? ''),
     baseUrl: String(input.baseUrl ?? baseDraft.baseUrl ?? ''),
     endpointPath,
@@ -524,7 +533,7 @@ export function customImageProviderDraftToConfig(
     return { value: null, issues };
   }
 
-  const mediaType = draft.apiStyle === 'comfyui' && draft.mediaType === 'video' ? 'video' : 'image';
+  const mediaType = comfyMediaType(draft);
 
   const extraParams = writeCustomImageRequestContract(
     {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { CustomProviderConfig } from '@/stores/customProvidersStore';
 import {
+  isAudioCustomProvider,
+  isImageCustomProvider,
+  isVideoCustomProvider,
+} from '@/stores/customProvidersStore';
+import {
   createEmptyCustomImageProviderDraft,
   customImageProviderConfigToDraft,
   customImageProviderDraftFromUnknown,
@@ -326,5 +331,21 @@ describe('custom image provider config', () => {
     expect(saved.value?.extraParams?.imageRequestContract).toMatchObject({
       imageToImage: { bodyMode: 'form-urlencoded' },
     });
+  });
+
+  it('keeps comfyui audio mediaType through the draft round trip', () => {
+    const config = customImageProviderDraftToConfig({
+      ...createEmptyCustomImageProviderDraft(),
+      apiStyle: 'comfyui',
+      mediaType: 'audio',
+      label: 'audio wf',
+      baseUrl: 'http://127.0.0.1:8188',
+      extraParams: { comfyui: { workflow: { '1': { class_type: 'SaveAudio', inputs: {} } } } },
+    }, 'audio-1').value!;
+    expect(config.mediaType).toBe('audio');
+    expect(customImageProviderConfigToDraft(config).mediaType).toBe('audio');
+    expect(isAudioCustomProvider(config)).toBe(true);
+    expect(isImageCustomProvider(config)).toBe(false);
+    expect(isVideoCustomProvider(config)).toBe(false);
   });
 });
