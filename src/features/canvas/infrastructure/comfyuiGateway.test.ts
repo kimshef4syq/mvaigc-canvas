@@ -29,6 +29,14 @@ const workflow = {
   '10': { class_type: 'LoadImage', inputs: { image: 'old.png' } },
 };
 
+const audioWorkflow = {
+  '1': { class_type: 'LoadAudio', inputs: { audio: '' } },
+  '2': { class_type: 'FB_Qwen3TTSVoiceClone', inputs: { target_text: ['3', 0], ref_audio: ['1', 0] } },
+  '3': { class_type: 'Text', inputs: { text: 'hello' } },
+  '4': { class_type: 'SaveAudioMP3', inputs: { audio: ['2', 0], quality: '128k' } },
+  '5': { class_type: 'PreviewAudio', inputs: { audio: ['2', 0] } },
+};
+
 function provider(overrides: Partial<CustomProviderConfig> = {}): CustomProviderConfig {
   return {
     id: 'comfy-1',
@@ -316,5 +324,81 @@ describe('ComfyUI video workflow contracts', () => {
     ]) {
       expect(inspectComfyUIHistory({ task: { status: { completed: true }, outputs: { '9': { images: [file] } } } }, 'task', parseComfyUIConfig(h3Provider()), 'video').state).toBe('failed');
     }
+  });
+});
+
+describe('ComfyUI audio workflow contracts', () => {
+  it('suggests audio output nodes', () => {
+    expect(suggestComfyUIOutputNodes(audioWorkflow)).toEqual(['4', '5']);
+  });
+
+  it('finds the audio file under the audio history key', () => {
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
+      comfyui: { workflow: audioWorkflow, outputNodeIds: ['4'] },
+    } }));
+    const result = inspectComfyUIHistory({
+      'p1': { outputs: { '4': { audio: [{ filename: 'out.mp3', subfolder: 'audio', type: 'output' }] } } },
+    }, 'p1', config, 'audio');
+    expect(result).toMatchObject({ state: 'ready', file: { filename: 'out.mp3', subfolder: 'audio' } });
+  });
+
+  it('accepts uppercase audio extensions', () => {
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
+      comfyui: { workflow: audioWorkflow, outputNodeIds: ['4'] },
+    } }));
+    expect(inspectComfyUIHistory({
+      'p1': { outputs: { '4': { audio: [{ filename: 'OUT.FLAC', subfolder: '', type: 'output' }] } } },
+    }, 'p1', config, 'audio')).toMatchObject({ state: 'ready' });
+  });
+
+  it('reports completion without an audio file instead of pending', () => {
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
+      comfyui: { workflow: audioWorkflow, outputNodeIds: ['4'] },
+    } }));
+    expect(inspectComfyUIHistory({
+      'p1': { outputs: {}, status: { completed: true, status_str: 'success' } },
+    }, 'p1', config, 'audio')).toMatchObject({ state: 'failed' });
+  });
+
+  it('names the missing artifact as audio in the completion error', () => {
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
+      comfyui: { workflow: audioWorkflow, outputNodeIds: ['4'] },
+    } }));
+    expect(inspectComfyUIHistory({
+      'p1': { outputs: {}, status: { completed: true, status_str: 'success' } },
+    }, 'p1', config, 'audio')).toMatchObject({ error: expect.stringContaining('音频') });
+  });
+
+  it('does not apply image geometry to an audio workflow', () => {
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
+      comfyui: {
+        workflow: audioWorkflow,
+        outputNodeIds: ['4'],
+        bindings: { prompt: { nodeId: '3', input: 'text' }, images: [] },
+      },
+    } }));
+    expect(() => prepareComfyUIWorkflow(config, { ...request, reference_images: [], size: '1024x768' }))
+      .not.toThrow();
+  });
+
+  it('leaves an explicitly bound audio size untouched instead of rewriting it as image geometry', () => {
+    const sizedAudioWorkflow = {
+      ...audioWorkflow,
+      '6': { class_type: 'EmptyLatentAudio', inputs: { width: 512, height: 512 } },
+    };
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
+      comfyui: {
+        workflow: sizedAudioWorkflow,
+        outputNodeIds: ['4'],
+        bindings: {
+          prompt: { nodeId: '3', input: 'text' },
+          width: { nodeId: '6', input: 'width' },
+          height: { nodeId: '6', input: 'height' },
+          images: [],
+        },
+      },
+    } }));
+    const patched = prepareComfyUIWorkflow(config, { ...request, reference_images: [], size: '1024x768' });
+    expect(patched['6'].inputs).toMatchObject({ width: 512, height: 512 });
   });
 });

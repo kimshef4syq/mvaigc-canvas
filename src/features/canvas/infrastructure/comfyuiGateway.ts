@@ -21,13 +21,15 @@ export interface ComfyUIBindings {
   images: ComfyUIInputBinding[];
 }
 
+export type ComfyUIMediaType = 'image' | 'video' | 'audio';
+
 export interface ComfyUIConfig {
   workflow: Record<string, JsonRecord>;
   bindings: ComfyUIBindings;
   outputNodeIds: string[];
   pollIntervalMs: number;
   pollTimeoutMs: number;
-  mediaType?: 'image' | 'video';
+  mediaType?: ComfyUIMediaType;
 }
 
 export interface ComfyUITransport {
@@ -112,6 +114,7 @@ const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const MAX_WORKFLOW_BYTES = 8 * 1024 * 1024;
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'avif']);
 const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'm4v']);
+const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'flac', 'ogg', 'opus', 'm4a', 'aac', 'webm']);
 
 function asRecord(value: unknown): JsonRecord | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -211,7 +214,7 @@ export function parseComfyUIConfig(cfg: CustomProviderConfig): ComfyUIConfig {
   }
   return {
     workflow,
-    mediaType: cfg.mediaType === 'video' ? 'video' : 'image',
+    mediaType: cfg.mediaType === 'audio' ? 'audio' : cfg.mediaType === 'video' ? 'video' : 'image',
     bindings: parseBindings(raw.bindings),
     outputNodeIds: outputNodeIds as string[],
     pollIntervalMs: boundedNumber(raw.pollIntervalMs, 1500, 500, 10000),
@@ -334,7 +337,7 @@ export function getComfyUIVideoCapabilities(config: ComfyUIConfig): {
 export function suggestComfyUIOutputNodes(workflowInput: unknown): string[] {
   const workflow = cloneWorkflow(workflowInput);
   return Object.entries(workflow)
-    .filter(([, node]) => /(?:SaveImage|SaveVideo|SaveAnimated|VideoCombine|VHS_)/i.test(nonemptyString(node.class_type)))
+    .filter(([, node]) => /(?:SaveImage|SaveVideo|SaveAnimated|VideoCombine|VHS_|SaveAudio|SaveAudioMP3|SaveAudioOpus|SaveAudioAdvanced|PreviewAudio)/i.test(nonemptyString(node.class_type)))
     .map(([nodeId]) => nodeId);
 }
 
@@ -358,8 +361,8 @@ export function prepareComfyUIWorkflow(
     setInput(workflow, bindings.seed, Math.floor(seedValue));
   }
   const h3 = isLocalH3Workflow(workflow);
-  const video = config.mediaType === 'video' || h3;
-  if (video && ((request.reference_videos?.length ?? 0) > 0 || (request.reference_audios?.length ?? 0) > 0)) {
+  const nonImage = config.mediaType === 'video' || config.mediaType === 'audio' || h3;
+  if (nonImage && ((request.reference_videos?.length ?? 0) > 0 || (request.reference_audios?.length ?? 0) > 0)) {
     throw new Error('ComfyUI 当前只支持画布参考图上传；视频和音频输入请在服务器工作流中配置。');
   }
   if (h3 && bindings.width && bindings.height) {
@@ -380,8 +383,8 @@ export function prepareComfyUIWorkflow(
     }
     setInput(workflow, bindings.width, width);
     setInput(workflow, bindings.height, height);
-  } else if (bindings.width || bindings.height) {
-    if (video) {
+  } else if (config.mediaType !== 'audio' && (bindings.width || bindings.height)) {
+    if (nonImage) {
       const pixels = /^(\d+)x(\d+)$/i.exec(request.size ?? '');
       if (pixels) {
         if (bindings.width) setInput(workflow, bindings.width, Number(pixels[1]));
@@ -473,12 +476,17 @@ interface ComfyOutputFile {
   type: string;
 }
 
-function outputFile(value: unknown, mediaType: 'image' | 'video'): ComfyOutputFile | null {
+function extensionsFor(mediaType: ComfyUIMediaType): Set<string> {
+  if (mediaType === 'audio') return AUDIO_EXTENSIONS;
+  return mediaType === 'video' ? VIDEO_EXTENSIONS : IMAGE_EXTENSIONS;
+}
+
+function outputFile(value: unknown, mediaType: ComfyUIMediaType): ComfyOutputFile | null {
   const record = asRecord(value);
   const filename = nonemptyString(record?.filename);
   if (!filename || filename.includes('/') || filename.includes('\\') || filename === '.' || filename === '..') return null;
   const extension = filename.split('.').pop()?.toLowerCase() ?? '';
-  if (!(mediaType === 'image' ? IMAGE_EXTENSIONS : VIDEO_EXTENSIONS).has(extension)) return null;
+  if (!extensionsFor(mediaType).has(extension)) return null;
   const subfolder = nonemptyString(record?.subfolder);
   if (subfolder.split(/[\\/]/).some((part) => part === '..')) return null;
   const type = nonemptyString(record?.type) || 'output';
@@ -489,13 +497,14 @@ function outputFile(value: unknown, mediaType: 'image' | 'video'): ComfyOutputFi
 function findOutputFile(
   outputs: JsonRecord,
   nodeIds: string[],
-  mediaType: 'image' | 'video',
+  mediaType: ComfyUIMediaType,
 ): ComfyOutputFile | null {
   const candidates: ComfyOutputFile[] = [];
   for (const nodeId of nodeIds) {
     const nodeOutput = asRecord(outputs[nodeId]);
     if (!nodeOutput) continue;
-    const preferredKeys = mediaType === 'image' ? ['images', 'gifs', 'files'] : ['videos', 'gifs', 'files'];
+    const preferredKeys = mediaType === 'audio' ? ['audio', 'files']
+      : mediaType === 'video' ? ['videos', 'gifs', 'files'] : ['images', 'gifs', 'files'];
     const keys = [
       ...preferredKeys,
       ...Object.keys(nodeOutput).filter((key) => !preferredKeys.includes(key)),
@@ -528,7 +537,7 @@ export function inspectComfyUIHistory(
   payload: unknown,
   promptId: string,
   config: ComfyUIConfig,
-  mediaType: 'image' | 'video',
+  mediaType: ComfyUIMediaType,
 ): { state: 'pending' | 'failed' | 'ready'; file?: ComfyOutputFile; error?: string } {
   const root = asRecord(payload);
   const entry = asRecord(root?.[promptId]) ?? (root?.outputs ? root : null);
@@ -543,7 +552,8 @@ export function inspectComfyUIHistory(
   if (file) return { state: 'ready', file };
   const status = asRecord(entry.status);
   if (status?.completed === true || nonemptyString(status?.status_str).toLowerCase() === 'success') {
-    return { state: 'failed', error: `ComfyUI 已完成，但所选输出节点没有 ${mediaType === 'image' ? '图片' : '视频'}文件。` };
+    const label = mediaType === 'image' ? '图片' : mediaType === 'audio' ? '音频' : '视频';
+    return { state: 'failed', error: `ComfyUI 已完成，但所选输出节点没有 ${label}文件。` };
   }
   return { state: 'pending' };
 }
@@ -551,7 +561,7 @@ export function inspectComfyUIHistory(
 export async function pollComfyUIWorkflow(
   config: ComfyUIConfig,
   promptId: string,
-  mediaType: 'image' | 'video',
+  mediaType: ComfyUIMediaType,
   transport: ComfyUITransport,
 ): Promise<string> {
   const startedAt = Date.now();
