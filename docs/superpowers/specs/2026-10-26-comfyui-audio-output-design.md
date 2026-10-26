@@ -119,10 +119,12 @@ interface ComfyUIBindings {
 
 | 工作流 | 识别出的槽 |
 |---|---|
-| voice-design | `10.text`（消费于 `1.text`） |
+| voice-design | `10.text`（正文，消费于 `1.text`）、`11.text`（音色描述，消费于 `1.instruct`） |
 | voice-clone | `42.text`（消费于 `43.target_text`） |
 | music-cover | 无槽（`style`/`lyrics` 为内联值，不是可绑定节点） |
 | text2music | `33:36.value`（style）、`33:37.value`（lyrics） |
+
+**已确认的产品决定**：voice-design 的正文与音色描述**两个槽都绑定**，画布可同时控制两者，以便每次生成更换音色。因此同一工作流出现两个槽是预期行为，不属于 §4.4 要排除的歧义——歧义指「同名候选互不相关」，此处两个槽的语义由各自的消费者字段（`text` / `instruct`）唯一确定。
 
 `label` 由字段名与消费节点推导：`style` → 曲风，`lyrics` → 歌词，`target_text`/`text` → 目标文本，`instruct` → 音色描述；无法推导时用 `nodeId.input`。
 
@@ -190,7 +192,7 @@ interface ComfyUIBindings {
 1. **单元/契约测试**
    - `comfyuiGateway`：audio 扩展名筛选、`SaveAudio` 类节点推断、audio 轮询取 URL、audio 工作流跳过图片几何、多文本槽生效规则（`texts` 优先于 `prompt`）、音频槽必需/可选判定、无音频槽却传入参考音频时报错。
    - `customImageProviderConfig`：audio `mediaType` 往返不被压成 image。
-   - 自动识别：用四个真实工作流的结构作为夹具（脱敏，只保留节点类名与字段名，不含用户正文），断言上表四个识别结果：voice-design 与 voice-clone 各识别一个槽、music-cover 无槽、text2music 识别两个槽且**不**识别 `42.text`。
+   - 自动识别：用四个真实工作流的结构作为夹具（脱敏，只保留节点类名与字段名，不含用户正文），断言上表四个识别结果：voice-design 识别两个槽（`10.text` 正文 + `11.text` 音色描述）、voice-clone 识别一个槽、music-cover 无槽、text2music 识别两个槽且**不**识别 `42.text`。
    - `audioModelCatalog`：TTS 与 ComfyUI 条目合并、条目 id 与 schema 形状。
 
 2. **集成测试**：假 transport 驱动上传路径、字段名、绑定写入位置；验证上传走 `/upload/image` 且字段名为 `image`。
