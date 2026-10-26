@@ -10,8 +10,13 @@ export interface ComfyUIInputBinding {
   input: string;
 }
 
+export interface ComfyUITextBinding extends ComfyUIInputBinding {
+  label?: string;
+}
+
 export interface ComfyUIBindings {
   prompt?: ComfyUIInputBinding;
+  texts?: ComfyUITextBinding[];
   seed?: ComfyUIInputBinding;
   width?: ComfyUIInputBinding;
   height?: ComfyUIInputBinding;
@@ -19,6 +24,7 @@ export interface ComfyUIBindings {
   resolution?: ComfyUIInputBinding;
   aspectRatio?: ComfyUIInputBinding;
   images: ComfyUIInputBinding[];
+  audios: ComfyUIInputBinding[];
 }
 
 export type ComfyUIMediaType = 'image' | 'video' | 'audio';
@@ -68,6 +74,7 @@ export function createComfyUIWorkflowTemplate(id: ComfyUITemplateId, checkpoint 
       seed: { nodeId: '6', input: 'seed' },
       ...(id === 'text-to-image' ? { width: { nodeId: '4', input: 'width' }, height: { nodeId: '4', input: 'height' } } : {}),
       images: id === 'image-to-image' ? [{ nodeId: '4', input: 'image' }] : [],
+      audios: [],
     },
     outputNodeIds: ['8'],
   };
@@ -141,23 +148,36 @@ function parseBinding(value: unknown, label: string): ComfyUIInputBinding | unde
   return { nodeId, input };
 }
 
+function parseBindingList(value: unknown, label: string): ComfyUIInputBinding[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new Error(`ComfyUI ${label}映射必须是数组。`);
+  return value.map((entry, index) => {
+    const binding = parseBinding(entry, `${label} ${index + 1}`);
+    if (!binding) throw new Error(`ComfyUI ${label} ${index + 1} 映射不能为空。`);
+    return binding;
+  });
+}
+
 function parseBindings(value: unknown): ComfyUIBindings {
   const raw = asRecord(value) ?? {};
-  const images = raw.images === undefined ? [] : raw.images;
-  if (!Array.isArray(images)) throw new Error('ComfyUI 参考图映射必须是数组。');
+  const texts = raw.texts === undefined ? [] : raw.texts;
+  if (!Array.isArray(texts)) throw new Error('ComfyUI 文本槽映射必须是数组。');
   return {
     prompt: parseBinding(raw.prompt, '提示词'),
+    texts: texts.map((entry, index) => {
+      const binding = parseBinding(entry, `文本槽 ${index + 1}`);
+      if (!binding) throw new Error(`ComfyUI 文本槽 ${index + 1} 映射不能为空。`);
+      const label = nonemptyString(asRecord(entry)?.label);
+      return label ? { ...binding, label } : binding;
+    }),
     seed: parseBinding(raw.seed, '种子'),
     width: parseBinding(raw.width, '宽度'),
     height: parseBinding(raw.height, '高度'),
     duration: parseBinding(raw.duration, '时长'),
     resolution: parseBinding(raw.resolution, '分辨率'),
     aspectRatio: parseBinding(raw.aspectRatio, '画幅比例'),
-    images: images.map((entry, index) => {
-      const binding = parseBinding(entry, `参考图 ${index + 1}`);
-      if (!binding) throw new Error(`ComfyUI 参考图 ${index + 1} 映射不能为空。`);
-      return binding;
-    }),
+    images: parseBindingList(raw.images, '参考图'),
+    audios: parseBindingList(raw.audios, '参考音频'),
   };
 }
 
@@ -212,10 +232,18 @@ export function parseComfyUIConfig(cfg: CustomProviderConfig): ComfyUIConfig {
       throw new Error(`ComfyUI 输出节点 ${nodeId} 不在工作流中。`);
     }
   }
+  const bindings = parseBindings(raw.bindings);
+  // A config that maps no text slot at all still resolves the workflow's unambiguous prompt node,
+  // so `bindings` alone describes the effective slots for `effectiveTextSlots` callers. Detected
+  // multi-slot results stay out of the stored shape; `effectiveBindings` merges them at runtime.
+  const unbound = !bindings.prompt && !bindings.texts?.length;
   return {
     workflow,
     mediaType: cfg.mediaType === 'audio' ? 'audio' : cfg.mediaType === 'video' ? 'video' : 'image',
-    bindings: parseBindings(raw.bindings),
+    bindings: {
+      ...bindings,
+      prompt: bindings.prompt ?? (unbound ? suggestComfyUIBindings(workflow).prompt : undefined),
+    },
     outputNodeIds: outputNodeIds as string[],
     pollIntervalMs: boundedNumber(raw.pollIntervalMs, 1500, 500, 10000),
     pollTimeoutMs: boundedNumber(raw.pollTimeoutMs, 10 * 60 * 1000, 5000, 30 * 60 * 1000),
@@ -277,7 +305,17 @@ export function suggestComfyUIBindings(workflowInput: unknown): ComfyUIBindings 
     height: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'height') ?? findInput(workflow, /^EmptyLatentImage$/i, 'height'),
     duration: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'length'),
     images: imageNodes.map(([nodeId]) => ({ nodeId, input: 'image' })),
+    audios: [],
   };
+}
+
+export function effectiveTextSlots(bindings: ComfyUIBindings): ComfyUITextBinding[] {
+  if (bindings.texts?.length) return bindings.texts;
+  return bindings.prompt ? [bindings.prompt] : [];
+}
+
+export function textSlotKey(binding: ComfyUIInputBinding): string {
+  return `${binding.nodeId}.${binding.input}`;
 }
 
 function effectiveBindings(config: ComfyUIConfig): ComfyUIBindings {
@@ -287,6 +325,8 @@ function effectiveBindings(config: ComfyUIConfig): ComfyUIBindings {
     if (config.bindings[key]) result[key] = config.bindings[key];
   }
   result.images = config.bindings.images.length ? config.bindings.images : suggested.images;
+  result.audios = config.bindings.audios.length ? config.bindings.audios : suggested.audios;
+  if (config.bindings.texts?.length) result.texts = config.bindings.texts;
   return result;
 }
 
@@ -304,6 +344,12 @@ export function getComfyUIReferenceRequirements(config: ComfyUIConfig): { min: n
   // A server-side filename is usable without a canvas replacement. Empty slots must be supplied in binding order.
   const min = images.reduce((required, binding, index) => nonemptyString(bindingValue(config, binding)) ? required : index + 1, 0);
   return { min, max: images.length };
+}
+
+export function getComfyUIAudioReferenceRequirements(config: ComfyUIConfig): { min: number; max: number } {
+  const audios = effectiveBindings(config).audios;
+  const min = audios.reduce((required, binding, index) => nonemptyString(bindingValue(config, binding)) ? required : index + 1, 0);
+  return { min, max: audios.length };
 }
 
 export function getComfyUIVideoCapabilities(config: ComfyUIConfig): {
@@ -353,8 +399,19 @@ export function prepareComfyUIWorkflow(
     if (Array.isArray(binding)) binding.forEach((item) => bindingValue(config, item));
     else if (binding) bindingValue(config, binding);
   }
-  if (!bindings.prompt) throw new Error('请选择 ComfyUI 提示词节点及其输入字段。');
-  setInput(workflow, bindings.prompt, request.prompt);
+  const textSlots = effectiveTextSlots(bindings);
+  // Audio workflows may legitimately have no text input at all; image/video ones still require a slot.
+  if (textSlots.length === 0 && config.mediaType !== 'audio') {
+    throw new Error('请选择 ComfyUI 提示词节点及其输入字段。');
+  }
+  if (textSlots[0]) setInput(workflow, textSlots[0], request.prompt);
+  const slotValues = asRecord(request.extra_params?.textSlotValues);
+  if (slotValues) {
+    for (const slot of textSlots) {
+      const value = slotValues[textSlotKey(slot)];
+      if (typeof value === 'string') setInput(workflow, slot, value);
+    }
+  }
 
   const seedValue = Number(request.extra_params?.seed);
   if (bindings.seed && Number.isFinite(seedValue) && request.extra_params?.seed !== undefined) {

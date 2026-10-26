@@ -6,6 +6,8 @@ import {
   checkComfyUIConnection,
   ComfyUIExecutionError,
   createComfyUIWorkflowTemplate,
+  effectiveTextSlots,
+  getComfyUIAudioReferenceRequirements,
   getComfyUITemplateCheckpoint,
   getComfyUIVideoCapabilities,
   inspectComfyUIHistory,
@@ -16,6 +18,7 @@ import {
   submitComfyUIWorkflow,
   suggestComfyUIBindings,
   suggestComfyUIOutputNodes,
+  textSlotKey,
   validateComfyUIRequest,
   withComfyUITemplateCheckpoint,
   type ComfyUITransport,
@@ -35,6 +38,13 @@ const audioWorkflow = {
   '3': { class_type: 'Text', inputs: { text: 'hello' } },
   '4': { class_type: 'SaveAudioMP3', inputs: { audio: ['2', 0], quality: '128k' } },
   '5': { class_type: 'PreviewAudio', inputs: { audio: ['2', 0] } },
+};
+
+const voiceDesignWorkflow = {
+  '1': { class_type: 'FB_Qwen3TTSVoiceDesign', inputs: { text: ['10', 0], instruct: ['11', 0], seed: 1 } },
+  '3': { class_type: 'SaveAudio', inputs: { audio: ['1', 0] } },
+  '10': { class_type: 'JjkText', inputs: { text: 'BODY' } },
+  '11': { class_type: 'JjkText', inputs: { text: 'VOICE' } },
 };
 
 function provider(overrides: Partial<CustomProviderConfig> = {}): CustomProviderConfig {
@@ -400,5 +410,77 @@ describe('ComfyUI audio workflow contracts', () => {
     } }));
     const patched = prepareComfyUIWorkflow(config, { ...request, reference_images: [], size: '1024x768' });
     expect(patched['6'].inputs).toMatchObject({ width: 512, height: 512 });
+  });
+});
+
+describe('ComfyUI binding compatibility', () => {
+  it('falls back to the legacy prompt binding when texts is absent', () => {
+    const config = parseComfyUIConfig(provider());
+    expect(effectiveTextSlots(config.bindings)).toEqual([{ nodeId: '6', input: 'text' }]);
+  });
+
+  it('keeps requiring a prompt binding for image workflows but not for audio', () => {
+    const noPrompt = { '1': { class_type: 'EmptyLatentImage', inputs: { width: 512, height: 512 } },
+      '9': { class_type: 'SaveImage', inputs: {} } };
+    const imageConfig = parseComfyUIConfig(provider({ extraParams: { comfyui: {
+      workflow: noPrompt, outputNodeIds: ['9'], bindings: { images: [] },
+    } } }));
+    expect(() => prepareComfyUIWorkflow(imageConfig, { ...request, reference_images: [] }))
+      .toThrow('请选择 ComfyUI 提示词节点');
+
+    const audioConfig = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
+      workflow: { '1': { class_type: 'SaveAudio', inputs: { audio: ['2', 0] } },
+        '2': { class_type: 'EmptyLatentAudio', inputs: { seconds: 5 } } },
+      outputNodeIds: ['1'], bindings: { images: [], audios: [] },
+    } } }));
+    expect(() => prepareComfyUIWorkflow(audioConfig, { ...request, reference_images: [] }))
+      .not.toThrow();
+  });
+
+  it('prefers texts over prompt when both exist', () => {
+    const config = parseComfyUIConfig(provider({ extraParams: { comfyui: {
+      workflow,
+      outputNodeIds: ['9'],
+      bindings: {
+        prompt: { nodeId: '6', input: 'text' },
+        texts: [{ nodeId: '6', input: 'text', label: '正文' }, { nodeId: '10', input: 'image', label: 'x' }],
+        images: [{ nodeId: '10', input: 'image' }],
+      },
+    } } }));
+    expect(effectiveTextSlots(config.bindings).map((slot) => slot.label)).toEqual(['正文', 'x']);
+  });
+
+  it('uses stable slot keys independent of array order', () => {
+    expect(textSlotKey({ nodeId: '33:36', input: 'value' })).toBe('33:36.value');
+  });
+
+  it('writes every slot from textSlotValues, including non-first slots', () => {
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
+      workflow: voiceDesignWorkflow, outputNodeIds: ['3'],
+      bindings: { texts: [{ nodeId: '10', input: 'text' }, { nodeId: '11', input: 'text' }],
+        images: [], audios: [] },
+    } } }));
+    const patched = prepareComfyUIWorkflow(config, {
+      ...request, reference_images: [], prompt: 'BODY-NEW',
+      extra_params: { textSlotValues: { '11.text': 'VOICE-NEW' } },
+    });
+    expect(patched['10'].inputs).toMatchObject({ text: 'BODY-NEW' });
+    expect(patched['11'].inputs).toMatchObject({ text: 'VOICE-NEW' });
+  });
+
+  it('parses audio bindings and treats a filled server filename as optional', () => {
+    const filled = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
+      workflow: { ...audioWorkflow, '1': { class_type: 'LoadAudio', inputs: { audio: 'server.wav' } } },
+      outputNodeIds: ['4'],
+      bindings: { audios: [{ nodeId: '1', input: 'audio' }], images: [] },
+    } } }));
+    expect(getComfyUIAudioReferenceRequirements(filled)).toEqual({ min: 0, max: 1 });
+
+    const empty = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
+      workflow: { ...audioWorkflow, '1': { class_type: 'LoadAudio', inputs: { audio: '' } } },
+      outputNodeIds: ['4'],
+      bindings: { audios: [{ nodeId: '1', input: 'audio' }], images: [] },
+    } } }));
+    expect(getComfyUIAudioReferenceRequirements(empty)).toEqual({ min: 1, max: 1 });
   });
 });
