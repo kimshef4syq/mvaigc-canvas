@@ -413,7 +413,9 @@ export function textSlotKey(binding: ComfyUIInputBinding): string {
   return `${binding.nodeId}.${binding.input}`;
 }
 
-function effectiveBindings(config: ComfyUIConfig): ComfyUIBindings {
+/** Stored bindings merged with the auto-detected ones. Read-only consumers (the audio catalog) need
+ *  this because detected slots are never persisted into `bindings`. */
+export function effectiveBindings(config: ComfyUIConfig): ComfyUIBindings {
   const suggested = suggestComfyUIBindings(config.workflow);
   const result = { ...suggested };
   for (const key of ['prompt', 'seed', 'width', 'height', 'duration', 'resolution', 'aspectRatio'] as const) {
