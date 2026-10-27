@@ -329,6 +329,8 @@ export interface AiAudioNodeData extends NodeDisplayData {
   audioGenerationParams?: Record<string, unknown>;
   /** ComfyUI text-slot values, keyed by `textSlotKey` (`${nodeId}.${input}`). */
   audioSlotValues?: Record<string, string>;
+  /** ComfyUI boolean controls, keyed by nodeId.input. */
+  audioBooleanValues?: Record<string, boolean>;
   resultNodeId?: string | null;
   lastRunInputHash?: string | null;
   lastError?: string | null;

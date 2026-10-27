@@ -79,3 +79,20 @@ Open Storyboard Canvas 可以连接本机或自行部署在云端的 ComfyUI。�
 一般节点的 `duration` 按秒写入；仅已识别的本地 H3 节点 `length` 自动转换成帧数。需要其它 fps/帧数表达式的自定义节点应在 ComfyUI 工作流内部添加转换节点，再把秒数绑定到转换节点输入。可在画布显示步骤填写供应商真正支持的秒数、分辨率与比例枚举；未绑定的参数保留工作流原值，并显示「由工作流决定」。工作流的默认种子会保留，除非调用方明确传入新的 seed。
 
 视频输入能力按工作流的图片绑定数量计算，不再默认宣称支持九张图、首尾帧角色或参考视频/音频。只读连接成功仅证明服务可访问，不证明模型、插件、GPU 和工作流执行成功；首次实际运行仍需在自己的服务器验证。
+
+## YuE2：ABC planning 与自定义 ABC 乐谱
+
+声音输出工作流现在支持 `bindings.booleans` 开关和文本槽的 `preserveWhenEmpty` 选项。布尔值通过节点数据 `audioBooleanValues` 保存，并在请求的 `extra_params.booleanSlotValues` 中传递；文本仍使用 `audioSlotValues` / `textSlotValues`。
+
+对于用户的 `audio_yue2_text2music (2).json`（输出前缀 `audio/YuE2`）：
+
+- 新导入时，根据 `YuE2GenerateMusic → PreviewAny → ComfySwitchNode → PrimitiveBoolean / YuE2GenerateABC` 连线识别 ABC 控件。节点 ID 改变后仍可识别。
+- AI 音频节点显示“ABC planning（自动规划）”开关，以及曲风、歌词、自定义 ABC 乐谱文本框。填写的是 ABC 文本记谱，不是乐谱图片。
+- 乐谱为空时保留原 ABC 连线：开关开启使用自动规划分支，关闭使用工作流原有的空 ABC 分支。该文件原开关输入错误连接到 `42.text`；提交副本会改成真实布尔值，默认关闭。
+- 填入自定义乐谱后，文本直接写入音乐生成节点的 `abc` 字段，优先于规划输出。开关仍控制原规划分支；使用自定义乐谱时可以关闭自动规划，避免不必要的规划计算。
+- 显式保存过 `texts` 的配置继续尊重用户映射，不自动追加文本槽。将高级设置中的“节点绑定 JSON”替换为 [完整示例](examples/yue2-text2music-abc-bindings.json)，输出节点 ID 保持 `["10"]`。
+- `42.text` 没有直接进入音乐生成的 ABC 输入，不能把它当作自定义乐谱的目标。正确目标是 `33:25.abc`。
+
+`preserveWhenEmpty: true` 表示空字符串或纯空白不替换工作流原值／连线；普通文本槽仍按原规则写入空值。开关的 `defaultValue` 必须是真正的 JSON 布尔值，不能写成字符串 `"false"`。省略时使用原输入中的布尔字面值，原输入为连线或其它类型时默认为关闭。显式 `booleans: []` 可关闭开关自动检测。
+
+这些操作只修改提交副本，不修改用户的工作流原文件。

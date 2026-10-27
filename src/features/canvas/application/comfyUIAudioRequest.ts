@@ -7,6 +7,7 @@ export function buildComfyUIAudioRequest(
   entry: AudioCatalogEntry,
   values: Record<string, unknown>,
   referenceAudios: string[],
+  booleanValues: Record<string, unknown> = {},
 ): GenerateRequest {
   if (entry.notReadyReason) throw new Error(entry.notReadyReason);
   if (entry.textSlots.length === 0) throw new Error('该工作流没有可绑定的文本输入');
@@ -20,12 +21,18 @@ export function buildComfyUIAudioRequest(
     const key = textSlotKey(slot);
     return [key, typeof values[key] === 'string' ? values[key] : ''];
   }));
+  const booleanSlotValues = Object.fromEntries((entry.booleanSlots ?? []).map((slot) => {
+    const key = textSlotKey(slot);
+    const value = booleanValues[key];
+    if (value !== undefined && typeof value !== 'boolean') throw new Error(`开关 ${slot.label ?? key} 必须是布尔值`);
+    return [key, value ?? slot.defaultValue ?? false];
+  }));
   return {
     prompt: textSlotValues[textSlotKey(entry.textSlots[0])],
     model: entry.id,
     size: 'workflow',
     aspect_ratio: 'auto',
     reference_audios: referenceAudios,
-    extra_params: { textSlotValues },
+    extra_params: { textSlotValues, ...(entry.booleanSlots?.length ? { booleanSlotValues } : {}) },
   };
 }

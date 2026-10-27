@@ -389,6 +389,8 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     [promptDraft, upstreamTextParts]
   );
   const comfyTextSlots = selectedModel?.textSlots ?? [];
+  const comfyBooleanSlots = selectedModel?.booleanSlots ?? [];
+  const booleanValues = useMemo(() => data.audioBooleanValues ?? {}, [data.audioBooleanValues]);
   const slotValues = useMemo(() => data.audioSlotValues ?? {}, [data.audioSlotValues]);
   const comfyPrompt = comfyTextSlots.length > 0
     ? slotValues[textSlotKey(comfyTextSlots[0])] ?? ''
@@ -401,12 +403,14 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
       voiceId: selectedVoiceId,
       text: isComfyUIModel ? comfyPrompt : currentInputText,
       slotValues: isComfyUIModel ? slotValues : null,
+      booleanValues: isComfyUIModel ? booleanValues : null,
       generationParams,
       inputSchema: currentInputSchema,
       referenceAudios: schemaAudioReferences.map((reference) => reference.audioUrl),
     }),
     [
       comfyPrompt,
+      booleanValues,
       currentInputSchema,
       currentInputText,
       generationParams,
@@ -728,6 +732,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
         entry,
         asPlainRecord(latestData.audioSlotValues) ?? {},
         latestAudioReferences.map((reference) => reference.audioUrl!),
+        asPlainRecord(latestData.audioBooleanValues) ?? {},
       );
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
@@ -1122,6 +1127,18 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
               <span className="min-w-0 break-words">{comfyNotReadyReason}</span>
             </div>
           ) : null}
+          {comfyBooleanSlots.map((slot) => {
+            const key = textSlotKey(slot);
+            return <label key={`${selectedModel?.id}:boolean:${key}`} className="nodrag nopan nowheel mb-2 flex items-center gap-2 text-xs text-text-muted" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+              <UiCheckbox checked={booleanValues[key] ?? slot.defaultValue ?? false}
+                onCheckedChange={(checked) => {
+                  const latestNode = useCanvasStore.getState().nodes.find((candidate) => candidate.id === id);
+                  const current = asPlainRecord((latestNode?.data as AiAudioNodeData | undefined)?.audioBooleanValues) ?? {};
+                  updateNodeData(id, { audioBooleanValues: { ...current, [key]: checked } });
+                }} />
+              {slot.label ?? key}
+            </label>;
+          })}
           {comfyTextSlots.length === 0 ? (
             <div className="flex items-start gap-2 p-1 text-[11px] leading-5 text-text-muted">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />
@@ -1133,6 +1150,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
               return (
                 <label key={`${selectedModel?.id}:${key}`} className="mb-2 block text-[10px] font-medium text-text-muted last:mb-0">
                   {slot.label ?? key}
+                  {slot.preserveWhenEmpty ? <span className="ml-1 font-normal">留空保留原分支，填写后优先使用</span> : null}
                   <textarea
                     ref={(element) => {
                       if (element) slotTextareaRefs.current.set(key, element);
@@ -1156,8 +1174,8 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
                     onKeyUp={(event) => event.stopPropagation()}
                     onMouseDown={(event) => event.stopPropagation()}
                     onPointerDown={(event) => event.stopPropagation()}
-                    placeholder={`输入 ${slot.label ?? key}`}
-                    className="ui-scrollbar nodrag nopan nowheel mt-1 h-[52px] w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] px-2 py-1.5 text-xs leading-5 text-text-dark outline-none placeholder:text-text-muted/70 focus:border-accent"
+                    placeholder={slot.preserveWhenEmpty ? '留空保留工作流原有输入；填写后优先使用自定义乐谱' : `输入 ${slot.label ?? key}`}
+                    className={`ui-scrollbar nodrag nopan nowheel mt-1 ${slot.preserveWhenEmpty ? 'h-[120px] font-mono' : 'h-[52px]'} w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] px-2 py-1.5 text-xs leading-5 text-text-dark outline-none placeholder:text-text-muted/70 focus:border-accent`}
                     spellCheck={false}
                   />
                 </label>

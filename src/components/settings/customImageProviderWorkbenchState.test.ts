@@ -136,3 +136,26 @@ it('validates previews of audio workflows that require a canvas reference', () =
   expect(sample.reference_audios).toHaveLength(1);
   expect(() => validateComfyUIRequest(parseComfyUIConfig(config), sample)).not.toThrow();
 });
+
+it('round-trips explicit ABC score and planning mappings through workbench configuration', () => {
+  const draft = createComfyUIProviderWorkbenchDraft();
+  draft.mediaType = 'audio';
+  draft.extraParams.comfyui = {
+    workflow: {
+      'plan': { class_type: 'PrimitiveBoolean', inputs: { value: true } },
+      'music': { class_type: 'YuE2GenerateMusic', inputs: { abc: '' } },
+      'save': { class_type: 'SaveAudio', inputs: { audio: ['music', 0] } },
+    }, bindings: {
+      texts: [{ nodeId: 'music', input: 'abc', label: 'ABC', preserveWhenEmpty: true }],
+      booleans: [{ nodeId: 'plan', input: 'value', label: 'ABC planning', defaultValue: false }],
+      images: [], audios: [],
+    }, outputNodeIds: ['save'],
+  };
+  const saved = customImageProviderDraftToConfig(draft, 'abc');
+  expect(saved.issues).toEqual([]);
+  const config = parseComfyUIConfig(saved.value!);
+  expect(config.bindings.texts?.[0]).toMatchObject({ preserveWhenEmpty: true });
+  expect(config.bindings.booleans?.[0]).toMatchObject({ defaultValue: false });
+  expect(prepareComfyUIWorkflow(config, createWorkbenchPreviewRequest(saved.value!, 'workflow')).plan)
+    .toMatchObject({ inputs: { value: false } });
+});

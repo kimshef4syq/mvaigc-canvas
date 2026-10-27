@@ -695,3 +695,71 @@ it('honors audio mediaType stored only in extraParams', () => {
   } });
   expect(parseComfyUIConfig(config).mediaType).toBe('audio');
 });
+
+describe('YuE2 ABC controls', () => {
+  const abcWorkflow = {
+    ...text2MusicWorkflow,
+    '33:25': { class_type: 'YuE2GenerateMusic', inputs: { style: ['33:36', 0], lyrics: ['33:37', 0], abc: ['33:14', 0] } },
+    '33:14': { class_type: 'PreviewAny', inputs: { source: ['33:30', 0] } },
+    '33:30': { class_type: 'ComfySwitchNode', inputs: { switch: ['33:31', 0], on_true: ['33:24', 0], on_false: ['33:32', 0] } },
+    '33:32': { class_type: 'PrimitiveString', inputs: { value: '' } },
+  };
+  const config = (bindings?: Record<string, unknown>) => parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
+    comfyui: { workflow: abcWorkflow, bindings: { images: [], audios: [], ...bindings }, outputNodeIds: ['10'] },
+  } }));
+  const request: GenerateRequest = { prompt: 'pop', model: 'workflow', size: 'workflow', aspect_ratio: 'auto' };
+
+  it('detects the planning switch and a direct optional score input without treating its control text as music input', () => {
+    const bindings = suggestComfyUIBindings(abcWorkflow);
+    expect(bindings.booleans).toEqual([{ nodeId: '33:31', input: 'value', label: 'ABC planning（自动规划）', defaultValue: false }]);
+    expect(bindings.texts?.map(textSlotKey)).toEqual(['33:36.value', '33:37.value', '33:25.abc']);
+    expect(bindings.texts?.[2]).toMatchObject({ preserveWhenEmpty: true });
+  });
+
+  it.each([true, false])('submits a real boolean %s and preserves the planning branch when custom score is blank', (enabled) => {
+    const prepared = prepareComfyUIWorkflow(config(), { ...request, extra_params: {
+      booleanSlotValues: { '33:31.value': enabled }, textSlotValues: { '33:25.abc': ' \n ' },
+    } });
+    expect(prepared['33:31']).toMatchObject({ inputs: { value: enabled } });
+    expect(prepared['33:25']).toMatchObject({ inputs: { abc: ['33:14', 0] } });
+    expect(abcWorkflow['33:31'].inputs.value).toEqual(['42', 0]);
+  });
+
+  it('routes a supplied score directly into music generation, overriding the connected planning output', () => {
+    const score = 'X:1\nM:4/4\nK:C\nCDEF|';
+    const prepared = prepareComfyUIWorkflow(config(), { ...request, extra_params: {
+      textSlotValues: { '33:25.abc': score, '33:36.value': 'folk', '33:37.value': 'lyrics' },
+      booleanSlotValues: { '33:31.value': true },
+    } });
+    expect(prepared['33:25']).toMatchObject({ inputs: { abc: score } });
+    expect(prepared['33:36']).toMatchObject({ inputs: { value: 'folk' } });
+    expect(prepared['33:37']).toMatchObject({ inputs: { value: 'lyrics' } });
+    expect(abcWorkflow['33:25'].inputs.abc).toEqual(['33:14', 0]);
+  });
+
+  it('defaults a linked boolean to false and respects an explicit binding default', () => {
+    expect(prepareComfyUIWorkflow(config(), request)['33:31']).toMatchObject({ inputs: { value: false } });
+    const explicit = config({ booleans: [{ nodeId: '33:31', input: 'value', defaultValue: true }] });
+    expect(prepareComfyUIWorkflow(explicit, request)['33:31']).toMatchObject({ inputs: { value: true } });
+    expect(prepareComfyUIWorkflow(explicit, { ...request, extra_params: { booleanSlotValues: { '33:31.value': false } } })['33:31'])
+      .toMatchObject({ inputs: { value: false } });
+  });
+
+  it('rejects string booleans in bindings and requests', () => {
+    expect(() => config({ booleans: [{ nodeId: '33:31', input: 'value', defaultValue: 'false' }] })).toThrow('布尔值');
+    expect(() => prepareComfyUIWorkflow(config(), { ...request, extra_params: { booleanSlotValues: { '33:31.value': 'false' } } }))
+      .toThrow('布尔值');
+    expect(() => config({ texts: [{ nodeId: '33:25', input: 'abc', preserveWhenEmpty: 'yes' }] })).toThrow('布尔值');
+  });
+
+  it('supports explicitly mapped optional score text, leaving an empty score connected', () => {
+    const explicit = config({ texts: [
+      { nodeId: '33:36', input: 'value' },
+      { nodeId: '33:25', input: 'abc', preserveWhenEmpty: true },
+    ], booleans: [] });
+    expect(prepareComfyUIWorkflow(explicit, { ...request, extra_params: { textSlotValues: { '33:25.abc': '' } } })['33:25'])
+      .toMatchObject({ inputs: { abc: ['33:14', 0] } });
+    // An explicit empty boolean list disables detection and preserves the old workflow.
+    expect(prepareComfyUIWorkflow(explicit, request)['33:31']).toMatchObject({ inputs: { value: ['42', 0] } });
+  });
+});

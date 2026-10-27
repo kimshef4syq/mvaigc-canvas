@@ -120,3 +120,29 @@ describe('buildAudioModelCatalog', () => {
     expect(catalog.filter((e) => e.kind === 'comfyui')).toEqual([]);
   });
 });
+
+it('exposes boolean defaults and optional score metadata to the audio node', () => {
+  const config = provider({ mediaType: 'audio', extraParams: { auth: { mode: 'none' }, comfyui: {
+    workflow: {
+      '1': { class_type: 'PrimitiveBoolean', inputs: { value: true } },
+      '2': { class_type: 'YuE2GenerateMusic', inputs: { abc: 'original' } },
+      '3': { class_type: 'SaveAudio', inputs: { audio: ['2', 0] } },
+    },
+    bindings: { texts: [{ nodeId: '2', input: 'abc', label: 'ABC', preserveWhenEmpty: true }],
+      booleans: [{ nodeId: '1', input: 'value', label: 'Planning' }], images: [], audios: [] }, outputNodeIds: ['3'],
+  } } });
+  const entry = buildAudioModelCatalog(DEFAULT_AUDIO_GENERATION_SETTINGS, [config]).find(e => e.kind === 'comfyui')!;
+  expect(entry.notReadyReason).toBeUndefined();
+  expect(entry.booleanSlots).toEqual([{ nodeId: '1', input: 'value', label: 'Planning', defaultValue: true }]);
+  expect(entry.textSlots[0]).toMatchObject({ preserveWhenEmpty: true, label: 'ABC' });
+});
+
+it('keeps stale boolean bindings inside the not-ready path', () => {
+  const config = provider({ mediaType: 'audio', extraParams: { auth: { mode: 'none' }, comfyui: {
+    workflow: voiceCloneWorkflow, outputNodeIds: ['52'],
+    bindings: { booleans: [{ nodeId: 'missing', input: 'value' }] },
+  } } });
+  const entry = buildAudioModelCatalog(DEFAULT_AUDIO_GENERATION_SETTINGS, [config]).find(e => e.kind === 'comfyui')!;
+  expect(entry.notReadyReason).toContain('missing');
+  expect(entry.booleanSlots).toEqual([]);
+});

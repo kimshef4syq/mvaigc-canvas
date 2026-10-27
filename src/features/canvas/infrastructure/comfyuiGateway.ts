@@ -12,11 +12,19 @@ export interface ComfyUIInputBinding {
 
 export interface ComfyUITextBinding extends ComfyUIInputBinding {
   label?: string;
+  /** Blank optional text preserves the workflow's original literal or connection. */
+  preserveWhenEmpty?: boolean;
+}
+
+export interface ComfyUIBooleanBinding extends ComfyUIInputBinding {
+  label?: string;
+  defaultValue?: boolean;
 }
 
 export interface ComfyUIBindings {
   prompt?: ComfyUIInputBinding;
   texts?: ComfyUITextBinding[];
+  booleans?: ComfyUIBooleanBinding[];
   seed?: ComfyUIInputBinding;
   width?: ComfyUIInputBinding;
   height?: ComfyUIInputBinding;
@@ -164,14 +172,32 @@ function parseBindings(value: unknown): ComfyUIBindings {
   const raw = asRecord(value) ?? {};
   const texts = raw.texts === undefined ? [] : raw.texts;
   if (!Array.isArray(texts)) throw new Error('ComfyUI 文本槽映射必须是数组。');
+  const booleans = raw.booleans;
+  if (booleans !== undefined && !Array.isArray(booleans)) throw new Error('ComfyUI 开关映射必须是数组。');
   return {
     prompt: parseBinding(raw.prompt, '提示词'),
     texts: texts.map((entry, index) => {
       const binding = parseBinding(entry, `文本槽 ${index + 1}`);
       if (!binding) throw new Error(`ComfyUI 文本槽 ${index + 1} 映射不能为空。`);
       const label = nonemptyString(asRecord(entry)?.label);
-      return label ? { ...binding, label } : binding;
+      const preserveWhenEmpty = asRecord(entry)?.preserveWhenEmpty;
+      if (preserveWhenEmpty !== undefined && typeof preserveWhenEmpty !== 'boolean') {
+        throw new Error(`ComfyUI 文本槽 ${index + 1} preserveWhenEmpty 必须是布尔值。`);
+      }
+      return { ...binding, ...(label ? { label } : {}),
+        ...(preserveWhenEmpty !== undefined ? { preserveWhenEmpty } : {}) };
     }),
+    ...(Array.isArray(booleans) ? { booleans: booleans.map((entry, index) => {
+      const binding = parseBinding(entry, `开关 ${index + 1}`);
+      if (!binding) throw new Error(`ComfyUI 开关 ${index + 1} 映射不能为空。`);
+      const rawEntry = asRecord(entry)!;
+      if (rawEntry.defaultValue !== undefined && typeof rawEntry.defaultValue !== 'boolean') {
+        throw new Error(`ComfyUI 开关 ${index + 1} defaultValue 必须是布尔值。`);
+      }
+      const label = nonemptyString(rawEntry.label);
+      return { ...binding, ...(label ? { label } : {}),
+        ...(typeof rawEntry.defaultValue === 'boolean' ? { defaultValue: rawEntry.defaultValue } : {}) };
+    }) } : {}),
     seed: parseBinding(raw.seed, '种子'),
     width: parseBinding(raw.width, '宽度'),
     height: parseBinding(raw.height, '高度'),
@@ -373,6 +399,45 @@ function suggestTextSlots(workflow: Record<string, JsonRecord>): ComfyUITextBind
   return slots;
 }
 
+/** Recognize YuE2's ABC planning branch by connections rather than exported node IDs. */
+function suggestABCBindings(workflow: Record<string, JsonRecord>) {
+  const texts: ComfyUITextBinding[] = [];
+  const booleans: ComfyUIBooleanBinding[] = [];
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (node.class_type !== 'YuE2GenerateMusic') continue;
+    const inputs = asRecord(node.inputs);
+    let upstream = linkTarget(inputs?.abc);
+    const visited = new Set<string>();
+    for (let hop = 0; upstream && hop < MAX_TEXT_TRACE_HOPS; hop++) {
+      if (visited.has(upstream)) break;
+      visited.add(upstream);
+      const source = workflow[upstream];
+      const sourceInputs = asRecord(source?.inputs);
+      if (source?.class_type === 'PreviewAny') {
+        upstream = linkTarget(sourceInputs?.source);
+        continue;
+      }
+      if (source?.class_type === 'ComfySwitchNode') {
+        const booleanNodeId = linkTarget(sourceInputs?.switch);
+        const plannerNodeId = linkTarget(sourceInputs?.on_true);
+        const booleanNode = booleanNodeId ? workflow[booleanNodeId] : undefined;
+        const booleanInputs = asRecord(booleanNode?.inputs);
+        if (booleanNodeId && booleanNode?.class_type === 'PrimitiveBoolean'
+          && booleanInputs && Object.prototype.hasOwnProperty.call(booleanInputs, 'value')
+          && plannerNodeId && workflow[plannerNodeId]?.class_type === 'YuE2GenerateABC') {
+          texts.push({ nodeId, input: 'abc', label: 'ABC 乐谱（可选）', preserveWhenEmpty: true });
+          if (!booleans.some(binding => binding.nodeId === booleanNodeId)) {
+            booleans.push({ nodeId: booleanNodeId, input: 'value', label: 'ABC planning（自动规划）',
+              defaultValue: typeof booleanInputs.value === 'boolean' ? booleanInputs.value : false });
+          }
+        }
+      }
+      break;
+    }
+  }
+  return { texts, booleans };
+}
+
 export function suggestComfyUIBindings(workflowInput: unknown): ComfyUIBindings {
   const workflow = cloneWorkflow(workflowInput);
   const imageNodes = Object.entries(workflow).filter(([, node]) =>
@@ -385,6 +450,7 @@ export function suggestComfyUIBindings(workflowInput: unknown): ComfyUIBindings 
   );
   const prompt = findInput(workflow, LOCAL_H3_NODE, 'prompt') ?? findInput(workflow, /^CLIPTextEncode$/i, 'text');
   const detected = suggestTextSlots(workflow);
+  const abc = suggestABCBindings(workflow);
   // The legacy single-prompt rule keeps its slot, and keeps it first, so image/video workflows that
   // only ever had a CLIPTextEncode or H3 prompt write `request.prompt` exactly where they used to.
   const legacySlot = prompt && !detected.some((slot) => textSlotKey(slot) === textSlotKey(prompt)) ? [prompt] : [];
@@ -393,7 +459,8 @@ export function suggestComfyUIBindings(workflowInput: unknown): ComfyUIBindings 
     // `texts` here is a suggestion, not a stored binding. Callers that persist this result (the settings
     // workbench import path writes it into the bindings JSON) must strip `texts`, otherwise the detected
     // slots become explicit config and permanently disable detection for that provider.
-    texts: [...legacySlot, ...detected],
+    texts: [...legacySlot, ...detected, ...abc.texts],
+    ...(abc.booleans.length ? { booleans: abc.booleans } : {}),
     seed: findInput(workflow, /^KSampler$/i, 'seed')
       ?? findInput(workflow, /^(?:KSamplerAdvanced|RandomNoise)$/i, 'noise_seed'),
     width: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'width') ?? findInput(workflow, /^EmptyLatentImage$/i, 'width'),
@@ -423,6 +490,8 @@ export function effectiveBindings(config: ComfyUIConfig): ComfyUIBindings {
   }
   result.images = config.bindings.images.length ? config.bindings.images : suggested.images;
   result.audios = config.bindings.audios.length ? config.bindings.audios : suggested.audios;
+  result.booleans = config.bindings.booleans
+    ?? (config.mediaType === 'audio' ? suggested.booleans : undefined);
   // Detected slots are only trusted for audio, the one media type whose workflow shape cannot tell a
   // positive prompt from a negative one. Image and video keep the legacy prompt-or-throw behaviour
   // when bindings.texts is empty; explicit text mappings remain the user's responsibility.
@@ -441,6 +510,13 @@ function bindingValue(config: ComfyUIConfig, binding: ComfyUIInputBinding | unde
     throw new Error(`ComfyUI 节点 ${binding.nodeId} 没有输入字段 ${binding.input}。`);
   }
   return inputs[binding.input];
+}
+
+export function effectiveBooleanSlots(config: ComfyUIConfig, bindings = effectiveBindings(config)): ComfyUIBooleanBinding[] {
+  return (bindings.booleans ?? []).map((slot) => {
+    const existing = bindingValue(config, slot);
+    return { ...slot, defaultValue: slot.defaultValue ?? (typeof existing === 'boolean' ? existing : false) };
+  });
 }
 
 export function getComfyUIReferenceRequirements(config: ComfyUIConfig): { min: number; max: number } {
@@ -509,13 +585,25 @@ export function prepareComfyUIWorkflow(
   if (textSlots.length === 0 && config.mediaType !== 'audio') {
     throw new Error('请选择 ComfyUI 提示词节点及其输入字段。');
   }
-  if (textSlots[0]) setInput(workflow, textSlots[0], request.prompt);
+  const writeText = (slot: ComfyUITextBinding, value: string) => {
+    if (!slot.preserveWhenEmpty || value.trim()) setInput(workflow, slot, value);
+  };
+  if (textSlots[0]) writeText(textSlots[0], request.prompt);
   const slotValues = asRecord(request.extra_params?.textSlotValues);
   if (slotValues) {
     for (const slot of textSlots) {
       const value = slotValues[textSlotKey(slot)];
-      if (typeof value === 'string') setInput(workflow, slot, value);
+      if (typeof value === 'string') writeText(slot, value);
     }
+  }
+
+  const booleanValues = asRecord(request.extra_params?.booleanSlotValues);
+  for (const slot of effectiveBooleanSlots(config, bindings)) {
+    const value = booleanValues?.[textSlotKey(slot)];
+    if (value !== undefined && typeof value !== 'boolean') {
+      throw new Error(`ComfyUI 开关 ${slot.label ?? textSlotKey(slot)} 必须是布尔值。`);
+    }
+    setInput(workflow, slot, value ?? slot.defaultValue ?? false);
   }
 
   const seedValue = Number(request.extra_params?.seed);

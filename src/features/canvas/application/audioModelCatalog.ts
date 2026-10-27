@@ -2,10 +2,12 @@ import { useMemo } from 'react';
 
 import {
   effectiveBindings,
+  effectiveBooleanSlots,
   effectiveTextSlots,
   getComfyUIAudioReferenceRequirements,
   parseComfyUIConfig,
   type ComfyUITextBinding,
+  type ComfyUIBooleanBinding,
 } from '@/features/canvas/infrastructure/comfyuiGateway';
 import { hasConfiguredCustomProvider } from '@/features/canvas/application/providerAvailability';
 import {
@@ -37,6 +39,7 @@ export interface AudioCatalogEntry {
   enabled: boolean;
   notReadyReason?: string;
   textSlots: ComfyUITextBinding[];
+  booleanSlots?: ComfyUIBooleanBinding[];
   audioRefs: { min: number; max: number };
   extraParams: Record<string, unknown>;
   audioModel?: AudioModelConfig;
@@ -72,6 +75,7 @@ export function buildAudioModelCatalog(
       continue;
     }
     let textSlots: ComfyUITextBinding[] = [];
+    let booleanSlots: ComfyUIBooleanBinding[] = [];
     let audioRefs: { min: number; max: number } = { ...NO_AUDIO_REFS };
     let notReadyReason: string | undefined;
     try {
@@ -81,9 +85,12 @@ export function buildAudioModelCatalog(
       // that throw would escape this render-time derivation into the node's error boundary, which
       // is exactly the entry-dropping failure the `notReadyReason` path exists to prevent. Assign
       // only after both succeed, so a half-derived entry can never be published.
-      const derivedSlots = effectiveTextSlots(effectiveBindings(config));
+      const bindings = effectiveBindings(config);
+      const derivedSlots = effectiveTextSlots(bindings);
+      const derivedBooleanSlots = effectiveBooleanSlots(config, bindings);
       const derivedRefs = getComfyUIAudioReferenceRequirements(config);
       textSlots = derivedSlots;
+      booleanSlots = derivedBooleanSlots;
       audioRefs = derivedRefs;
     } catch (error) {
       // A broken workflow must stay visible so the user can see why it cannot run.
@@ -101,6 +108,7 @@ export function buildAudioModelCatalog(
         enabled: true,
         ...(notReadyReason ? { notReadyReason } : {}),
         textSlots,
+        booleanSlots,
         audioRefs,
         extraParams: { ...(provider.extraParams ?? {}), providerId: provider.id, modelId },
       });

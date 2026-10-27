@@ -30,3 +30,11 @@ describe('ComfyUI canvas audio request', () => {
     expect(() => buildComfyUIAudioRequest({ ...entry, textSlots: [] }, {}, [])).toThrow('没有可绑定的文本输入');
   });
 });
+
+it('includes boolean defaults and preserves an explicitly unchecked value', () => {
+  const controlled = { ...entry, booleanSlots: [{ nodeId: '33:31', input: 'value', defaultValue: true }] };
+  expect(buildComfyUIAudioRequest(controlled, {}, []).extra_params).toMatchObject({ booleanSlotValues: { '33:31.value': true } });
+  expect(buildComfyUIAudioRequest(controlled, { '10.text': 'lyrics' }, [], { '33:31.value': false }).extra_params)
+    .toMatchObject({ textSlotValues: { '10.text': 'lyrics' }, booleanSlotValues: { '33:31.value': false } });
+  expect(() => buildComfyUIAudioRequest(controlled, {}, [], { '33:31.value': 'false' })).toThrow('布尔值');
+});
