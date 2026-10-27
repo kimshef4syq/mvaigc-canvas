@@ -465,7 +465,8 @@ export function suggestComfyUIBindings(workflowInput: unknown): ComfyUIBindings 
       ?? findInput(workflow, /^(?:KSamplerAdvanced|RandomNoise)$/i, 'noise_seed'),
     width: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'width') ?? findInput(workflow, /^EmptyLatentImage$/i, 'width'),
     height: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'height') ?? findInput(workflow, /^EmptyLatentImage$/i, 'height'),
-    duration: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'length'),
+    duration: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'length')
+      ?? findInput(workflow, /^YuE2GenerateMusic$/i, 'max_duration'),
     images: imageNodes.map(([nodeId]) => ({ nodeId, input: 'image' })),
     audios: audioNodes.map(([nodeId]) => ({ nodeId, input: 'audio' })),
   };

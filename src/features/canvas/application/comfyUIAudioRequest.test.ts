@@ -29,6 +29,10 @@ describe('ComfyUI canvas audio request', () => {
       .toThrow('Invalid binding');
     expect(() => buildComfyUIAudioRequest({ ...entry, textSlots: [] }, {}, [])).toThrow('没有可绑定的文本输入');
   });
+  it('always caps the workflow at 360 seconds', () => {
+    expect(buildComfyUIAudioRequest(entry, { '10.text': '正文' }, []).extra_params)
+      .toMatchObject({ seconds: 360 });
+  });
 });
 
 it('includes boolean defaults and preserves an explicitly unchecked value', () => {

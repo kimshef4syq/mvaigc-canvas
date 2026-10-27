@@ -2,6 +2,10 @@ import type { GenerateRequest } from '@/commands/ai';
 import { textSlotKey } from '@/features/canvas/infrastructure/comfyuiGateway';
 import type { AudioCatalogEntry } from './audioModelCatalog';
 
+/** Every audio workflow is capped at six minutes: longer renders are slow and memory-hungry, and the
+ *  canvas has no use for them. Applied to whichever duration field the workflow binds. */
+const AUDIO_MAX_SECONDS = 360;
+
 /** Validate canvas inputs before conversion or upload so references are never silently discarded. */
 export function buildComfyUIAudioRequest(
   entry: AudioCatalogEntry,
@@ -33,6 +37,10 @@ export function buildComfyUIAudioRequest(
     size: 'workflow',
     aspect_ratio: 'auto',
     reference_audios: referenceAudios,
-    extra_params: { textSlotValues, ...(entry.booleanSlots?.length ? { booleanSlotValues } : {}) },
+    extra_params: {
+      textSlotValues,
+      ...(entry.booleanSlots?.length ? { booleanSlotValues } : {}),
+      seconds: AUDIO_MAX_SECONDS,
+    },
   };
 }

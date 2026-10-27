@@ -6,6 +6,7 @@ import {
   checkComfyUIConnection,
   ComfyUIExecutionError,
   createComfyUIWorkflowTemplate,
+  effectiveBindings,
   effectiveTextSlots,
   getComfyUIAudioReferenceRequirements,
   getComfyUITemplateCheckpoint,
@@ -694,6 +695,36 @@ it('honors audio mediaType stored only in extraParams', () => {
     mediaType: 'audio', comfyui: { workflow: audioWorkflow, bindings: { images: [], audios: [] }, outputNodeIds: ['4'] },
   } });
   expect(parseComfyUIConfig(config).mediaType).toBe('audio');
+});
+
+describe('YuE2 max duration', () => {
+  const musicWorkflow = {
+    ...text2MusicWorkflow,
+    '33:25': { class_type: 'YuE2GenerateMusic', inputs: { style: ['33:36', 0], lyrics: ['33:37', 0], max_duration: 300 } },
+  };
+  const config = () => parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
+    comfyui: { workflow: musicWorkflow, bindings: { images: [], audios: [] }, outputNodeIds: ['10'] },
+  } }));
+
+  it('detects max_duration as the audio duration binding', () => {
+    expect(effectiveBindings(config()).duration).toEqual({ nodeId: '33:25', input: 'max_duration' });
+  });
+
+  it('writes the requested seconds into max_duration', () => {
+    const patched = prepareComfyUIWorkflow(config(), {
+      prompt: 'pop', model: 'workflow', size: 'workflow', aspect_ratio: 'auto',
+      reference_images: [], reference_audios: [], extra_params: { seconds: 360 },
+    });
+    expect(patched['33:25'].inputs.max_duration).toBe(360);
+  });
+
+  it('leaves max_duration untouched when no seconds are supplied', () => {
+    const patched = prepareComfyUIWorkflow(config(), {
+      prompt: 'pop', model: 'workflow', size: 'workflow', aspect_ratio: 'auto',
+      reference_images: [], reference_audios: [],
+    });
+    expect(patched['33:25'].inputs.max_duration).toBe(300);
+  });
 });
 
 describe('YuE2 ABC controls', () => {
