@@ -224,8 +224,13 @@ describe('custom provider submission safety', () => {
     },
   });
 
-  it('submits, polls and persists a ComfyUI audio result', async () => {
-    useCustomProvidersStore.getState().replaceAll([comfyAudioProvider()]);
+  it.each(['top-level', 'extraParams'])('submits, polls and persists audio with %s mediaType', async (location) => {
+    const config = comfyAudioProvider();
+    if (location === 'extraParams') {
+      config.mediaType = 'image';
+      config.extraParams = { ...config.extraParams, mediaType: 'audio' };
+    }
+    useCustomProvidersStore.getState().replaceAll([config]);
     customHttpRequestMock
       .mockImplementationOnce(() => response(200, { prompt_id: 'prompt-audio' }))
       .mockImplementationOnce(() => response(200, {

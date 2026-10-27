@@ -22,6 +22,7 @@ import {
 import {
   AGNES_PROVIDER_DEFAULTS,
   isChatCustomProvider,
+  isAudioCustomProvider,
   isVideoCustomProvider,
   useCustomProvidersStore,
   type CustomProviderConfig,
@@ -4857,9 +4858,7 @@ export async function generateComfyUIAudio(request: GenerateRequest): Promise<{ 
   const resolved = resolveProviderAndModel(request.model);
   if (!resolved) throw new Error('未找到对应的音频服务商配置');
   const { cfg } = resolved;
-  // `cfg.mediaType` is also what `parseComfyUIConfig` reads, so a provider that
-  // disagrees with itself cannot pass here and then poll for image outputs.
-  if (!isComfyUIProvider(cfg) || cfg.mediaType !== 'audio') {
+  if (!isComfyUIProvider(cfg) || !isAudioCustomProvider(cfg)) {
     throw new Error(`${cfg.label} 不是 ComfyUI 音频输出配置`);
   }
   if (!hasCustomProviderCredential(cfg)) throw new Error(`${cfg.label} 未填写 API Key`);

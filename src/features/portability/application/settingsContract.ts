@@ -202,7 +202,7 @@ export function parseProviderStructures(value: unknown): CustomProviderConfig[] 
     }
     if (seen.has(item.id as string)) throw new Error(`${path}.id is duplicated.`);
     seen.add(item.id as string);
-    if (item.mediaType !== undefined && !['image', 'video', 'chat'].includes(String(item.mediaType))) {
+    if (item.mediaType !== undefined && !['image', 'video', 'chat', 'audio'].includes(String(item.mediaType))) {
       throw new Error(`${path}.mediaType is invalid.`);
     }
     if (item.httpMethod !== undefined && item.httpMethod !== 'GET' && item.httpMethod !== 'POST') {

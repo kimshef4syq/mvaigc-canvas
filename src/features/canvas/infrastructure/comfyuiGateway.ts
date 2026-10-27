@@ -1,7 +1,7 @@
 import type { CustomHttpMultipartBody, GenerateRequest } from '@/commands/ai';
 import { resolveImageOutputGeometry } from '@/features/canvas/application/imageOutputGeometry';
 import type { VideoInputSchema } from '@/features/canvas/application/videoInputSchema';
-import type { CustomProviderConfig } from '@/stores/customProvidersStore';
+import { customProviderMediaType, type CustomProviderConfig } from '@/stores/customProvidersStore';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -244,7 +244,7 @@ export function parseComfyUIConfig(cfg: CustomProviderConfig): ComfyUIConfig {
   const unbound = !textBindingsExplicit;
   return {
     workflow,
-    mediaType: cfg.mediaType === 'audio' ? 'audio' : cfg.mediaType === 'video' ? 'video' : 'image',
+    mediaType: customProviderMediaType(cfg) === 'audio' ? 'audio' : customProviderMediaType(cfg) === 'video' ? 'video' : 'image',
     textBindingsExplicit,
     bindings: {
       ...bindings,
@@ -424,8 +424,8 @@ export function effectiveBindings(config: ComfyUIConfig): ComfyUIBindings {
   result.images = config.bindings.images.length ? config.bindings.images : suggested.images;
   result.audios = config.bindings.audios.length ? config.bindings.audios : suggested.audios;
   // Detected slots are only trusted for audio, the one media type whose workflow shape cannot tell a
-  // positive prompt from a negative one. Image and video keep the legacy prompt-or-throw behaviour, so
-  // an ambiguous workflow can never have `request.prompt` written into a negative-prompt source.
+  // positive prompt from a negative one. Image and video keep the legacy prompt-or-throw behaviour
+  // when bindings.texts is empty; explicit text mappings remain the user's responsibility.
   // An explicit prompt or texts mapping suppresses detection entirely.
   const useDetected = config.mediaType === 'audio' && !config.textBindingsExplicit;
   result.texts = useDetected

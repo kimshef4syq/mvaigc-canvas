@@ -687,3 +687,11 @@ describe('ComfyUI audio text slot detection', () => {
     expect(patched['10'].inputs).toMatchObject({ text: 'BODY' });
   });
 });
+
+
+it('honors audio mediaType stored only in extraParams', () => {
+  const config = provider({ mediaType: 'image', extraParams: {
+    mediaType: 'audio', comfyui: { workflow: audioWorkflow, bindings: { images: [], audios: [] }, outputNodeIds: ['4'] },
+  } });
+  expect(parseComfyUIConfig(config).mediaType).toBe('audio');
+});

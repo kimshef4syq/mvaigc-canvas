@@ -2173,6 +2173,7 @@
         "comfyDescription": "请在 ComfyUI 开启 Dev Mode 后使用“Save (API Format)”导出工作流。可选填写节点绑定；留空时应用会从常见节点自动推断。",
         "comfyOutputImage": "图片输出",
         "comfyOutputVideo": "视频输出",
+        "comfyOutputAudio": "声音输出",
         "comfyTest": "只读测试连接",
         "comfyTestNotice": "连接测试只查询 ComfyUI 状态，不提交生成任务。",
         "comfyReviewDescription": "核对工作流输出类型和请求预览；连接测试只读，确认后保存。",
@@ -2279,7 +2280,7 @@
           "pollingRequestBody": "轮询接口需要 POST 请求体时，可在字符串值中使用 {taskId}。",
           "comfyWorkflow": "只接受 API Format 工作流，不接受画布 nodes/links 文件。不要把图片或模型文件内嵌进 JSON。",
           "comfyBindings": "例如 {\"prompt\":{\"nodeId\":\"6\",\"input\":\"text\"},\"images\":[{\"nodeId\":\"10\",\"input\":\"image\"}]}。",
-          "comfyOutputs": "例如 [\"9\"]；留空数组时会从 SaveImage/SaveVideo 节点推断。"
+          "comfyOutputs": "例如 [\"9\"]；留空数组时会从 SaveImage/SaveVideo/SaveAudio 节点推断。"
         },
         "errors": {
           "comfyOutputs": "ComfyUI 输出节点必须是非空字符串数组。",

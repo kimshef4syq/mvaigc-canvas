@@ -703,7 +703,7 @@ export const CustomProvidersSection = memo(({ mode = 'both', onRequestAdd }: Cus
       const importedCandidate = {
         ...baseTemplate,
         label: String(blockRecord.label ?? baseTemplate.label ?? ''),
-        mediaType: (blockRecord.mediaType === 'video' || baseTemplate.mediaType === 'video') ? 'video' : 'image',
+        mediaType: (blockRecord.mediaType === 'audio' || normalizedExtraParams.mediaType === 'audio' || baseTemplate.mediaType === 'audio') ? 'audio' : (blockRecord.mediaType === 'video' || normalizedExtraParams.mediaType === 'video' || baseTemplate.mediaType === 'video') ? 'video' : 'image',
         baseUrl: String(blockRecord.baseUrl ?? baseTemplate.baseUrl ?? ''),
         endpointPath: String(blockRecord.endpointPath ?? baseTemplate.endpointPath ?? ''),
         modelListEndpointPath: String(blockRecord.modelListEndpointPath ?? baseTemplate.modelListEndpointPath ?? ''),

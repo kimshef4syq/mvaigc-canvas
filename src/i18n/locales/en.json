@@ -2177,6 +2177,7 @@
         "comfyDescription": "Enable Dev Mode in ComfyUI and export with “Save (API Format)”. Bindings are optional; common nodes can be inferred automatically.",
         "comfyOutputImage": "Image Output",
         "comfyOutputVideo": "Video Output",
+        "comfyOutputAudio": "Audio Output",
         "comfyTest": "Read-only Connection Test",
         "comfyTestNotice": "The connection test only reads ComfyUI status and does not submit a generation task.",
         "comfyReviewDescription": "Review the workflow output type and request preview. The connection test is read-only; then save.",
@@ -2283,7 +2284,7 @@
           "pollingRequestBody": "Use {taskId} in string values when the polling endpoint requires a POST body.",
           "comfyWorkflow": "Only API Format workflows are supported, not canvas nodes/links exports. Do not embed images or model files in JSON.",
           "comfyBindings": "For example {\"prompt\":{\"nodeId\":\"6\",\"input\":\"text\"},\"images\":[{\"nodeId\":\"10\",\"input\":\"image\"]}.",
-          "comfyOutputs": "For example [\"9\"]. Leave it empty to infer SaveImage/SaveVideo nodes."
+          "comfyOutputs": "For example [\"9\"]. Leave it empty to infer SaveImage/SaveVideo/SaveAudio nodes."
         },
         "errors": {
           "comfyOutputs": "ComfyUI output node IDs must be a non-empty string array.",
