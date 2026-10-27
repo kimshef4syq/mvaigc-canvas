@@ -11,7 +11,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
-import { AlertTriangle, Bug, Check, ChevronDown, Copy, LoaderCircle, Music2, Settings2, Sparkles } from 'lucide-react';
+import { AlertTriangle, Bug, Check, ChevronDown, Copy, LoaderCircle, Maximize2, Music2, Settings2, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -270,6 +270,8 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
   const promptDraftRef = useRef(data.prompt ?? '');
   const composingTextFieldsRef = useRef(new Set<string>());
   const slotTextareaRefs = useRef(new Map<string, HTMLTextAreaElement>());
+  const expandedSlotTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [expandedSlot, setExpandedSlot] = useState<{ modelId: string; key: string } | null>(null);
   const [promptDraft, setPromptDraft] = useState(() => data.prompt ?? '');
   const [modelOpen, setModelOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -390,6 +392,9 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
   );
   const comfyTextSlots = selectedModel?.textSlots ?? [];
   const comfyBooleanSlots = selectedModel?.booleanSlots ?? [];
+  const expandedTextSlot = expandedSlot?.modelId === selectedModel?.id
+    ? comfyTextSlots.find((slot) => textSlotKey(slot) === expandedSlot?.key)
+    : undefined;
   const booleanValues = useMemo(() => data.audioBooleanValues ?? {}, [data.audioBooleanValues]);
   const slotValues = useMemo(() => data.audioSlotValues ?? {}, [data.audioSlotValues]);
   const comfyPrompt = comfyTextSlots.length > 0
@@ -476,7 +481,17 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
         syncTextareaValue(element, slotValues[key] ?? '');
       }
     });
-  }, [slotValues]);
+    if (expandedSlot && !composingTextFieldsRef.current.has(`expanded:${expandedSlot.key}`)) {
+      syncTextareaValue(expandedSlotTextareaRef.current, slotValues[expandedSlot.key] ?? '');
+    }
+  }, [slotValues, expandedSlot]);
+
+  useEffect(() => {
+    setExpandedSlot(null);
+    composingTextFieldsRef.current.forEach((field) => {
+      if (field.startsWith('expanded:')) composingTextFieldsRef.current.delete(field);
+    });
+  }, [selectedModel?.id]);
 
   useEffect(() => {
     const referenceAudioUrl = activeAudioReference?.audioUrl?.trim() ?? '';
@@ -708,6 +723,14 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     const current = asPlainRecord((latestNode?.data as AiAudioNodeData | undefined)?.audioSlotValues) ?? {};
     updateNodeData(id, { audioSlotValues: { ...current, [key]: value } });
   }, [id, updateNodeData]);
+
+  const closeExpandedSlot = useCallback(() => {
+    if (expandedSlot && expandedSlot.modelId === selectedModel?.id && expandedSlotTextareaRef.current) {
+      handleSlotValueChange(expandedSlot.key, expandedSlotTextareaRef.current.value);
+      composingTextFieldsRef.current.delete(`expanded:${expandedSlot.key}`);
+    }
+    setExpandedSlot(null);
+  }, [expandedSlot, handleSlotValueChange, selectedModel?.id]);
 
   const assembleComfyUIAudioGenerationRequest = useCallback((
     entry: AudioCatalogEntry,
@@ -1151,33 +1174,51 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
                 <label key={`${selectedModel?.id}:${key}`} className="mb-2 block text-[10px] font-medium text-text-muted last:mb-0">
                   {slot.label ?? key}
                   {slot.preserveWhenEmpty ? <span className="ml-1 font-normal">留空保留原分支，填写后优先使用</span> : null}
-                  <textarea
-                    ref={(element) => {
-                      if (element) slotTextareaRefs.current.set(key, element);
-                      else slotTextareaRefs.current.delete(key);
-                    }}
-                    defaultValue={slotValues[key] ?? ''}
-                    onChange={(event) => handleSlotValueChange(key, event.target.value)}
-                    onCompositionStart={(event) => handleCompositionStart(`slot:${key}`, event)}
-                    onCompositionEnd={(event) => {
-                      event.stopPropagation();
-                      composingTextFieldsRef.current.delete(`slot:${key}`);
-                      handleSlotValueChange(key, event.currentTarget.value);
-                    }}
-                    onBlur={(event) => {
-                      composingTextFieldsRef.current.delete(`slot:${key}`);
-                      handleSlotValueChange(key, event.currentTarget.value);
-                    }}
-                    onClick={(event) => event.stopPropagation()}
-                    onFocus={(event) => event.stopPropagation()}
-                    onKeyDown={handlePromptKeyDown}
-                    onKeyUp={(event) => event.stopPropagation()}
-                    onMouseDown={(event) => event.stopPropagation()}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    placeholder={slot.preserveWhenEmpty ? '留空保留工作流原有输入；填写后优先使用自定义乐谱' : `输入 ${slot.label ?? key}`}
-                    className={`ui-scrollbar nodrag nopan nowheel mt-1 ${slot.preserveWhenEmpty ? 'h-[120px] font-mono' : 'h-[52px]'} w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] px-2 py-1.5 text-xs leading-5 text-text-dark outline-none placeholder:text-text-muted/70 focus:border-accent`}
-                    spellCheck={false}
-                  />
+                  <div className="relative mt-1">
+                    <textarea
+                      ref={(element) => {
+                        if (element) slotTextareaRefs.current.set(key, element);
+                        else slotTextareaRefs.current.delete(key);
+                      }}
+                      defaultValue={slotValues[key] ?? ''}
+                      onChange={(event) => handleSlotValueChange(key, event.target.value)}
+                      onCompositionStart={(event) => handleCompositionStart(`slot:${key}`, event)}
+                      onCompositionEnd={(event) => {
+                        event.stopPropagation();
+                        composingTextFieldsRef.current.delete(`slot:${key}`);
+                        handleSlotValueChange(key, event.currentTarget.value);
+                      }}
+                      onBlur={(event) => {
+                        composingTextFieldsRef.current.delete(`slot:${key}`);
+                        handleSlotValueChange(key, event.currentTarget.value);
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                      onFocus={(event) => event.stopPropagation()}
+                      onKeyDown={handlePromptKeyDown}
+                      onKeyUp={(event) => event.stopPropagation()}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      placeholder={slot.preserveWhenEmpty ? '留空保留工作流原有输入；填写后优先使用自定义乐谱' : `输入 ${slot.label ?? key}`}
+                      className={`ui-scrollbar nodrag nopan nowheel ${slot.preserveWhenEmpty ? 'h-[120px] font-mono' : 'h-[52px]'} w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] pl-2 pr-9 py-1.5 text-xs leading-5 text-text-dark outline-none placeholder:text-text-muted/70 focus:border-accent`}
+                      spellCheck={false}
+                    />
+                    <button
+                      type="button"
+                      className="nodrag nopan nowheel absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)]/70 text-text-muted opacity-70 backdrop-blur-sm transition-opacity hover:text-text-dark hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      title={t('node.aiAudio.expandText')}
+                      aria-label={`${t('node.aiAudio.expandText')}：${slot.label ?? key}`}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const value = slotTextareaRefs.current.get(key)?.value ?? slotValues[key] ?? '';
+                        handleSlotValueChange(key, value);
+                        if (selectedModel) setExpandedSlot({ modelId: selectedModel.id, key });
+                      }}
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </label>
               );
             })
@@ -1624,6 +1665,43 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
         maxWidth={AI_AUDIO_NODE_MAX_WIDTH}
         maxHeight={AI_AUDIO_NODE_MAX_HEIGHT}
       />
+
+      <UiModal
+        isOpen={Boolean(expandedTextSlot)}
+        title={`${t('node.aiAudio.expandText')} · ${expandedTextSlot?.label ?? expandedSlot?.key ?? ''}`}
+        onClose={closeExpandedSlot}
+        widthClassName="w-[min(960px,calc(100vw-32px))]"
+        containerClassName="!z-[13050]"
+        footer={<UiButton variant="primary" size="sm" onClick={closeExpandedSlot}>{t('common.close')}</UiButton>}
+      >
+        {expandedTextSlot && expandedSlot ? <textarea
+          key={`${expandedSlot.modelId}:${expandedSlot.key}`}
+          ref={expandedSlotTextareaRef}
+          data-autofocus="true"
+          aria-label={expandedTextSlot.label ?? expandedSlot.key}
+          defaultValue={slotValues[expandedSlot.key] ?? ''}
+          onChange={(event) => {
+            if (!composingTextFieldsRef.current.has(`expanded:${expandedSlot.key}`)) {
+              handleSlotValueChange(expandedSlot.key, event.target.value);
+            }
+          }}
+          onCompositionStart={(event) => handleCompositionStart(`expanded:${expandedSlot.key}`, event)}
+          onCompositionEnd={(event) => {
+            composingTextFieldsRef.current.delete(`expanded:${expandedSlot.key}`);
+            handleSlotValueChange(expandedSlot.key, event.currentTarget.value);
+          }}
+          onBlur={(event) => {
+            composingTextFieldsRef.current.delete(`expanded:${expandedSlot.key}`);
+            handleSlotValueChange(expandedSlot.key, event.currentTarget.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing || (event.key !== 'Escape' && event.key !== 'Tab')) event.stopPropagation();
+          }}
+          placeholder={expandedTextSlot.preserveWhenEmpty ? '留空保留原分支，填写后优先使用自定义乐谱' : `输入 ${expandedTextSlot.label ?? expandedSlot.key}`}
+          className={`ui-scrollbar nodrag nopan nowheel h-[55vh] min-h-[240px] w-full resize-none rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-4 text-sm font-normal leading-7 text-text-dark outline-none focus:border-accent ${expandedTextSlot.preserveWhenEmpty ? 'font-mono' : ''}`}
+          spellCheck={false}
+        /> : null}
+      </UiModal>
 
       <UiModal
         isOpen={payloadDebugText !== null}

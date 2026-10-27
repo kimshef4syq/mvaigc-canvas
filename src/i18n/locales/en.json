@@ -1638,6 +1638,7 @@
       "staleResult": "The result may be stale"
     },
     "aiAudio": {
+      "expandText": "Expand editor",
       "promptPlaceholder": "Enter text to synthesize, or connect a text node as input",
       "textRequired": "Enter text to synthesize, or connect a text node",
       "noModel": "Configure and enable an audio model in Settings first",

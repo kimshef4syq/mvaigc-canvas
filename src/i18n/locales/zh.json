@@ -1634,6 +1634,7 @@
       "staleResult": "结果可能已过期"
     },
     "aiAudio": {
+      "expandText": "放大编辑",
       "promptPlaceholder": "输入要文生音频的文字；也可以连接文本节点作为输入",
       "textRequired": "请输入要生成音频的文字，或连接一个文本节点",
       "noModel": "请先在设置中配置并启用音频模型",
