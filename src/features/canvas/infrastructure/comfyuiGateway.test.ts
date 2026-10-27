@@ -45,6 +45,12 @@ const audioWorkflow = {
   '5': { class_type: 'PreviewAudio', inputs: { audio: ['2', 0] } },
 };
 
+// Same graph with the LoadAudio slot already filled on the server, so the reference audio is optional.
+const filledAudioWorkflow = {
+  ...audioWorkflow,
+  '1': { class_type: 'LoadAudio', inputs: { audio: 'server.wav' } },
+};
+
 const voiceDesignWorkflow = {
   '1': { class_type: 'FB_Qwen3TTSVoiceDesign', inputs: { text: ['10', 0], instruct: ['11', 0], seed: 1 } },
   '3': { class_type: 'SaveAudio', inputs: { audio: ['1', 0] } },
@@ -407,7 +413,7 @@ describe('ComfyUI audio workflow contracts', () => {
   it('does not apply image geometry to an audio workflow', () => {
     const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
       comfyui: {
-        workflow: { ...audioWorkflow, '1': { class_type: 'LoadAudio', inputs: { audio: 'server.wav' } } },
+        workflow: filledAudioWorkflow,
         outputNodeIds: ['4'],
         bindings: { prompt: { nodeId: '3', input: 'text' }, images: [] },
       },
@@ -418,8 +424,7 @@ describe('ComfyUI audio workflow contracts', () => {
 
   it('leaves an explicitly bound audio size untouched instead of rewriting it as image geometry', () => {
     const sizedAudioWorkflow = {
-      ...audioWorkflow,
-      '1': { class_type: 'LoadAudio', inputs: { audio: 'server.wav' } },
+      ...filledAudioWorkflow,
       '6': { class_type: 'EmptyLatentAudio', inputs: { width: 512, height: 512 } },
     };
     const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: {
@@ -484,6 +489,39 @@ describe('ComfyUI reference audio uploads', () => {
       ...request, reference_images: [], reference_audios: ['data:audio/mpeg;base64,AA', 'data:audio/mpeg;base64,BB'],
     }, [], ['a.mp3', 'b.mp3'])).toThrow('只有 1 个参考音频输入');
   });
+
+  it('requires reference audio when an audio workflow has an empty LoadAudio slot', () => {
+    const config = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
+      workflow: audioWorkflow, outputNodeIds: ['4'],
+      bindings: { prompt: { nodeId: '3', input: 'text' }, audios: [{ nodeId: '1', input: 'audio' }], images: [] },
+    } } }));
+    expect(() => prepareComfyUIWorkflow(config, { ...request, reference_images: [], reference_audios: [] }))
+      .toThrow('至少需要 1 个参考音频');
+  });
+
+  it('does not let an empty LoadAudio slot block an image workflow that passes no reference audio', () => {
+    const config = parseComfyUIConfig(provider({ extraParams: { comfyui: {
+      workflow: { ...workflow, '11': { class_type: 'LoadAudio', inputs: { audio: '' } } },
+      outputNodeIds: ['9'], bindings: { images: [] },
+    } } }));
+    expect(() => prepareComfyUIWorkflow(config, { ...request, reference_images: [] })).not.toThrow();
+  });
+
+  it('rejects reference audio for a workflow that is not audio output', async () => {
+    const config = parseComfyUIConfig(provider({ extraParams: { comfyui: {
+      workflow: { ...workflow, '11': { class_type: 'LoadAudio', inputs: { audio: '' } } },
+      outputNodeIds: ['9'], bindings: { images: [] },
+    } } }));
+    expect(() => prepareComfyUIWorkflow(config, {
+      ...request, reference_images: [], reference_audios: ['data:audio/mpeg;base64,AAAA'],
+    }, [], ['a.mp3'])).toThrow('该工作流不是音频输出类型，不能传入参考音频。');
+    const client = transport();
+    await expect(submitComfyUIWorkflow(config, {
+      ...request, reference_images: [], reference_audios: ['data:audio/mpeg;base64,AAAA'],
+    }, client)).rejects.toThrow('不是音频输出类型');
+    // The pre-upload validation rejects before the audio upload loop is reached.
+    expect(client.multipart).not.toHaveBeenCalled();
+  });
 });
 
 describe('ComfyUI binding compatibility', () => {
@@ -543,7 +581,7 @@ describe('ComfyUI binding compatibility', () => {
 
   it('parses audio bindings and treats a filled server filename as optional', () => {
     const filled = parseComfyUIConfig(provider({ mediaType: 'audio', extraParams: { comfyui: {
-      workflow: { ...audioWorkflow, '1': { class_type: 'LoadAudio', inputs: { audio: 'server.wav' } } },
+      workflow: filledAudioWorkflow,
       outputNodeIds: ['4'],
       bindings: { audios: [{ nodeId: '1', input: 'audio' }], images: [] },
     } } }));

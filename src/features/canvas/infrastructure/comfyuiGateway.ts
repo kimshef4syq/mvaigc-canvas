@@ -580,16 +580,24 @@ export function prepareComfyUIWorkflow(
   uploadedNames.forEach((name, index) => setInput(workflow, bindings.images[index], name));
 
   const audioCount = request.reference_audios?.length ?? 0;
-  if (audioCount > 0 && bindings.audios.length === 0) {
-    throw new Error('ComfyUI 工作流没有音频输入槽；请在服务器工作流中添加 LoadAudio 映射。');
+  // Audio slots are only enforced for audio workflows, mirroring the media-type gate on detected text
+  // slots: `effectiveBindings` detects `LoadAudio` in any workflow, so an unguarded rule would make an
+  // empty audio slot block an image or video workflow that prepared fine before.
+  if (config.mediaType === 'audio') {
+    if (audioCount > 0 && bindings.audios.length === 0) {
+      throw new Error('ComfyUI 工作流没有音频输入槽；请在服务器工作流中添加 LoadAudio 映射。');
+    }
+    const audioRequirements = getComfyUIAudioReferenceRequirements(config);
+    if (audioCount < audioRequirements.min) throw new Error(`工作流至少需要 ${audioRequirements.min} 个参考音频；请连接音频卡片或在工作流中填写服务器音频文件名。`);
+    if (audioCount > bindings.audios.length) {
+      throw new Error(`工作流只有 ${bindings.audios.length} 个参考音频输入，画布传入 ${audioCount} 个；请增加 LoadAudio 映射或减少参考音频。`);
+    }
+    if (uploadedAudioNames.length !== audioCount) throw new Error('ComfyUI 参考音频上传结果数量不匹配。');
+    uploadedAudioNames.forEach((name, index) => setInput(workflow, bindings.audios[index], name));
+  } else if (audioCount > 0) {
+    // Never drop supplied audio silently: a workflow that is not audio output cannot consume it.
+    throw new Error('该工作流不是音频输出类型，不能传入参考音频。');
   }
-  const audioRequirements = getComfyUIAudioReferenceRequirements(config);
-  if (audioCount < audioRequirements.min) throw new Error(`工作流至少需要 ${audioRequirements.min} 个参考音频；请连接音频卡片或在工作流中填写服务器音频文件名。`);
-  if (audioCount > bindings.audios.length) {
-    throw new Error(`工作流只有 ${bindings.audios.length} 个参考音频输入，画布传入 ${audioCount} 个；请增加 LoadAudio 映射或减少参考音频。`);
-  }
-  if (uploadedAudioNames.length !== audioCount) throw new Error('ComfyUI 参考音频上传结果数量不匹配。');
-  uploadedAudioNames.forEach((name, index) => setInput(workflow, bindings.audios[index], name));
   return workflow;
 }
 
