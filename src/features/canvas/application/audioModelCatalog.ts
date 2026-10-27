@@ -5,7 +5,6 @@ import {
   effectiveTextSlots,
   getComfyUIAudioReferenceRequirements,
   parseComfyUIConfig,
-  type ComfyUIConfig,
   type ComfyUITextBinding,
 } from '@/features/canvas/infrastructure/comfyuiGateway';
 import { hasConfiguredCustomProvider } from '@/features/canvas/application/providerAvailability';
@@ -72,10 +71,20 @@ export function buildAudioModelCatalog(
     ) {
       continue;
     }
-    let config: ComfyUIConfig | null = null;
+    let textSlots: ComfyUITextBinding[] = [];
+    let audioRefs: { min: number; max: number } = { ...NO_AUDIO_REFS };
     let notReadyReason: string | undefined;
     try {
-      config = parseComfyUIConfig(provider);
+      const config = parseComfyUIConfig(provider);
+      // Both derivations stay inside the try: a stored binding can point at a node or input that is
+      // not in the workflow, and `parseComfyUIConfig` does not validate binding node ids. Letting
+      // that throw would escape this render-time derivation into the node's error boundary, which
+      // is exactly the entry-dropping failure the `notReadyReason` path exists to prevent. Assign
+      // only after both succeed, so a half-derived entry can never be published.
+      const derivedSlots = effectiveTextSlots(effectiveBindings(config));
+      const derivedRefs = getComfyUIAudioReferenceRequirements(config);
+      textSlots = derivedSlots;
+      audioRefs = derivedRefs;
     } catch (error) {
       // A broken workflow must stay visible so the user can see why it cannot run.
       notReadyReason = error instanceof Error ? error.message : String(error);
@@ -91,8 +100,8 @@ export function buildAudioModelCatalog(
         providerKind: 'comfyui',
         enabled: true,
         ...(notReadyReason ? { notReadyReason } : {}),
-        textSlots: config ? effectiveTextSlots(effectiveBindings(config)) : [],
-        audioRefs: config ? getComfyUIAudioReferenceRequirements(config) : { ...NO_AUDIO_REFS },
+        textSlots,
+        audioRefs,
         extraParams: { ...(provider.extraParams ?? {}), providerId: provider.id, modelId },
       });
     }

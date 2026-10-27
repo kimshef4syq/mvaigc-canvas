@@ -90,4 +90,33 @@ describe('buildAudioModelCatalog', () => {
     expect(comfy.textSlots).toEqual([]);
     expect(comfy.audioRefs).toEqual({ min: 0, max: 0 });
   });
+
+  it('lists a provider whose audio binding points at a missing node instead of throwing', () => {
+    // parseComfyUIConfig validates output nodes but not binding node ids, so a stale binding
+    // survives parsing and only fails while the reference requirements are derived.
+    const catalog = buildAudioModelCatalog(DEFAULT_AUDIO_GENERATION_SETTINGS, [
+      comfyAudioProvider({
+        extraParams: {
+          auth: { mode: 'none' },
+          comfyui: {
+            workflow: voiceCloneWorkflow,
+            bindings: { audios: [{ nodeId: '999', input: 'audio' }] },
+            outputNodeIds: ['52'],
+          },
+        },
+      }),
+    ]);
+    const comfy = catalog.find((e) => e.kind === 'comfyui')!;
+    expect(comfy.id).toBe('custom:comfy-audio:workflow');
+    expect(comfy.notReadyReason).toBe('ComfyUI 工作流中找不到节点 999。');
+    expect(comfy.textSlots).toEqual([]);
+    expect(comfy.audioRefs).toEqual({ min: 0, max: 0 });
+  });
+
+  it('ignores an audio provider that does not use the comfyui api style', () => {
+    const catalog = buildAudioModelCatalog(DEFAULT_AUDIO_GENERATION_SETTINGS, [
+      comfyAudioProvider({ apiStyle: 'openai-compatible' }),
+    ]);
+    expect(catalog.filter((e) => e.kind === 'comfyui')).toEqual([]);
+  });
 });
