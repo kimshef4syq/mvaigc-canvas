@@ -4864,27 +4864,40 @@ export async function generateComfyUIAudio(request: GenerateRequest): Promise<{ 
   }
   if (!hasCustomProviderCredential(cfg)) throw new Error(`${cfg.label} 未填写 API Key`);
 
-  const network = useSettingsStore.getState().generationNetworkSettings;
+  const network = { ...useSettingsStore.getState().generationNetworkSettings };
   const config = parseComfyUIConfig(cfg);
   const transport = createComfyUITransport(cfg, network);
   const { prompt_id: promptId } = await submitComfyUIWorkflow(config, request, transport);
+  const audioSource = await pollComfyUIWorkflow(config, promptId, 'audio', transport);
+
   // `transport.url()` keeps `/view` free of configured query params, and a
   // query-mode key is not a header, so both are re-attached here exactly as
-  // `materializeGeneratedVideoSource` does for video.
-  const resultSource = withComfyUIResultQuery(
-    cfg,
-    await pollComfyUIWorkflow(config, promptId, 'audio', transport),
-  );
+  // `materializeGeneratedVideoSource` does for video — including its same-origin
+  // guard, so neither can leak to a third-party result host.
+  const authHeaders = buildAuthenticatedImageFetchHeaders(cfg);
+  const route = buildMediaNetworkRoute(cfg, network);
+  const mayForwardCredentials = shouldForwardProviderCredentials(cfg.baseUrl, audioSource);
   const auth = resolveCustomProviderAuth(cfg);
-  const authenticatedSource = auth.mode === 'query' && cfg.apiKey.trim()
-    ? appendQueryParams(resultSource, { [auth.name]: configuredApiKeyValue(cfg, auth.prefix) })
+  const resultSource = withComfyUIResultQuery(cfg, audioSource);
+  const authenticatedSource = auth.mode === 'query' && cfg.apiKey.trim() && mayForwardCredentials
+    ? appendQueryParams(resultSource, {
+      [auth.name]: configuredApiKeyValue(cfg, auth.prefix),
+    })
     : resultSource;
-  const audioUrl = await persistAudioSource(
-    authenticatedSource,
-    buildAuthenticatedImageFetchHeaders(cfg),
-    buildMediaNetworkRoute(cfg, network),
-  );
-  return { audioUrl };
+  try {
+    const audioUrl = await persistAudioSource(
+      authenticatedSource,
+      mayForwardCredentials && Object.keys(authHeaders).length > 0 ? authHeaders : undefined,
+      route,
+    );
+    return { audioUrl };
+  } catch (persistError) {
+    throw new Error([
+      '已获取到生成音频地址，但音频下载或解析失败。',
+      formatUnknownError(persistError),
+      !mayForwardCredentials ? '结果地址与服务商不同源，未转发 Authorization/Cookie。' : '',
+    ].filter(Boolean).join('\n'));
+  }
 }
 
 async function runCustomVideoJob(

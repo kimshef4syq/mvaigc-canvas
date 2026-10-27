@@ -239,8 +239,11 @@ describe('custom provider submission safety', () => {
     });
 
     expect(result.audioUrl).toBe('file:///audio/out.mp3');
+    // Same-origin provider with no auth header: mirror the video path's `undefined`.
     expect(persistAudioSourceMock).toHaveBeenCalledWith(
-      expect.stringContaining('/view'), expect.anything(), expect.anything(),
+      expect.stringContaining('/view'),
+      undefined,
+      expect.objectContaining({ configuredProviderOrigin: 'http://127.0.0.1:8188' }),
     );
     expect(customHttpRequestMock.mock.calls[0][0]).toMatchObject({
       url: 'http://127.0.0.1:8188/comfy/prompt',
@@ -259,6 +262,49 @@ describe('custom provider submission safety', () => {
 
     expect(customHttpRequestMock).not.toHaveBeenCalled();
     expect(persistAudioSourceMock).not.toHaveBeenCalled();
+  });
+
+  it('attaches configured query routing and the query-mode API key when downloading audio', async () => {
+    useCustomProvidersStore.getState().replaceAll([provider({
+      ...comfyAudioProvider(),
+      apiKey: 'private-token',
+      queryParams: { tenant: 'studio-a' },
+      extraParams: {
+        ...comfyAudioProvider().extraParams,
+        auth: { mode: 'query', name: 'token' },
+      },
+    })]);
+    customHttpRequestMock
+      .mockImplementationOnce(() => response(200, { prompt_id: 'prompt-query-audio' }))
+      .mockImplementationOnce(() => response(200, {
+        'prompt-query-audio': { outputs: { '9': { audio: [{ filename: 'out.mp3', subfolder: '', type: 'output' }] } } },
+      }));
+    persistAudioSourceMock.mockResolvedValue('file:///audio/out.mp3');
+
+    await generateComfyUIAudio({
+      prompt: 'hello', model: 'custom:provider-1:workflow', size: '', aspect_ratio: 'auto',
+      reference_images: [], reference_audios: [],
+    });
+
+    const downloadUrl = persistAudioSourceMock.mock.calls[0][0] as string;
+    expect(downloadUrl).toContain('/view?filename=out.mp3');
+    expect(downloadUrl).toContain('tenant=studio-a');
+    expect(downloadUrl).toContain('token=private-token');
+  });
+
+  it('wraps an audio persist failure in a Chinese message', async () => {
+    useCustomProvidersStore.getState().replaceAll([comfyAudioProvider()]);
+    customHttpRequestMock
+      .mockImplementationOnce(() => response(200, { prompt_id: 'prompt-persist-fail' }))
+      .mockImplementationOnce(() => response(200, {
+        'prompt-persist-fail': { outputs: { '9': { audio: [{ filename: 'out.mp3', subfolder: '', type: 'output' }] } } },
+      }));
+    persistAudioSourceMock.mockRejectedValue(new Error('download failed: 401 Unauthorized'));
+
+    await expect(generateComfyUIAudio({
+      prompt: 'hello', model: 'custom:provider-1:workflow', size: '', aspect_ratio: 'auto',
+      reference_images: [], reference_audios: [],
+    })).rejects.toThrow('已获取到生成音频地址，但音频下载或解析失败。\ndownload failed: 401 Unauthorized');
   });
 
   it('applies configured ComfyUI query routing to /view only when downloading, not in the durable result URL', async () => {
