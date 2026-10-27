@@ -4,6 +4,7 @@ const {
   customHttpRequestMock,
   createGenerationJobMock,
   getGenerationJobRecordMock,
+  persistAudioSourceMock,
   persistVideoSourceMock,
   prepareNodeImageSourceWithHeadersMock,
   updateGenerationJobMock,
@@ -11,6 +12,7 @@ const {
   customHttpRequestMock: vi.fn(),
   createGenerationJobMock: vi.fn(),
   getGenerationJobRecordMock: vi.fn(),
+  persistAudioSourceMock: vi.fn(),
   persistVideoSourceMock: vi.fn(),
   prepareNodeImageSourceWithHeadersMock: vi.fn(),
   updateGenerationJobMock: vi.fn(),
@@ -31,6 +33,7 @@ vi.mock('@/commands/image', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/commands/image')>();
   return {
     ...actual,
+    persistAudioSource: persistAudioSourceMock,
     persistVideoSource: persistVideoSourceMock,
     prepareNodeImageSourceWithHeaders: prepareNodeImageSourceWithHeadersMock,
   };
@@ -50,6 +53,7 @@ import {
   buildCustomProviderRequestDebugPreviewForConfig,
   classifyGenerationError,
   detectInlineImageAspectRatio,
+  generateComfyUIAudio,
   getCustomProviderJob,
   getCustomProviderJobAsync,
   recoverCustomProviderJob,
@@ -101,6 +105,7 @@ afterEach(() => {
   createGenerationJobMock.mockReset();
   createGenerationJobMock.mockResolvedValue(undefined);
   getGenerationJobRecordMock.mockReset();
+  persistAudioSourceMock.mockReset();
   persistVideoSourceMock.mockReset();
   prepareNodeImageSourceWithHeadersMock.mockReset();
   updateGenerationJobMock.mockReset();
@@ -200,6 +205,60 @@ describe('custom provider submission safety', () => {
       {},
       expect.objectContaining({ configuredProviderOrigin: 'http://127.0.0.1:8188' }),
     );
+  });
+
+  const comfyAudioWorkflow = {
+    '6': { class_type: 'CLIPTextEncode', inputs: { text: 'old' } },
+    '9': { class_type: 'SaveAudio', inputs: { audio: ['6', 0] } },
+  };
+  const comfyAudioProvider = () => provider({
+    mediaType: 'audio',
+    baseUrl: 'http://127.0.0.1:8188/comfy',
+    endpointPath: '/prompt',
+    apiKey: '',
+    apiStyle: 'comfyui',
+    models: ['workflow'],
+    extraParams: {
+      auth: { mode: 'none' },
+      comfyui: { workflow: comfyAudioWorkflow, outputNodeIds: ['9'], pollIntervalMs: 500, pollTimeoutMs: 5000 },
+    },
+  });
+
+  it('submits, polls and persists a ComfyUI audio result', async () => {
+    useCustomProvidersStore.getState().replaceAll([comfyAudioProvider()]);
+    customHttpRequestMock
+      .mockImplementationOnce(() => response(200, { prompt_id: 'prompt-audio' }))
+      .mockImplementationOnce(() => response(200, {
+        'prompt-audio': { outputs: { '9': { audio: [{ filename: 'out.mp3', subfolder: '', type: 'output' }] } } },
+      }));
+    persistAudioSourceMock.mockResolvedValue('file:///audio/out.mp3');
+
+    const result = await generateComfyUIAudio({
+      prompt: 'hello', model: 'custom:provider-1:workflow', size: '', aspect_ratio: 'auto',
+      reference_images: [], reference_audios: [],
+    });
+
+    expect(result.audioUrl).toBe('file:///audio/out.mp3');
+    expect(persistAudioSourceMock).toHaveBeenCalledWith(
+      expect.stringContaining('/view'), expect.anything(), expect.anything(),
+    );
+    expect(customHttpRequestMock.mock.calls[0][0]).toMatchObject({
+      url: 'http://127.0.0.1:8188/comfy/prompt',
+      method: 'POST',
+    });
+    expect(customHttpRequestMock.mock.calls[1][0].url).toBe('http://127.0.0.1:8188/comfy/history/prompt-audio');
+  });
+
+  it('rejects a provider that is not a ComfyUI audio configuration', async () => {
+    useCustomProvidersStore.getState().replaceAll([comfyProvider('video')]);
+
+    await expect(generateComfyUIAudio({
+      prompt: 'hello', model: 'custom:provider-1:workflow', size: '', aspect_ratio: 'auto',
+      reference_images: [], reference_audios: [],
+    })).rejects.toThrow('Provider 不是 ComfyUI 音频输出配置');
+
+    expect(customHttpRequestMock).not.toHaveBeenCalled();
+    expect(persistAudioSourceMock).not.toHaveBeenCalled();
   });
 
   it('applies configured ComfyUI query routing to /view only when downloading, not in the durable result URL', async () => {

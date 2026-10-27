@@ -14,6 +14,7 @@ import {
 } from '@/commands/ai';
 import { isTauri } from '@tauri-apps/api/core';
 import {
+  persistAudioSource,
   prepareNodeImageSourceWithHeaders,
   persistVideoSource,
   type MediaNetworkRoute,
@@ -4845,6 +4846,45 @@ export async function submitCustomVideoJob(request: GenerateRequest): Promise<st
     void runCustomVideoJob(jobId, cfg, model, request, network);
   }
   return jobId;
+}
+
+/**
+ * Synchronous ComfyUI audio generation: submit, poll, persist, return. There is
+ * deliberately no job record here — this matches the local TTS path, which the
+ * audio node calls in the same blocking way.
+ */
+export async function generateComfyUIAudio(request: GenerateRequest): Promise<{ audioUrl: string }> {
+  const resolved = resolveProviderAndModel(request.model);
+  if (!resolved) throw new Error('未找到对应的音频服务商配置');
+  const { cfg } = resolved;
+  // `cfg.mediaType` is also what `parseComfyUIConfig` reads, so a provider that
+  // disagrees with itself cannot pass here and then poll for image outputs.
+  if (!isComfyUIProvider(cfg) || cfg.mediaType !== 'audio') {
+    throw new Error(`${cfg.label} 不是 ComfyUI 音频输出配置`);
+  }
+  if (!hasCustomProviderCredential(cfg)) throw new Error(`${cfg.label} 未填写 API Key`);
+
+  const network = useSettingsStore.getState().generationNetworkSettings;
+  const config = parseComfyUIConfig(cfg);
+  const transport = createComfyUITransport(cfg, network);
+  const { prompt_id: promptId } = await submitComfyUIWorkflow(config, request, transport);
+  // `transport.url()` keeps `/view` free of configured query params, and a
+  // query-mode key is not a header, so both are re-attached here exactly as
+  // `materializeGeneratedVideoSource` does for video.
+  const resultSource = withComfyUIResultQuery(
+    cfg,
+    await pollComfyUIWorkflow(config, promptId, 'audio', transport),
+  );
+  const auth = resolveCustomProviderAuth(cfg);
+  const authenticatedSource = auth.mode === 'query' && cfg.apiKey.trim()
+    ? appendQueryParams(resultSource, { [auth.name]: configuredApiKeyValue(cfg, auth.prefix) })
+    : resultSource;
+  const audioUrl = await persistAudioSource(
+    authenticatedSource,
+    buildAuthenticatedImageFetchHeaders(cfg),
+    buildMediaNetworkRoute(cfg, network),
+  );
+  return { audioUrl };
 }
 
 async function runCustomVideoJob(
