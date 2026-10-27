@@ -22,11 +22,21 @@ import { resolveNodeDisplayName } from '@/features/canvas/domain/nodeDisplay';
 import { canvasEventBus } from '@/features/canvas/application/canvasServices';
 import { subscribeCanvasGenerationTrigger } from '@/features/canvas/application/canvasGenerationTriggers';
 import {
+  defaultAudioInputSchemaForProviderKind,
   resolveAudioInputSchemaFromExtraParams,
   type AudioInputSchema,
   type AudioParameterSchema,
 } from '@/features/canvas/application/audioInputSchema';
+import {
+  buildAudioModelCatalog,
+  useAudioModelCatalog,
+  type AudioCatalogEntry,
+} from '@/features/canvas/application/audioModelCatalog';
 import { collectInputReferences } from '@/features/canvas/application/graphReferenceResolver';
+import { textSlotKey } from '@/features/canvas/infrastructure/comfyuiGateway';
+import { generateComfyUIAudio } from '@/features/canvas/infrastructure/customProviderGateway';
+import { loadAudioSourceDataUrl } from '@/commands/image';
+import type { GenerateRequest } from '@/commands/ai';
 import { resolveErrorContent, showErrorDialog } from '@/features/canvas/application/errorDialog';
 import {
   acquireGenerationSubmitLock,
@@ -48,6 +58,7 @@ import {
 } from '@/features/canvas/ui/nodeControlStyles';
 import { UiButton, UiCheckbox, UiModal } from '@/components/ui';
 import { useCanvasStore } from '@/stores/canvasStore';
+import { useCustomProvidersStore } from '@/stores/customProvidersStore';
 import { useSettingsStore, type AudioModelConfig } from '@/stores/settingsStore';
 
 type AiAudioNodeProps = NodeProps & {
@@ -56,9 +67,8 @@ type AiAudioNodeProps = NodeProps & {
   selected?: boolean;
 };
 
-interface AudioGenerationRequestAssembly {
+interface AudioGenerationAssemblyCommon {
   text: string;
-  latestModel: AudioModelConfig;
   latestSettings: ReturnType<typeof useSettingsStore.getState>['audioGenerationSettings'];
   latestInputSchema: AudioInputSchema;
   latestGenerationParams: Record<string, unknown>;
@@ -68,8 +78,24 @@ interface AudioGenerationRequestAssembly {
   latestControlInstruction: string;
   latestAudioReferences: ReturnType<typeof collectInputReferences>;
   latestMode: string;
-  gatewayPayload: GenerateAudioRequest;
 }
+
+/**
+ * Dispatch is by catalog entry `kind`, never by `providerKind`: `generateAudio` sends every model that
+ * is not `gradio-voxcpm` to the local TTS endpoint, so a ComfyUI config reaching it would silently hit
+ * Doubao. Keeping the two payloads in separate union members makes that impossible to conflate.
+ */
+type AudioGenerationRequestAssembly =
+  | (AudioGenerationAssemblyCommon & {
+    kind: 'builtin';
+    latestModel: AudioModelConfig;
+    gatewayPayload: GenerateAudioRequest;
+  })
+  | (AudioGenerationAssemblyCommon & {
+    kind: 'comfyui';
+    latestComfyEntry: AudioCatalogEntry;
+    comfyPayload: GenerateRequest;
+  });
 
 const AI_AUDIO_NODE_MIN_WIDTH = 500;
 const AI_AUDIO_NODE_MIN_HEIGHT = 320;
@@ -79,6 +105,8 @@ const AI_AUDIO_NODE_MAX_WIDTH = 1200;
 const AI_AUDIO_NODE_MAX_HEIGHT = 900;
 const PROMPT_COMMIT_DELAY_MS = 450;
 const VOXCPM_REFERENCE_ASR_FIELD = '__voxcpmReferenceAsr';
+const COMFY_AUDIO_PROGRESS_DURATION_MS = 180000;
+const COMFY_NO_TEXT_SLOTS_NOTICE = '该工作流没有可绑定的文本输入';
 
 function resolveNodeDimension(value: number | undefined, fallback: number): number {
   if (typeof value === 'number' && Number.isFinite(value) && value > 1) {
@@ -200,12 +228,33 @@ function syncTextareaValue(element: HTMLTextAreaElement | null, value: string) {
   }
 }
 
+/**
+ * The catalog's built-in `providerLabel` is the literal `'内置'`, which says nothing in a dropdown that
+ * also lists custom providers. Resolve the real provider name instead (mirrors `AudioModelsSection`).
+ */
+function builtinProviderLabel(entry: AudioCatalogEntry): string {
+  return entry.providerKind === 'gradio-voxcpm' ? 'VoxCPM 在线 TTS' : '豆包 TTS';
+}
+
 function serializeDebugJson(value: unknown): string {
   try {
     return JSON.stringify(value, null, 2);
   } catch {
     return String(value);
   }
+}
+
+/**
+ * ComfyUI only accepts reference audio as inline data URLs (it uploads the bytes itself), while canvas
+ * audio nodes hold local file paths after persist. Convert before handing the request over.
+ */
+async function runComfyUIAudioGeneration(payload: GenerateRequest): Promise<string> {
+  const referenceAudios = await Promise.all(
+    (payload.reference_audios ?? []).map(async (source) =>
+      /^data:audio\//i.test(source.trim()) ? source : await loadAudioSourceDataUrl(source)),
+  );
+  const result = await generateComfyUIAudio({ ...payload, reference_audios: referenceAudios });
+  return result.audioUrl;
 }
 
 export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioNodeProps) => {
@@ -218,6 +267,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
   const lastCommittedPromptRef = useRef(data.prompt ?? '');
   const promptDraftRef = useRef(data.prompt ?? '');
   const composingTextFieldsRef = useRef(new Set<string>());
+  const slotTextareaRefs = useRef(new Map<string, HTMLTextAreaElement>());
   const [promptDraft, setPromptDraft] = useState(() => data.prompt ?? '');
   const [modelOpen, setModelOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -237,29 +287,39 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
   const findNodePosition = useCanvasStore((state) => state.findNodePosition);
   const audioSettings = useSettingsStore((state) => state.audioGenerationSettings);
   const showNodePayloadPreview = useSettingsStore((state) => state.showNodePayloadPreview);
+  const audioCatalog = useAudioModelCatalog();
 
   const enabledModels = useMemo(
-    () => audioSettings.models.filter((model) => model.enabled),
-    [audioSettings.models]
+    () => audioCatalog.filter((entry) => entry.enabled),
+    [audioCatalog]
   );
-  const selectedModel = useMemo<AudioModelConfig | null>(
-    () => enabledModels.find((model) => model.id === data.modelId)
+  const selectedModel = useMemo<AudioCatalogEntry | null>(
+    () => enabledModels.find((entry) => entry.id === data.modelId)
       ?? enabledModels[0]
       ?? null,
     [data.modelId, enabledModels]
   );
+  const isComfyUIModel = selectedModel?.kind === 'comfyui';
+  // Built-in entries keep their persisted TTS config; ComfyUI entries have none. Every field the TTS
+  // path reads (`defaultVoiceId`, `timeoutMs`, `providerKind`, …) goes through this narrowing so a
+  // ComfyUI entry can never be handed to `generateAudio`.
+  const selectedAudioModel = selectedModel?.kind === 'builtin'
+    ? selectedModel.audioModel ?? null
+    : null;
   const currentInputSchema = useMemo(
-    () => resolveAudioInputSchemaFromExtraParams(
-      selectedModel?.extraParams,
-      selectedModel?.providerKind
-    ),
-    [selectedModel?.extraParams, selectedModel?.providerKind]
+    () => isComfyUIModel
+      ? defaultAudioInputSchemaForProviderKind('comfyui')
+      : resolveAudioInputSchemaFromExtraParams(
+        selectedAudioModel?.extraParams,
+        selectedAudioModel?.providerKind
+      ),
+    [isComfyUIModel, selectedAudioModel?.extraParams, selectedAudioModel?.providerKind]
   );
   const selectedVoiceId = useMemo(
     () => !currentInputSchema.voice.enabled
       ? ''
       : data.voiceId
-      || selectedModel?.defaultVoiceId
+      || selectedAudioModel?.defaultVoiceId
       || audioSettings.selectedVoiceId
       || audioSettings.voices[0]?.id
       || '',
@@ -268,7 +328,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
       audioSettings.voices,
       currentInputSchema.voice.enabled,
       data.voiceId,
-      selectedModel?.defaultVoiceId,
+      selectedAudioModel?.defaultVoiceId,
     ]
   );
   const selectedVoice = useMemo(
@@ -276,8 +336,8 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     [audioSettings.voices, selectedVoiceId]
   );
   const generationParams = useMemo(
-    () => resolveGenerationParams(currentInputSchema, selectedModel, data),
-    [currentInputSchema, data, selectedModel]
+    () => resolveGenerationParams(currentInputSchema, selectedAudioModel, data),
+    [currentInputSchema, data, selectedAudioModel]
   );
   const usePromptText = currentInputSchema.promptText.enabled
     ? asBoolean(generationParams[currentInputSchema.promptText.toggleField], false)
@@ -302,15 +362,22 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
       .filter((reference) => reference.kind === 'audio' && reference.audioUrl?.trim()),
     [edges, id, nodes]
   );
+  // A ComfyUI entry's reference-audio limits come from its workflow bindings, not from the TTS input
+  // schema (whose comfyui default disables reference audio entirely).
+  const referenceAudioEnabled = isComfyUIModel
+    ? (selectedModel?.audioRefs.max ?? 0) > 0
+    : currentInputSchema.referenceAudio.enabled;
+  const referenceAudioMin = isComfyUIModel
+    ? selectedModel?.audioRefs.min ?? 0
+    : currentInputSchema.referenceAudio.min;
+  const referenceAudioMax = isComfyUIModel
+    ? selectedModel?.audioRefs.max ?? 0
+    : currentInputSchema.referenceAudio.max;
   const schemaAudioReferences = useMemo(
-    () => currentInputSchema.referenceAudio.enabled
-      ? incomingAudioReferences.slice(0, currentInputSchema.referenceAudio.max)
+    () => referenceAudioEnabled
+      ? incomingAudioReferences.slice(0, referenceAudioMax)
       : [],
-    [
-      currentInputSchema.referenceAudio.enabled,
-      currentInputSchema.referenceAudio.max,
-      incomingAudioReferences,
-    ]
+    [incomingAudioReferences, referenceAudioEnabled, referenceAudioMax]
   );
   const activeAudioReference = schemaAudioReferences[0] ?? null;
   const upstreamTextParts = useMemo(
@@ -321,22 +388,33 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     () => buildAudioInputText(promptDraft, upstreamTextParts),
     [promptDraft, upstreamTextParts]
   );
+  const comfyTextSlots = selectedModel?.textSlots ?? [];
+  const slotValues = useMemo(() => data.audioSlotValues ?? {}, [data.audioSlotValues]);
+  const comfyPrompt = comfyTextSlots.length > 0
+    ? slotValues[textSlotKey(comfyTextSlots[0])] ?? ''
+    : '';
+  const comfyNotReadyReason = selectedModel?.notReadyReason ?? '';
+  const comfyBlocked = isComfyUIModel && (Boolean(comfyNotReadyReason) || comfyTextSlots.length === 0);
   const currentInputHash = useMemo(
     () => computeInputHash({
       modelId: selectedModel?.id ?? null,
       voiceId: selectedVoiceId,
-      text: currentInputText,
+      text: isComfyUIModel ? comfyPrompt : currentInputText,
+      slotValues: isComfyUIModel ? slotValues : null,
       generationParams,
       inputSchema: currentInputSchema,
       referenceAudios: schemaAudioReferences.map((reference) => reference.audioUrl),
     }),
     [
+      comfyPrompt,
       currentInputSchema,
       currentInputText,
       generationParams,
+      isComfyUIModel,
       schemaAudioReferences,
       selectedModel?.id,
       selectedVoiceId,
+      slotValues,
     ]
   );
   const isStale = Boolean(data.lastRunInputHash) && data.lastRunInputHash !== currentInputHash;
@@ -386,10 +464,20 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     }
   }, [promptTextValue]);
 
+  // Slot textareas are uncontrolled so IME composition is never interrupted; push external changes
+  // (node switch, undo) back into them the same way the prompt textarea does.
+  useEffect(() => {
+    slotTextareaRefs.current.forEach((element, key) => {
+      if (!composingTextFieldsRef.current.has(`slot:${key}`)) {
+        syncTextareaValue(element, slotValues[key] ?? '');
+      }
+    });
+  }, [slotValues]);
+
   useEffect(() => {
     const referenceAudioUrl = activeAudioReference?.audioUrl?.trim() ?? '';
     if (
-      selectedModel?.providerKind !== 'gradio-voxcpm'
+      selectedAudioModel?.providerKind !== 'gradio-voxcpm'
       || !usePromptText
       || !referenceAudioUrl
     ) {
@@ -412,10 +500,10 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     setIsTranscribingReference(true);
     setNotice('正在识别参考音频文本...');
     void transcribeVoxCpmReferenceAudio({
-      model: selectedModel,
+      model: selectedAudioModel,
       fallbackBaseUrl: audioSettings.apiBaseUrl,
       referenceAudioUrl,
-      timeoutMs: selectedModel.timeoutMs || audioSettings.defaultTimeoutMs,
+      timeoutMs: selectedAudioModel.timeoutMs || audioSettings.defaultTimeoutMs,
       usePromptText: true,
     })
       .then((result) => {
@@ -461,7 +549,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     data.audioGenerationParams,
     id,
     promptTextValue,
-    selectedModel,
+    selectedAudioModel,
     t,
     updateNodeData,
     usePromptText,
@@ -475,7 +563,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     if (!data.modelId) {
       patch.modelId = selectedModel.id;
     }
-    if (selectedModel.providerKind === 'gradio-voxcpm' && data.voiceId) {
+    if (selectedAudioModel?.providerKind === 'gradio-voxcpm' && data.voiceId) {
       patch.voiceId = null;
     } else if (!data.voiceId && selectedVoiceId) {
       patch.voiceId = selectedVoiceId;
@@ -483,7 +571,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     if (Object.keys(patch).length > 0) {
       updateNodeData(id, patch);
     }
-  }, [data.modelId, data.voiceId, id, selectedModel, selectedVoiceId, updateNodeData]);
+  }, [data.modelId, data.voiceId, id, selectedAudioModel, selectedModel, selectedVoiceId, updateNodeData]);
 
   const flushPromptDraft = useCallback((nextPrompt = promptDraftRef.current) => {
     if (promptCommitTimerRef.current) {
@@ -609,6 +697,77 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     updateGenerationParam(paramKey, event.currentTarget.value);
   }, [updateGenerationParam]);
 
+  // Slot text has exactly one persisted home: `data.audioSlotValues`. Read the current map from the
+  // store so two slots edited in the same tick cannot overwrite each other.
+  const handleSlotValueChange = useCallback((key: string, value: string) => {
+    const latestNode = useCanvasStore.getState().nodes.find((candidate) => candidate.id === id);
+    const current = asPlainRecord((latestNode?.data as AiAudioNodeData | undefined)?.audioSlotValues) ?? {};
+    updateNodeData(id, { audioSlotValues: { ...current, [key]: value } });
+  }, [id, updateNodeData]);
+
+  const assembleComfyUIAudioGenerationRequest = useCallback((
+    entry: AudioCatalogEntry,
+    latestData: AiAudioNodeData,
+    latestSettings: ReturnType<typeof useSettingsStore.getState>['audioGenerationSettings'],
+  ): AudioGenerationRequestAssembly | null => {
+    if (entry.notReadyReason) {
+      setNotice(entry.notReadyReason);
+      return null;
+    }
+    if (entry.textSlots.length === 0) {
+      setNotice(COMFY_NO_TEXT_SLOTS_NOTICE);
+      return null;
+    }
+    const latestCanvasState = useCanvasStore.getState();
+    const allLatestAudioReferences = collectInputReferences(id, latestCanvasState.nodes, latestCanvasState.edges)
+      .filter((reference) => reference.kind === 'audio' && reference.audioUrl?.trim());
+    const latestAudioReferences = entry.audioRefs.max > 0
+      ? allLatestAudioReferences.slice(0, entry.audioRefs.max)
+      : [];
+    if (latestAudioReferences.length < entry.audioRefs.min) {
+      setNotice(`当前工作流至少需要 ${entry.audioRefs.min} 个参考音频`);
+      return null;
+    }
+
+    // `audioSlotValues` on the node is the only persisted home for slot text, so read it from the
+    // freshly-read node data rather than from React state.
+    const latestSlotValues = asPlainRecord(latestData.audioSlotValues) ?? {};
+    const slotValues: Record<string, string> = {};
+    entry.textSlots.forEach((slot) => {
+      const value = latestSlotValues[textSlotKey(slot)];
+      slotValues[textSlotKey(slot)] = typeof value === 'string' ? value : '';
+    });
+    const prompt = slotValues[textSlotKey(entry.textSlots[0])] ?? '';
+
+    return {
+      kind: 'comfyui',
+      text: prompt,
+      latestComfyEntry: entry,
+      latestSettings,
+      latestInputSchema: defaultAudioInputSchemaForProviderKind('comfyui'),
+      latestGenerationParams: {},
+      latestVoiceId: '',
+      latestUsePromptText: false,
+      latestPromptTextValue: '',
+      latestControlInstruction: '',
+      latestAudioReferences,
+      latestMode: 'comfyui-workflow',
+      comfyPayload: {
+        prompt,
+        // `generateComfyUIAudio` re-resolves the provider from `custom:<providerId>:<model>`.
+        model: entry.id,
+        size: 'workflow',
+        aspect_ratio: 'auto',
+        reference_audios: latestAudioReferences
+          .map((reference) => reference.audioUrl)
+          .filter((source): source is string => Boolean(source)),
+        // Only the slot channel goes into the request: `entry.extraParams` carries the catalog's
+        // provider markers and the whole stored workflow, none of which `prepareComfyUIWorkflow` reads.
+        extra_params: { textSlotValues: slotValues },
+      },
+    };
+  }, [id]);
+
   const assembleAudioGenerationRequest = useCallback((): AudioGenerationRequestAssembly | null => {
     flushPromptDraft();
     const latestPrompt = promptDraftRef.current;
@@ -616,10 +775,30 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     const latestNode = latestCanvasState.nodes.find((candidate) => candidate.id === id);
     const latestData = (latestNode?.data ?? data) as AiAudioNodeData;
     const latestSettings = useSettingsStore.getState().audioGenerationSettings;
-    const latestModel = latestSettings.models.find((model) => model.enabled && model.id === latestData.modelId)
-      ?? latestSettings.models.find((model) => model.enabled && model.id === selectedModel?.id)
-      ?? latestSettings.models.find((model) => model.enabled)
-      ?? selectedModel;
+    // Re-read the catalog at call time rather than trusting React state, mirroring how the TTS path
+    // re-reads settings: the node data is the single source of truth for slot values.
+    const latestCatalog = buildAudioModelCatalog(
+      latestSettings,
+      useCustomProvidersStore.getState().providers,
+    ).filter((entry) => entry.enabled);
+    const latestEntry = latestCatalog.find((entry) => entry.id === latestData.modelId)
+      ?? latestCatalog.find((entry) => entry.id === selectedModel?.id)
+      ?? latestCatalog[0]
+      ?? null;
+    if (!latestEntry) {
+      setNotice(t('node.aiAudio.noModel'));
+      return null;
+    }
+    // Dispatch on the catalog entry kind, never on `providerKind` fallthrough: `generateAudio` sends
+    // every non-VoxCPM model to the local TTS endpoint.
+    if (latestEntry.kind === 'comfyui') {
+      return assembleComfyUIAudioGenerationRequest(latestEntry, latestData, latestSettings);
+    }
+    const latestModel = latestEntry.audioModel;
+    if (!latestModel) {
+      setNotice(t('node.aiAudio.noModel'));
+      return null;
+    }
     const latestReferences = collectInputReferences(id, latestCanvasState.nodes, latestCanvasState.edges)
       .filter((reference) => reference.kind === 'text' && reference.content?.trim());
     const allLatestAudioReferences = collectInputReferences(id, latestCanvasState.nodes, latestCanvasState.edges)
@@ -628,10 +807,6 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
       latestPrompt,
       latestReferences.map((reference) => reference.content ?? '')
     );
-    if (!latestModel) {
-      setNotice(t('node.aiAudio.noModel'));
-      return null;
-    }
     const latestInputSchema = resolveAudioInputSchemaFromExtraParams(
       latestModel.extraParams,
       latestModel.providerKind
@@ -713,6 +888,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     };
 
     return {
+      kind: 'builtin',
       text: latestText,
       latestModel,
       latestSettings,
@@ -726,7 +902,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
       latestMode,
       gatewayPayload,
     };
-  }, [data, flushPromptDraft, id, selectedModel, t]);
+  }, [assembleComfyUIAudioGenerationRequest, data, flushPromptDraft, id, selectedModel, t]);
 
   const handleGenerate = useCallback(async () => {
     const releaseSubmitLock = acquireGenerationSubmitLock(
@@ -747,7 +923,6 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
       }
       const {
         text: latestText,
-        latestModel,
         latestSettings,
         latestGenerationParams,
         latestVoiceId,
@@ -756,8 +931,13 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
         latestControlInstruction,
         latestAudioReferences,
         latestMode,
-        gatewayPayload,
       } = assembled;
+      const latestModelId = assembled.kind === 'builtin'
+        ? assembled.latestModel.id
+        : assembled.latestComfyEntry.id;
+      const generationDurationMs = assembled.kind === 'builtin'
+        ? assembled.latestModel.timeoutMs || latestSettings.defaultTimeoutMs
+        : COMFY_AUDIO_PROGRESS_DURATION_MS;
 
       resultNodeId = addNode(
         CANVAS_NODE_TYPES.audio,
@@ -766,12 +946,12 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
           displayName: t('node.aiAudio.outputTitle'),
           isGenerating: true,
           generationStartedAt,
-          generationDurationMs: latestModel.timeoutMs || latestSettings.defaultTimeoutMs,
+          generationDurationMs,
           generationElapsedMs: null,
           sourcePrompt: latestText,
           sourceTextLength: latestText.length,
           sourceVoiceId: latestVoiceId || null,
-          sourceModelId: latestModel.id,
+          sourceModelId: latestModelId,
           sourceControlInstruction: latestControlInstruction || null,
           sourcePromptTextValue: latestUsePromptText ? latestPromptTextValue : null,
           sourceAudioMode: latestMode,
@@ -782,19 +962,29 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
       );
       addEdge(id, resultNodeId);
 
-      const result = await generateAudio(gatewayPayload);
+      // The built-in branch stays byte-for-byte the pre-existing TTS call; only the ComfyUI branch is new.
+      let audioUrl: string;
+      let resultVoiceId: string | null;
+      if (assembled.kind === 'builtin') {
+        const result = await generateAudio(assembled.gatewayPayload);
+        audioUrl = result.audioUrl;
+        resultVoiceId = result.voiceId ?? latestVoiceId ?? null;
+      } else {
+        audioUrl = await runComfyUIAudioGeneration(assembled.comfyPayload);
+        resultVoiceId = null;
+      }
       const generationElapsedMs = Math.max(0, Date.now() - generationStartedAt);
       updateNodeData(resultNodeId, {
-        audioUrl: result.audioUrl,
-        localAudioUrl: result.audioUrl,
+        audioUrl,
+        localAudioUrl: audioUrl,
         isGenerating: false,
         generationStartedAt: null,
         generationElapsedMs,
         generationError: null,
         sourcePrompt: latestText,
         sourceTextLength: latestText.length,
-        sourceVoiceId: result.voiceId ?? latestVoiceId ?? null,
-        sourceModelId: latestModel.id,
+        sourceVoiceId: resultVoiceId,
+        sourceModelId: latestModelId,
         sourceControlInstruction: latestControlInstruction || null,
         sourcePromptTextValue: latestUsePromptText ? latestPromptTextValue : null,
         sourceAudioMode: latestMode,
@@ -803,12 +993,14 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
         sourceReferenceAudioTitle: latestAudioReferences[0]?.title ?? null,
       });
       updateNodeData(id, {
-        modelId: latestModel.id,
-        voiceId: latestVoiceId || null,
-        controlInstruction: latestControlInstruction || null,
-        usePromptText: latestUsePromptText,
-        promptTextValue: latestPromptTextValue || null,
-        audioGenerationParams: latestGenerationParams,
+        modelId: latestModelId,
+        ...(assembled.kind === 'builtin' ? {
+          voiceId: latestVoiceId || null,
+          controlInstruction: latestControlInstruction || null,
+          usePromptText: latestUsePromptText,
+          promptTextValue: latestPromptTextValue || null,
+          audioGenerationParams: latestGenerationParams,
+        } : {}),
         resultNodeId,
         lastRunInputHash: currentInputHash,
         lastError: null,
@@ -859,7 +1051,14 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
       if (!assembled) {
         return;
       }
-      const preview = buildAudioGenerationDebugPreview(assembled.gatewayPayload);
+      const preview = assembled.kind === 'builtin'
+        ? buildAudioGenerationDebugPreview(assembled.gatewayPayload)
+        : {
+          route: 'comfyui',
+          providerId: assembled.latestComfyEntry.providerId,
+          modelId: assembled.latestComfyEntry.modelId,
+          gatewayRequest: assembled.comfyPayload,
+        };
       setPayloadDebugText(serializeDebugJson(preview));
       setPayloadDebugCopied(false);
     } catch (debugError) {
@@ -931,6 +1130,58 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
         onTitleChange={(nextTitle) => updateNodeData(id, { displayName: nextTitle })}
       />
 
+      {isComfyUIModel ? (
+        <div className="relative min-h-[130px] flex-1 overflow-y-auto rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-2 ui-scrollbar">
+          {comfyNotReadyReason ? (
+            <div className="mb-2 flex items-start gap-2 rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] p-2 text-[11px] leading-5 text-amber-300">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span className="min-w-0 break-words">{comfyNotReadyReason}</span>
+            </div>
+          ) : null}
+          {comfyTextSlots.length === 0 ? (
+            <div className="flex items-start gap-2 p-1 text-[11px] leading-5 text-text-muted">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />
+              <span>{COMFY_NO_TEXT_SLOTS_NOTICE}</span>
+            </div>
+          ) : (
+            comfyTextSlots.map((slot) => {
+              const key = textSlotKey(slot);
+              return (
+                <label key={key} className="mb-2 block text-[10px] font-medium text-text-muted last:mb-0">
+                  {slot.label ?? key}
+                  <textarea
+                    ref={(element) => {
+                      if (element) slotTextareaRefs.current.set(key, element);
+                      else slotTextareaRefs.current.delete(key);
+                    }}
+                    defaultValue={slotValues[key] ?? ''}
+                    onChange={(event) => handleSlotValueChange(key, event.target.value)}
+                    onCompositionStart={(event) => handleCompositionStart(`slot:${key}`, event)}
+                    onCompositionEnd={(event) => {
+                      event.stopPropagation();
+                      composingTextFieldsRef.current.delete(`slot:${key}`);
+                      handleSlotValueChange(key, event.currentTarget.value);
+                    }}
+                    onBlur={(event) => {
+                      composingTextFieldsRef.current.delete(`slot:${key}`);
+                      handleSlotValueChange(key, event.currentTarget.value);
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                    onFocus={(event) => event.stopPropagation()}
+                    onKeyDown={handlePromptKeyDown}
+                    onKeyUp={(event) => event.stopPropagation()}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    placeholder={`输入 ${slot.label ?? key}`}
+                    className="ui-scrollbar nodrag nopan nowheel mt-1 h-[52px] w-full resize-none rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] px-2 py-1.5 text-xs leading-5 text-text-dark outline-none placeholder:text-text-muted/70 focus:border-accent"
+                    spellCheck={false}
+                  />
+                </label>
+              );
+            })
+          )}
+        </div>
+      ) : (
       <div className="relative min-h-[130px] flex-1 rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-2">
         <div className="mb-1 flex items-center justify-between gap-2 px-1 text-[10px] font-medium text-text-muted">
           <span>{currentInputSchema.text.label}</span>
@@ -957,13 +1208,14 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
           {promptDraft.length}
         </span>
       </div>
+      )}
 
       {(currentInputSchema.controlInstruction.enabled
-        || currentInputSchema.referenceAudio.enabled
+        || referenceAudioEnabled
         || currentInputSchema.promptText.enabled) ? (
         <div className="ui-scrollbar mt-2 min-h-0 shrink overflow-y-auto rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] p-2">
-          {currentInputSchema.referenceAudio.enabled
-            && (activeAudioReference || currentInputSchema.referenceAudio.min > 0) ? (
+          {referenceAudioEnabled
+            && (isComfyUIModel || activeAudioReference || referenceAudioMin > 0) ? (
             <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] text-text-muted">
               <span className="inline-flex max-w-[260px] items-center rounded-full border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] px-2 py-0.5">
                 <span className="truncate">
@@ -972,6 +1224,12 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
                     : '需要连接音频卡片'}
                 </span>
               </span>
+              {isComfyUIModel ? (
+                <span className="text-[10px] text-text-muted">
+                  {schemaAudioReferences.length}/{referenceAudioMax}
+                  {referenceAudioMin > 0 ? `（至少 ${referenceAudioMin} 个）` : ''}
+                </span>
+              ) : null}
             </div>
           ) : null}
 
@@ -1074,7 +1332,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
             type="button"
             variant="muted"
             className={`w-full ${NODE_CONTROL_CHIP_CLASS}`}
-            title={selectedModel?.name ?? t('node.aiAudio.noModel') as string}
+            title={selectedModel?.modelLabel ?? t('node.aiAudio.noModel') as string}
             onClick={(event) => {
               event.stopPropagation();
               setModelOpen((open) => !open);
@@ -1083,7 +1341,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
             }}
           >
             <Settings2 className={NODE_CONTROL_ICON_CLASS} />
-            <span className="min-w-0 truncate">{selectedModel?.name ?? t('node.aiAudio.noModel')}</span>
+            <span className="min-w-0 truncate">{selectedModel?.modelLabel ?? t('node.aiAudio.noModel')}</span>
             <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
           </UiButton>
           {modelOpen ? (
@@ -1098,28 +1356,32 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
                 </div>
               ) : (
                 <div className="ui-scrollbar max-h-[240px] overflow-y-auto pr-1">
-                  {enabledModels.map((model) => {
-                    const active = selectedModel?.id === model.id;
+                  {enabledModels.map((entry) => {
+                    const active = selectedModel?.id === entry.id;
                     return (
                       <button
-                        key={model.id}
+                        key={entry.id}
                         type="button"
                         className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs transition-colors ${
                           active
                             ? 'bg-[var(--canvas-node-menu-active)] text-text-dark'
                             : 'text-text-dark hover:bg-[var(--canvas-node-menu-hover)]'
                         }`}
+                        title={entry.notReadyReason ?? entry.modelLabel}
                         onClick={(event) => {
                           event.stopPropagation();
-                          const modelInputSchema = resolveAudioInputSchemaFromExtraParams(
-                            model.extraParams,
-                            model.providerKind
-                          );
+                          const entryAudioModel = entry.kind === 'builtin' ? entry.audioModel ?? null : null;
+                          const modelInputSchema = entry.kind === 'builtin'
+                            ? resolveAudioInputSchemaFromExtraParams(
+                              entryAudioModel?.extraParams,
+                              entryAudioModel?.providerKind
+                            )
+                            : defaultAudioInputSchemaForProviderKind('comfyui');
                           updateNodeData(id, {
-                            modelId: model.id,
+                            modelId: entry.id,
                             voiceId: !modelInputSchema.voice.enabled
                               ? null
-                              : model.defaultVoiceId || data.voiceId || audioSettings.selectedVoiceId || null,
+                              : entryAudioModel?.defaultVoiceId || data.voiceId || audioSettings.selectedVoiceId || null,
                           });
                           setModelOpen(false);
                           setParamsOpen(false);
@@ -1127,9 +1389,12 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
                       >
                         {active ? <Check className="h-3.5 w-3.5 shrink-0 text-accent" /> : null}
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate">{model.name}</span>
+                          <span className="block truncate">{entry.modelLabel}</span>
                           <span className="mt-0.5 block truncate text-[11px] text-text-muted">
-                            {model.apiBaseUrl}
+                            {entry.notReadyReason
+                              ?? (entry.kind === 'builtin'
+                                ? `${builtinProviderLabel(entry)} · ${entry.audioModel?.apiBaseUrl ?? ''}`
+                                : `${entry.providerLabel} · ${entry.modelId}`)}
                           </span>
                         </span>
                       </button>
@@ -1313,7 +1578,8 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
         <UiButton
           variant="primary"
           className={`ml-auto shrink-0 ${NODE_CONTROL_PRIMARY_BUTTON_CLASS}`}
-          disabled={isGenerating}
+          disabled={isGenerating || comfyBlocked}
+          title={comfyBlocked ? comfyNotReadyReason || COMFY_NO_TEXT_SLOTS_NOTICE : undefined}
           onClick={(event) => {
             event.stopPropagation();
             void handleGenerate();
