@@ -33,6 +33,7 @@ import {
   type AudioCatalogEntry,
 } from '@/features/canvas/application/audioModelCatalog';
 import { collectInputReferences } from '@/features/canvas/application/graphReferenceResolver';
+import { buildComfyUIAudioRequest } from '@/features/canvas/application/comfyUIAudioRequest';
 import { textSlotKey } from '@/features/canvas/infrastructure/comfyuiGateway';
 import { generateComfyUIAudio } from '@/features/canvas/infrastructure/customProviderGateway';
 import { loadAudioSourceDataUrl } from '@/commands/image';
@@ -721,23 +722,19 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     const latestCanvasState = useCanvasStore.getState();
     const allLatestAudioReferences = collectInputReferences(id, latestCanvasState.nodes, latestCanvasState.edges)
       .filter((reference) => reference.kind === 'audio' && reference.audioUrl?.trim());
-    const latestAudioReferences = entry.audioRefs.max > 0
-      ? allLatestAudioReferences.slice(0, entry.audioRefs.max)
-      : [];
-    if (latestAudioReferences.length < entry.audioRefs.min) {
-      setNotice(`当前工作流至少需要 ${entry.audioRefs.min} 个参考音频`);
+    const latestAudioReferences = allLatestAudioReferences;
+    let comfyPayload: GenerateRequest;
+    try {
+      comfyPayload = buildComfyUIAudioRequest(
+        entry,
+        asPlainRecord(latestData.audioSlotValues) ?? {},
+        latestAudioReferences.map((reference) => reference.audioUrl!),
+      );
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
       return null;
     }
-
-    // `audioSlotValues` on the node is the only persisted home for slot text, so read it from the
-    // freshly-read node data rather than from React state.
-    const latestSlotValues = asPlainRecord(latestData.audioSlotValues) ?? {};
-    const slotValues: Record<string, string> = {};
-    entry.textSlots.forEach((slot) => {
-      const value = latestSlotValues[textSlotKey(slot)];
-      slotValues[textSlotKey(slot)] = typeof value === 'string' ? value : '';
-    });
-    const prompt = slotValues[textSlotKey(entry.textSlots[0])] ?? '';
+    const prompt = comfyPayload.prompt;
 
     return {
       kind: 'comfyui',
@@ -752,19 +749,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
       latestControlInstruction: '',
       latestAudioReferences,
       latestMode: 'comfyui-workflow',
-      comfyPayload: {
-        prompt,
-        // `generateComfyUIAudio` re-resolves the provider from `custom:<providerId>:<model>`.
-        model: entry.id,
-        size: 'workflow',
-        aspect_ratio: 'auto',
-        reference_audios: latestAudioReferences
-          .map((reference) => reference.audioUrl)
-          .filter((source): source is string => Boolean(source)),
-        // Only the slot channel goes into the request: `entry.extraParams` carries the catalog's
-        // provider markers and the whole stored workflow, none of which `prepareComfyUIWorkflow` reads.
-        extra_params: { textSlotValues: slotValues },
-      },
+      comfyPayload,
     };
   }, [id]);
 
@@ -1147,7 +1132,7 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
             comfyTextSlots.map((slot) => {
               const key = textSlotKey(slot);
               return (
-                <label key={key} className="mb-2 block text-[10px] font-medium text-text-muted last:mb-0">
+                <label key={`${selectedModel?.id}:${key}`} className="mb-2 block text-[10px] font-medium text-text-muted last:mb-0">
                   {slot.label ?? key}
                   <textarea
                     ref={(element) => {
