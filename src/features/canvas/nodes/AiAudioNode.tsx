@@ -32,6 +32,7 @@ import {
   useAudioModelCatalog,
   type AudioCatalogEntry,
 } from '@/features/canvas/application/audioModelCatalog';
+import { createAudioInputReferencesSelector } from '@/features/canvas/application/audioInputReferences';
 import { collectInputReferences } from '@/features/canvas/application/graphReferenceResolver';
 import { buildComfyUIAudioRequest } from '@/features/canvas/application/comfyUIAudioRequest';
 import { textSlotKey } from '@/features/canvas/infrastructure/comfyuiGateway';
@@ -281,8 +282,8 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
 
   const setSelectedNode = useCanvasStore((state) => state.setSelectedNode);
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
-  const nodes = useCanvasStore((state) => state.nodes);
-  const edges = useCanvasStore((state) => state.edges);
+  const selectInputReferences = useMemo(() => createAudioInputReferencesSelector(id), [id]);
+  const inputReferences = useCanvasStore(selectInputReferences);
   const addNode = useCanvasStore((state) => state.addNode);
   const addEdge = useCanvasStore((state) => state.addEdge);
   const findNodePosition = useCanvasStore((state) => state.findNodePosition);
@@ -354,14 +355,12 @@ export const AiAudioNode = memo(({ id, data, selected, width, height }: AiAudioN
     && currentInputSchema.promptText.enabled
     && usePromptText;
   const incomingTextReferences = useMemo(
-    () => collectInputReferences(id, nodes, edges)
-      .filter((reference) => reference.kind === 'text' && reference.content?.trim()),
-    [edges, id, nodes]
+    () => inputReferences.filter((reference) => reference.kind === 'text' && reference.content?.trim()),
+    [inputReferences]
   );
   const incomingAudioReferences = useMemo(
-    () => collectInputReferences(id, nodes, edges)
-      .filter((reference) => reference.kind === 'audio' && reference.audioUrl?.trim()),
-    [edges, id, nodes]
+    () => inputReferences.filter((reference) => reference.kind === 'audio' && reference.audioUrl?.trim()),
+    [inputReferences]
   );
   // A ComfyUI entry's reference-audio limits come from its workflow bindings, not from the TTS input
   // schema (whose comfyui default disables reference audio entirely).

@@ -1,3 +1,4 @@
+import { isTauri } from '@tauri-apps/api/core';
 import { persistAudioSource } from '@/commands/image';
 import { resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
 import type { AudioNodeData } from '@/features/canvas/domain/canvasNodes';
@@ -82,13 +83,13 @@ function fileNameFromSource(source: string): string | null {
 }
 
 function buildUploadedAudioNodeData(
-  dataUrl: string,
+  source: string,
   metadata: AudioFileMetadata,
   sourceFileName: string | null
 ): Partial<AudioNodeData> {
   return {
-    audioUrl: dataUrl,
-    localAudioUrl: dataUrl,
+    audioUrl: source,
+    localAudioUrl: source,
     sourceFileName,
     durationSeconds: metadata.durationSeconds,
     generatedFileName: null,
@@ -109,9 +110,11 @@ function buildUploadedAudioNodeData(
 export async function prepareAudioNodeDataFromFile(file: File): Promise<Partial<AudioNodeData>> {
   const metadataPromise = readAudioFileMetadata(file);
   const dataUrl = await readFileAsDataUrl(file);
+  // Keep large audio bytes out of canvas state, history, and the render-time input hash.
+  const source = isTauri() ? await persistAudioSource(dataUrl) : dataUrl;
   const metadata = await metadataPromise;
 
-  return buildUploadedAudioNodeData(dataUrl, metadata, file.name);
+  return buildUploadedAudioNodeData(source, metadata, file.name);
 }
 
 export async function prepareAudioNodeDataFromSource(

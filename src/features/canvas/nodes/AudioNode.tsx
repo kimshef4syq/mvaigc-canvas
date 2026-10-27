@@ -21,6 +21,7 @@ import {
 import { isNodeUsingDefaultDisplayName, resolveNodeDisplayName } from '@/features/canvas/domain/nodeDisplay';
 import { resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
 import { isAudioFile, resolveDroppedAudioFile } from '@/features/canvas/application/imageDragDrop';
+import { showErrorDialog } from '@/features/canvas/application/errorDialog';
 import { prepareAudioNodeDataFromFile } from '@/features/canvas/application/audioUpload';
 import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
@@ -314,15 +315,25 @@ export const AudioNode = memo(({ id, data, selected, type, width, height }: Audi
     const previewUrl = URL.createObjectURL(file);
     objectUrlRef.current = previewUrl;
     setObjectUrl(previewUrl);
-    const prepared = await prepareAudioNodeDataFromFile(file);
-    updateNodeData(id, {
-      ...prepared,
-      ...(useUploadFilenameAsNodeTitle ? { displayName: file.name } : {}),
-      isGenerating: false,
-      generationError: null,
-      generationStartedAt: null,
-      generationElapsedMs: null,
-    });
+    try {
+      const prepared = await prepareAudioNodeDataFromFile(file);
+      updateNodeData(id, {
+        ...prepared,
+        ...(useUploadFilenameAsNodeTitle ? { displayName: file.name } : {}),
+        isGenerating: false,
+        generationError: null,
+        generationStartedAt: null,
+        generationElapsedMs: null,
+      });
+    } catch (error) {
+      void showErrorDialog(error instanceof Error ? error.message : String(error), '音频导入失败');
+    } finally {
+      if (objectUrlRef.current === previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        objectUrlRef.current = null;
+        setObjectUrl(null);
+      }
+    }
   }, [id, updateNodeData, useUploadFilenameAsNodeTitle]);
 
   const handleFileChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
