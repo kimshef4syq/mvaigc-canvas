@@ -2604,7 +2604,11 @@ async fn resolve_video_source_bytes_with_headers(
     Ok((bytes, ext))
 }
 
-async fn resolve_audio_source_bytes(source: &str) -> Result<(Vec<u8>, String), String> {
+async fn resolve_audio_source_bytes(
+    source: &str,
+    headers: Option<&HashMap<String, String>>,
+    network: Option<&MediaNetworkRouteDto>,
+) -> Result<(Vec<u8>, String), String> {
     let trimmed = source.trim();
     if trimmed.is_empty() {
         return Err("Audio source is empty".to_string());
@@ -2618,10 +2622,10 @@ async fn resolve_audio_source_bytes(source: &str) -> Result<(Vec<u8>, String), S
     if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
         let download = download_remote_media_bytes(
             trimmed,
-            None,
+            headers,
             "audio/mpeg,audio/wav,audio/ogg,audio/webm,audio/*,*/*;q=0.8",
             "audio",
-            None,
+            network,
         )
         .await?;
         let content_type = download.content_type;
@@ -3266,7 +3270,12 @@ pub async fn persist_video_source(
 }
 
 #[tauri::command]
-pub async fn persist_audio_source(app: AppHandle, source: String) -> Result<String, String> {
+pub async fn persist_audio_source(
+    app: AppHandle,
+    source: String,
+    headers: Option<HashMap<String, String>>,
+    network: Option<MediaNetworkRouteDto>,
+) -> Result<String, String> {
     let started = Instant::now();
     let trimmed = source.trim();
     if trimmed.is_empty() {
@@ -3274,10 +3283,12 @@ pub async fn persist_audio_source(app: AppHandle, source: String) -> Result<Stri
     }
 
     info!(source = %describe_remote_media_url(trimmed), "persist_audio_source started");
-    let (bytes, extension) = resolve_audio_source_bytes(trimmed).await.map_err(|error| {
-        warn!(elapsed_ms = started.elapsed().as_millis(), error = %error, "persist_audio_source failed");
-        error
-    })?;
+    let (bytes, extension) = resolve_audio_source_bytes(trimmed, headers.as_ref(), network.as_ref())
+        .await
+        .map_err(|error| {
+            warn!(elapsed_ms = started.elapsed().as_millis(), error = %error, "persist_audio_source failed");
+            error
+        })?;
     let output = persist_audio_bytes(&app, &bytes, &extension)?;
     info!(
         "persist_audio_source done: bytes={}, ext={}, elapsed={}ms",
@@ -3678,7 +3689,7 @@ pub async fn save_audio_source_to_path(
         return Err("Target path is empty".to_string());
     }
 
-    let (bytes, extension) = resolve_audio_source_bytes(trimmed_source).await?;
+    let (bytes, extension) = resolve_audio_source_bytes(trimmed_source, None, None).await?;
     let raw_path = PathBuf::from(normalize_user_selected_path(trimmed_target));
     let output_path = ensure_output_path_with_extension(&raw_path, &extension);
 
@@ -3700,7 +3711,7 @@ pub async fn load_audio_source_data_url(source: String) -> Result<String, String
         return Err("Audio source is empty".to_string());
     }
 
-    let (bytes, extension) = resolve_audio_source_bytes(trimmed_source).await?;
+    let (bytes, extension) = resolve_audio_source_bytes(trimmed_source, None, None).await?;
     let mime = audio_mime_from_extension(&extension);
     Ok(format!("data:{};base64,{}", mime, STANDARD.encode(bytes)))
 }
@@ -3840,9 +3851,10 @@ mod remote_media_tests {
     use super::{
         build_remote_media_client, describe_non_image_remote_body, describe_remote_media_url,
         host_is_local_or_private, ip_is_local_or_private, media_byte_limit, media_download_timeout,
-        parse_remote_media_url, remote_media_content_error, route_allows_direct_fallback,
-        should_forward_headers_to_url, try_remote_media_request_with_limit, try_remote_media_route,
-        url_origin, MediaNetworkRouteDto, RemoteMediaAttemptFailure, REMOTE_AUDIO_DOWNLOAD_TIMEOUT,
+        parse_remote_media_url, remote_media_content_error, resolve_audio_source_bytes,
+        route_allows_direct_fallback, should_forward_headers_to_url,
+        try_remote_media_request_with_limit, try_remote_media_route, url_origin,
+        MediaNetworkRouteDto, RemoteMediaAttemptFailure, REMOTE_AUDIO_DOWNLOAD_TIMEOUT,
         REMOTE_IMAGE_DOWNLOAD_TIMEOUT, REMOTE_IMAGE_MAX_BYTES, REMOTE_VIDEO_DOWNLOAD_TIMEOUT,
         REMOTE_VIDEO_MAX_BYTES,
     };
@@ -4291,6 +4303,15 @@ mod remote_media_tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn audio_source_resolution_accepts_auth_arguments() {
+        // Compile-level guard: the audio path must accept the same auth surface as video.
+        // The future is bound and dropped without being polled, so no network access happens.
+        let headers: Option<HashMap<String, String>> = None;
+        let network: Option<MediaNetworkRouteDto> = None;
+        let _ = resolve_audio_source_bytes("", headers.as_ref(), network.as_ref());
     }
 }
 

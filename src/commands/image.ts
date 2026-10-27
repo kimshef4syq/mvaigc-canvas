@@ -202,8 +202,12 @@ export async function persistVideoSource(
   return await invoke('persist_video_source', { source, headers, network });
 }
 
-export async function persistAudioSource(source: string): Promise<string> {
-  return await invoke('persist_audio_source', { source });
+export async function persistAudioSource(
+  source: string,
+  headers?: Record<string, string>,
+  network?: MediaNetworkRoute,
+): Promise<string> {
+  return await invoke('persist_audio_source', { source, headers, network });
 }
 
 export interface ImportMediaPathCheck {
