@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import {
   Boxes,
   Check,
@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
+import { listInstalledSkills, type InstalledSkillPackage } from '@/commands/extensions';
+import { parseInstalledSkill } from '../application/installedSkills';
 import type { AgentTurnMediaInput } from '../domain/agentModel';
 import type { AgentExecutionMode } from './agentPanelStore';
 
@@ -59,6 +61,7 @@ interface Props {
   onSend: () => void;
   onCancel: () => void;
   onSettings: () => void;
+  onManageSkills?: () => void;
 }
 
 type ContextEstimateTranslator = (
@@ -239,6 +242,7 @@ export function CanvasAgentComposer({
   onSend,
   onCancel,
   onSettings,
+  onManageSkills,
 }: Props) {
   const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -248,6 +252,55 @@ export function CanvasAgentComposer({
   const compositionEndedAtRef = useRef(0);
   const [openMenu, setOpenMenu] = useState<ComposerMenu>(null);
   const [activeModelTab, setActiveModelTab] = useState<ModelTab>('text');
+  const skillListId = useId();
+  const [skillPackages, setSkillPackages] = useState<InstalledSkillPackage[]>([]);
+  const [skillLoading, setSkillLoading] = useState(false);
+  const [skillError, setSkillError] = useState('');
+  const [skillCursor, setSkillCursor] = useState(0);
+  const [skillDismissed, setSkillDismissed] = useState(false);
+  const [caret, setCaret] = useState(draft.length);
+  const slash = /(?:^|\s)\/([^\s/]*)$/.exec(draft.slice(0, caret));
+  const skillMenuOpen = !!slash && !skillDismissed && openMenu === null;
+  const skillQuery = slash?.[1].toLocaleLowerCase() ?? '';
+  const skillEntries = skillPackages.map((pkg) => {
+    try {
+      const skill = parseInstalledSkill(pkg);
+      return { id: pkg.id, name: skill.activation[0], summary: skill.summary, available: pkg.enabled, status: pkg.enabled ? '' : '已禁用' };
+    } catch {
+      return { id: pkg.id, name: pkg.id, summary: pkg.error || '技能格式无效，请到技能管理检查', available: false, status: '不可用' };
+    }
+  }).filter((entry) => `${entry.id} ${entry.name} ${entry.summary}`.toLocaleLowerCase().includes(skillQuery));
+  const activeSkillIndex = Math.min(skillCursor, Math.max(0, skillEntries.length - 1));
+
+  useEffect(() => {
+    if (!skillMenuOpen) return;
+    let cancelled = false;
+    setSkillLoading(true);
+    setSkillError('');
+    void listInstalledSkills().then((packages) => {
+      if (!cancelled) setSkillPackages(packages);
+    }).catch((error) => {
+      if (!cancelled) setSkillError(String(error));
+    }).finally(() => { if (!cancelled) setSkillLoading(false); });
+    return () => { cancelled = true; };
+  }, [skillMenuOpen]);
+
+  useEffect(() => {
+    if (skillMenuOpen) document.getElementById(`${skillListId}-${activeSkillIndex}`)?.scrollIntoView?.({ block: 'nearest' });
+  }, [activeSkillIndex, skillMenuOpen, skillListId]);
+
+  const insertSkill = (id: string) => {
+    if (!slash) return;
+    const start = caret - slash[1].length - 1;
+    const prefix = `${draft.slice(0, start)}/${id} `;
+    onDraftChange(prefix + draft.slice(caret));
+    setSkillDismissed(true);
+    setCaret(prefix.length);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(prefix.length, prefix.length);
+    });
+  };
   const canAttach = attachments.length < maxAttachments;
   const blockedByVision = attachments.length > 0 && !selectedTextModel?.supportsMultimodal;
   const contextPercent = contextWindow
@@ -289,6 +342,24 @@ export function CanvasAgentComposer({
   return (
     <footer className="agent-composer shrink-0 p-3.5 pt-2">
       <div className="relative">
+        {skillMenuOpen && (
+          <section className="absolute inset-x-0 bottom-[calc(100%+10px)] z-40 overflow-hidden rounded-[10px] border border-border-dark bg-[var(--ui-surface-panel)] shadow-xl" aria-label="已安装技能">
+            <header className="flex items-center justify-between border-b border-border-dark px-3 py-2 text-xs text-text-muted">
+              <span>已安装技能 · ↑↓ 选择 · Enter / Tab 插入</span>
+              {onManageSkills && <button type="button" className="p-1 text-accent" onClick={() => { setSkillDismissed(true); onManageSkills(); }}>管理技能</button>}
+            </header>
+            <div id={skillListId} role="listbox" aria-label="选择技能" className="ui-scrollbar max-h-64 overflow-y-auto p-1.5">
+              {skillLoading ? <p role="status" className="p-3 text-xs text-text-muted">正在读取技能…</p> : skillError ? <p role="alert" className="p-3 text-xs text-red-500">加载失败：{skillError}</p> : !skillEntries.length ? <p className="p-3 text-xs text-text-muted">{skillPackages.length ? '没有匹配的技能' : '尚未安装技能，可从「管理技能」导入文件夹或 ZIP。'}</p> : skillEntries.map((entry, index) => (
+                <button key={entry.id} id={`${skillListId}-${index}`} type="button" role="option" aria-selected={index === activeSkillIndex} aria-disabled={!entry.available}
+                  className={`block w-full rounded-md px-3 py-2 text-left ${index === activeSkillIndex ? 'bg-accent/10' : 'hover:bg-text-dark/5'} ${entry.available ? 'text-text-dark' : 'text-text-muted opacity-60'}`}
+                  onMouseDown={(event) => event.preventDefault()} onClick={() => { if (entry.available) insertSkill(entry.id); }}>
+                  <span className="block text-xs font-medium">{entry.name} <span className="font-normal text-text-muted">/{entry.id} {entry.status}</span></span>
+                  <span className="mt-1 block truncate text-[11px] text-text-muted">{entry.summary}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
         {openMenu === 'models' ? (
           <ComposerPopover title={t('canvasAgent.modelMenuTitle')} onClose={closeMenu}>
             <div className="sticky top-0 z-10 -mx-2.5 -mt-2.5 border-b border-border-dark/60 bg-[var(--ui-surface-panel)] px-2.5 pb-2 pt-2.5">
@@ -418,7 +489,17 @@ export function CanvasAgentComposer({
             value={draft}
             rows={1}
             placeholder={t('canvasAgent.placeholder')}
-            onChange={(event) => onDraftChange(event.target.value)}
+            aria-controls={skillMenuOpen ? skillListId : undefined}
+            aria-expanded={skillMenuOpen}
+            aria-autocomplete="list"
+            aria-activedescendant={skillMenuOpen && !skillLoading && skillEntries.length ? `${skillListId}-${activeSkillIndex}` : undefined}
+            onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
+            onChange={(event) => {
+              setCaret(event.target.selectionStart);
+              setSkillDismissed(false);
+              setSkillCursor(0);
+              onDraftChange(event.target.value);
+            }}
             onCompositionStart={() => {
               compositionActiveRef.current = true;
             }}
@@ -427,6 +508,22 @@ export function CanvasAgentComposer({
               compositionEndedAtRef.current = performance.now();
             }}
             onKeyDown={(event) => {
+              if (skillMenuOpen && !event.nativeEvent.isComposing && !compositionActiveRef.current && performance.now() - compositionEndedAtRef.current >= 80) {
+                if (event.key === 'Escape') {
+                  event.preventDefault(); event.stopPropagation(); setSkillDismissed(true); return;
+                }
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setSkillCursor((activeSkillIndex + (event.key === 'ArrowDown' ? 1 : -1) + skillEntries.length) % Math.max(1, skillEntries.length));
+                  return;
+                }
+                if ((event.key === 'Enter' && !event.shiftKey) || event.key === 'Tab') {
+                  event.preventDefault();
+                  const entry = skillEntries[activeSkillIndex];
+                  if (!skillLoading && !skillError && entry?.available) insertSkill(entry.id);
+                  return;
+                }
+              }
               if (shouldSubmitCanvasAgentComposerEnter({
                 key: event.key,
                 shiftKey: event.shiftKey,

@@ -29,8 +29,15 @@ describe('installed skills', () => {
   });
   it('supports prompt invocation and trigger matching', () => {
     const skill = parseInstalledSkill(pkg);
-    for (const text of ['使用 film-director 技能', '导演制作这个故事']) {
+    for (const text of ['使用 film-director 技能', '导演制作这个故事', '/film-director 帮我拆镜头', '请用 /film-director 拆镜头']) {
       expect(routeAgentSkills({ text, installedSkills: [skill] }).map((x) => x.skill.id)).toContain(skill.id);
+    }
+  });
+  it('does not treat URLs or longer IDs as explicit slash invocation', () => {
+    const skill = parseInstalledSkill(pkg);
+    for (const text of ['https://example.com/film-director', '/film-director-extra']) {
+      const selection = routeAgentSkills({ text, installedSkills: [skill] }).find((item) => item.skill.id === skill.id);
+      expect(selection?.reason).not.toBe('用户明确指定技能。');
     }
   });
   it('rejects malformed YAML, duplicate metadata, and unsafe IDs', () => {

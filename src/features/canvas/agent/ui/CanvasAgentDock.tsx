@@ -1292,6 +1292,7 @@ export function CanvasAgentDock({ projectId }: Props) {
             onRemoveAttachment={attachmentState.remove}
             onSend={() => void send()}
             onCancel={() => { void cancelCurrentTurn(); }}
+            onManageSkills={() => setExtensionsOpen(true)}
             onSettings={openModelSettings}
           />
         </div>

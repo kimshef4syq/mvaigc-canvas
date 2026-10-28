@@ -239,7 +239,7 @@ export function routeAgentSkills(context: SkillRoutingContext, max = 3): SkillSe
     const aliases = 'packageId' in skill ? [skill.packageId as string, skill.activation[0]] : [skill.id];
     const explicit = aliases.some((name) => {
       const escaped = name.toLocaleLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return new RegExp(`(?:\\$|使用\\s*)${escaped}(?=$|\\s|技能|[，,。.!！?？：:;；])`).test(currentText);
+      return new RegExp(`(?:\\$|(?:^|\\s)/|使用\\s*)${escaped}(?=$|\\s|技能|[，,。.!！?？：:;；])`).test(currentText);
     });
     const currentTermHits = skill.activation.filter((term) => currentText.includes(term.toLocaleLowerCase())).length;
     const termHits = skill.activation.filter((term) => text.includes(term.toLocaleLowerCase())).length;
