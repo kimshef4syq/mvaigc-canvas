@@ -1,5 +1,6 @@
 use std::sync::OnceLock;
 
+use base64::Engine;
 use regex::Regex;
 use serde_json::{json, Map, Value};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt};
