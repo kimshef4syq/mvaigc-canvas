@@ -88,6 +88,15 @@ describe('CanvasAgentComposer', () => {
     expect(markup).toContain('canvasAgent.send');
   });
 
+  it('opens the installed skill picker for a slash and leaves URLs alone', () => {
+    const picker = render({ draft: '/' });
+    expect(picker).toContain('role="listbox"');
+    expect(picker).toContain('aria-autocomplete="list"');
+    expect(picker).toContain('尚未安装技能');
+    expect(render({ draft: 'https://example.com/skill' })).not.toContain('role="listbox"');
+    expect(render({ draft: '请使用 /film' })).toContain('role="listbox"');
+  });
+
   it('shows configuration guidance when no built-in text model is available', () => {
     expect(render({ selectedTextModel: null })).toContain('canvasAgent.configureModel');
   });
