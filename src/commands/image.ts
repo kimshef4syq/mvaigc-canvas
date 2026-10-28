@@ -278,11 +278,13 @@ export async function saveImageSourceToDirectory(
 
 export async function saveVideoSourceToPath(
   source: string,
-  targetPath: string
+  targetPath: string,
+  contentAddressed = false
 ): Promise<string> {
   return await invoke('save_video_source_to_path', {
     source,
     targetPath,
+    contentAddressed,
   });
 }
 

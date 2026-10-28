@@ -3603,6 +3603,7 @@ pub async fn save_image_source_to_directory(
 pub async fn save_video_source_to_path(
     source: String,
     target_path: String,
+    content_addressed: Option<bool>,
 ) -> Result<String, String> {
     let trimmed_source = source.trim();
     if trimmed_source.is_empty() {
@@ -3614,18 +3615,45 @@ pub async fn save_video_source_to_path(
         return Err("Target path is empty".to_string());
     }
 
+    // Before reading a local reference, reject special files (reading a FIFO
+    // can block indefinitely) and bound the copy. Existing save-as stays compatible.
+    if content_addressed == Some(true) && !trimmed_source.starts_with("http://") && !trimmed_source.starts_with("https://") && !trimmed_source.starts_with("data:") {
+        let path = if trimmed_source.starts_with("file://") { PathBuf::from(decode_file_url_path(trimmed_source)) } else { PathBuf::from(trimmed_source) };
+        let metadata = std::fs::symlink_metadata(path).map_err(|_| "Reference video no longer exists")?;
+        if !metadata.file_type().is_file() || metadata.len() == 0 || metadata.len() > 512 * 1024 * 1024 {
+            return Err("Reference must be a nonempty regular video file, at most 512 MiB".into());
+        }
+    }
     let (bytes, extension) =
         resolve_video_source_bytes_with_headers(trimmed_source, None, None).await?;
+    if content_addressed == Some(true) && (bytes.is_empty() || bytes.len() > 512 * 1024 * 1024) {
+        return Err("Reference video exceeds the 512 MiB limit or is empty".into());
+    }
     let raw_path = PathBuf::from(normalize_user_selected_path(trimmed_target));
-    let output_path = ensure_output_path_with_extension(&raw_path, &extension);
+    let output_path = if content_addressed == Some(true) {
+        use sha2::{Digest, Sha256};
+        let hash = format!("{:x}", Sha256::digest(&bytes));
+        raw_path.with_file_name(format!("reference-{hash}.{}", normalize_video_extension(&extension)))
+    } else {
+        ensure_output_path_with_extension(&raw_path, &extension)
+    };
 
     if let Some(parent) = output_path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create output dir: {}", e))?;
     }
 
-    std::fs::write(&output_path, bytes)
-        .map_err(|e| format!("Failed to save video to target path: {}", e))?;
+    // Validate the existing content before reusing it. A changed source gets
+    // another address, so it cannot overwrite a reference used by an older terminal.
+    if content_addressed == Some(true) {
+        if let Ok(metadata) = std::fs::symlink_metadata(&output_path) {
+            if !metadata.file_type().is_file() { return Err("Reference cache contains a non-regular file".into()); }
+        }
+    }
+    if content_addressed != Some(true) || std::fs::read(&output_path).ok().as_deref() != Some(bytes.as_slice()) {
+        std::fs::write(&output_path, bytes)
+            .map_err(|e| format!("Failed to save video to target path: {}", e))?;
+    }
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -4379,5 +4407,38 @@ mod import_media_path_tests {
 
         assert!(!checks[0].is_file, "symlinks must not be importable");
         assert!(!checks[1].is_file, "FIFOs must not be importable");
+    }
+}
+
+#[cfg(test)]
+mod video_reference_snapshot_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn reference_copies_are_content_addressed_and_do_not_overwrite_previous_versions() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("source.mp4");
+        let target = root.path().join("imports/clip.mp4");
+        std::fs::write(&source, b"original video bytes").unwrap();
+        let first = save_video_source_to_path(source.to_string_lossy().into(), target.to_string_lossy().into(), Some(true)).await.unwrap();
+        let repeated = save_video_source_to_path(source.to_string_lossy().into(), target.to_string_lossy().into(), Some(true)).await.unwrap();
+        assert_eq!(first, repeated);
+        std::fs::write(&source, b"another video version").unwrap();
+        let second = save_video_source_to_path(source.to_string_lossy().into(), target.to_string_lossy().into(), Some(true)).await.unwrap();
+        assert_ne!(first, second);
+        assert_eq!(std::fs::read(first).unwrap(), b"original video bytes");
+        assert_eq!(std::fs::read(second).unwrap(), b"another video version");
+    }
+
+    #[tokio::test]
+    async fn reference_export_refuses_directories_and_symlinks_before_reading() {
+        let root = tempfile::tempdir().unwrap();
+        let target = root.path().join("imports/clip.mp4").to_string_lossy().to_string();
+        assert!(save_video_source_to_path(root.path().to_string_lossy().into(), target.clone(), Some(true)).await.is_err());
+        #[cfg(unix)] {
+            let source = root.path().join("video.mp4"); std::fs::write(&source, b"video").unwrap();
+            let link = root.path().join("link.mp4"); std::os::unix::fs::symlink(source, &link).unwrap();
+            assert!(save_video_source_to_path(link.to_string_lossy().into(), target, Some(true)).await.is_err());
+        }
     }
 }

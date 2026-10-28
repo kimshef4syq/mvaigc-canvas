@@ -166,6 +166,7 @@ function createLifecycle(
   ): Promise<Record<string, unknown>> {
     const response = await fetcher(`${base}${path}`, {
       ...init,
+      signal: init.signal ?? AbortSignal.timeout(180_000),
       headers: {
         ...init.headers,
         authorization: `Bearer ${secretFor(context)}`,
@@ -219,13 +220,13 @@ function createLifecycle(
       if (status === 'processing') {
         return wakeAfter({ id }, interval, Date.now(), { phase: 'processing' });
       }
-      if (status === 'failed') {
+      if (status === 'failed' || status === 'not_found') {
         const error = isRecord(task.error) ? task.error : {};
         const detail = typeof error.message === 'string' ? withoutUrls(error.message) : 'no detail';
         return {
           status: 'failed',
           receipt: { id },
-          failure: { code: 'MVAIGC_FAILED', message: `mvaigc task ${id} failed: ${detail}` },
+          failure: { code: status === 'not_found' ? 'MVAIGC_TASK_NOT_FOUND' : 'MVAIGC_FAILED', message: `mvaigc task ${id} failed: ${detail}` },
         };
       }
       if (status !== 'succeeded') {

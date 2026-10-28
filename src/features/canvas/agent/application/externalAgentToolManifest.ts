@@ -281,6 +281,7 @@ const mediaImportSchema = {
   additionalProperties: false,
   required: ['files'],
   properties: {
+    operationId: { type: 'string', minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9:._-]+$', description: 'Stable ID for this batch, e.g. taskId:final. Repeat with the same files to recover without duplicate nodes.' },
     files: {
       type: 'array',
       minItems: 1,

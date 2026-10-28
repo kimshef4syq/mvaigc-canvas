@@ -1,3 +1,4 @@
+import { lstatSync, readFileSync } from 'node:fs';
 /**
  * Translation from Hypit's Model ports onto the Canvas mvaigc reverse proxy.
  *
@@ -25,7 +26,7 @@ export interface MvaigcImagePorts {
   prompt: string;
   aspectRatio?: string;
   referenceImages: string[];
-  /** Accepted so the request validates, then overwritten — see below. */
+  /** Only 2K is supported by this adapter. */
   resolution?: string;
   outputFormat?: string;
 }
@@ -42,16 +43,11 @@ export function buildImagePayload(ports: MvaigcImagePorts): {
   model: string;
   body: Record<string, unknown>;
 } {
-  // `outputFormat` is accepted and not forwarded. It is a REQUIRED nano-banana
-  // port, so refusing it would make the whole capability unreachable; mvaigc has
-  // no such field and ignores unknown ones, and every format it can return is a
-  // correct image, so nothing is silently degraded.
-  //
-  // `resolution` is the one value this endpoint DOES silently substitute: the
-  // authored tier is overwritten with 2K below, because mvaigc resolves the tier
-  // from the pixel size the Canvas sends and 2K is the only one it can honour.
-  // That is sanctioned (spec §4, the user ruled 图片总是 2k 没关系), but note it
-  // is a substitution, not a refusal — `supports()` accepts 1K and 4K.
+  // Output format is provider-determined; callers must inspect the returned MIME.
+  // Fixed 2K is a declared restriction, never silently substitute an explicit tier.
+  if (ports.resolution !== undefined && ports.resolution !== '2K') {
+    throw new Error(`mvaigc images support 2K only, not ${ports.resolution}`);
+  }
   const body: Record<string, unknown> = {
     prompt: ports.prompt,
     resolution: '2K',
@@ -222,7 +218,20 @@ export function portsOfConstraints(constraints: unknown): Record<string, unknown
 export function secretFor(
   context: { credentials?: Readonly<Record<string, { secret?: string }>> },
 ): string {
-  const secret = context.credentials?.apiKey?.secret;
+  let secret = context.credentials?.apiKey?.secret;
+  // A stable path lets an already-running Hypit worker pick up a renewed
+  // canvas grant. Environment-only token rotation would leave it stale.
+  if (typeof secret === 'string' && secret.startsWith('osc-grant-file:')) {
+    const path = secret.slice('osc-grant-file:'.length);
+    try {
+      const info = lstatSync(path);
+      if (!info.isFile() || info.isSymbolicLink() || info.size > 128 || (process.platform !== 'win32' && (info.mode & 0o077) !== 0)) {
+        throw new Error('invalid grant file');
+      }
+      secret = readFileSync(path, 'utf8').trim();
+      if (!/^osc-local\.[0-9a-f-]{36}$/.test(secret)) throw new Error('invalid grant');
+    } catch { throw new Error('Canvas local grant is unavailable; reopen the agent from the original canvas.'); }
+  }
   if (typeof secret !== 'string' || secret.length === 0) {
     throw new Error(
       'mvaigc account:password is not available for this request; run hypit auth login mvaigc.local',
@@ -231,6 +240,7 @@ export function secretFor(
   // The proxy splits on ':' and, finding none, silently falls back to the
   // Canvas's own stored credentials — billing the wrong account rather than
   // saying what to type. Require the shape here.
+  if (/^osc-local\.[0-9a-f-]{36}$/.test(secret)) return secret;
   const separator = secret.indexOf(':');
   if (separator <= 0 || separator === secret.length - 1) {
     throw new Error(

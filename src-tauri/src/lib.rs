@@ -237,6 +237,7 @@ pub fn run() {
             external_agent::cancel_external_agent_session,
             external_agent::external_agent_resolve_tool_call,
             external_agent::connection::create_external_agent_connection,
+            external_agent::video_launch::launch_video_agent,
             external_agent::connection::set_external_agent_connection_permission,
             external_agent::connection::inspect_external_agent_connection,
             external_agent::connection::revoke_external_agent_connection,

@@ -1,3 +1,4 @@
+import { findImportReplay } from './externalImportReplay';
 import { exportCanvasAsset } from './externalAgentAssetExport';
 import { assertExternalConnectionActive, externalAgentPermissionDecision } from './externalAgentPermissionPolicy';
 import { inspectExternalAgentConnection, resolveExternalAgentToolCall, type ExternalAgentToolResolution } from '@/commands/externalAgent';
@@ -185,6 +186,20 @@ async function executeAssetsImport(
   approval: AgentApprovalRecord,
 ): Promise<unknown> {
   const files = parseImportFiles(request.arguments);
+  const importArguments = isRecord(request.arguments) ? request.arguments : {};
+  const operationId = typeof importArguments.operationId === 'string' ? importArguments.operationId : undefined;
+  const fingerprint = operationId ? [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify({ files, anchor: importArguments.anchor, group: importArguments.group }))))]
+    .map(value => value.toString(16).padStart(2, '0')).join('') : undefined;
+  if (useProjectStore.getState().currentProjectId !== approval.projectId) {
+    throw new Error('The active project changed before imported media could be added.');
+  }
+  if (operationId && fingerprint) {
+    const nodeIds = findImportReplay(useCanvasStore.getState().nodes, operationId, fingerprint, files.length);
+    if (nodeIds) {
+      await persistCanvas(approval.projectId);
+      return { ok: true, replayed: true, result: { nodeIds } };
+    }
+  }
   const anchorId = isRecord(request.arguments) && isRecord(request.arguments.anchor)
     && typeof request.arguments.anchor.nodeId === 'string'
     ? request.arguments.anchor.nodeId
@@ -213,7 +228,7 @@ async function executeAssetsImport(
   const nodes = prepared.map((entry, index) => ({
     nodeType: entry.nodeType,
     position: resolveImportPosition(anchorId, index),
-    data: entry.data,
+    data: operationId ? { ...entry.data, canvasImportOperationId: operationId, canvasImportFingerprint: fingerprint } : entry.data,
   }));
   // A batch that carries a group request collects its products into one group,
   // with finished video(s) at the lower right.

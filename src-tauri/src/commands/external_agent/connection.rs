@@ -56,6 +56,10 @@ impl ExternalAgentPermissionMode {
     }
 }
 
+fn default_write_claude_config() -> bool {
+    true
+}
+
 fn new_connection_mode() -> ExternalAgentPermissionMode {
     ExternalAgentPermissionMode::Analysis
 }
@@ -71,6 +75,8 @@ pub struct CreateExternalAgentConnectionRequest {
     pub permission_mode: ExternalAgentPermissionMode,
     #[serde(default)]
     pub claude_code_project_dir: Option<String>,
+    #[serde(default = "default_write_claude_config")]
+    pub write_claude_config: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -134,6 +140,8 @@ pub(crate) struct ConnectionParams {
     pub tools: Vec<ExternalAgentToolDefinition>,
     #[serde(default)]
     pub claude_code_project_dir: Option<String>,
+    #[serde(default = "default_write_claude_config")]
+    pub write_claude_config: bool,
     #[serde(default)]
     pub permission_mode: ExternalAgentPermissionMode,
 }
@@ -229,7 +237,13 @@ pub(crate) fn hypit_project_slug(project_id: &str, project_name: &str) -> String
     let sanitized: String = project_name
         .trim()
         .chars()
-        .map(|character| if is_slug_safe_char(character) { character } else { '-' })
+        .map(|character| {
+            if is_slug_safe_char(character) {
+                character
+            } else {
+                '-'
+            }
+        })
         .collect();
     let trimmed = sanitized.trim_matches('-');
     let name: String = if trimmed.is_empty() {
@@ -266,11 +280,41 @@ fn prepare_hypit_project_dir(
     project_name: &str,
 ) -> Result<PathBuf, ExternalAgentCommandError> {
     let slug = hypit_project_slug(project_id, project_name);
-    let directory = app_data_dir.join(HYPIT_PROJECTS_DIR_NAME).join(&slug);
+    let root = app_data_dir.join(HYPIT_PROJECTS_DIR_NAME);
+    let mut directory = root.join(&slug);
+    if let Ok(entries) = std::fs::read_dir(&root) {
+        let suffix = format!("-{}", project_id.chars().take(8).collect::<String>());
+        let matches: Vec<_> = entries
+            .flatten()
+            .filter(|entry| {
+                entry
+                    .file_type()
+                    .map(|t| t.is_dir() && !t.is_symlink())
+                    .unwrap_or(false)
+            })
+            .filter(|entry| {
+                let marker = entry.path().join(".canvas-project-id");
+                match std::fs::read_to_string(&marker) {
+                    Ok(id) => id == project_id,
+                    Err(_) => entry.file_name().to_string_lossy().ends_with(&suffix),
+                }
+            })
+            .map(|entry| entry.path())
+            .collect();
+        if matches.len() > 1 {
+            return Err(ExternalAgentCommandError::invalid_request("Multiple Hypit directories match this project; resolve the duplicate directories first."));
+        }
+        if let Some(existing) = matches.first() {
+            directory = existing.clone();
+        }
+    }
     std::fs::create_dir_all(&directory).map_err(|error| {
         ExternalAgentCommandError::process(format!(
             "Failed to prepare the Hypit project directory: {error}"
         ))
+    })?;
+    std::fs::write(directory.join(".canvas-project-id"), project_id).map_err(|error| {
+        ExternalAgentCommandError::process(format!("Failed to record project identity: {error}"))
     })?;
     let manifest = directory.join("package.json");
     if !manifest.exists() {
@@ -445,7 +489,9 @@ pub(crate) fn connection_info(
             name: session.project_name.clone().unwrap_or_default(),
         }),
         scope,
-        permission_mode: ExternalAgentPermissionMode::from_code(session.permission_mode.load(Ordering::SeqCst)),
+        permission_mode: ExternalAgentPermissionMode::from_code(
+            session.permission_mode.load(Ordering::SeqCst),
+        ),
         created_at: Some(session.created_at),
         expires_at: Some(session.capability_expires_at),
         connected_at: (connected_at > 0).then_some(connected_at),
@@ -474,6 +520,7 @@ pub async fn create_external_agent_connection(
         request.tools,
         request.claude_code_project_dir,
         request.permission_mode,
+        request.write_claude_config,
     )
     .await
 }
@@ -486,6 +533,7 @@ pub(crate) async fn establish_connection(
     tools: Vec<ExternalAgentToolDefinition>,
     claude_code_project_dir: Option<String>,
     permission_mode: ExternalAgentPermissionMode,
+    write_claude_config: bool,
 ) -> Result<ExternalAgentConnectionInfo, ExternalAgentCommandError> {
     if !inner.broker_started.load(Ordering::SeqCst) {
         return Err(ExternalAgentCommandError::unavailable(
@@ -605,31 +653,34 @@ pub(crate) async fn establish_connection(
         project_name: project_name.clone(),
         tools: session.tools.values().cloned().collect(),
         claude_code_project_dir: claude_code_project_dir.clone(),
+        write_claude_config,
         permission_mode,
     };
     let _ = write_connection_params(&descriptor_root, &params);
-    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
-        let executable = std::env::current_exe()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        let args = vec![
-            "--external-agent-mcp".to_string(),
-            descriptor_path.to_string_lossy().into_owned(),
-        ];
-        let target_dirs = mcp_target_dirs(claude_code_project_dir.as_deref(), &hypit_project_dir);
-        if let Err(error) = super::claude_config::write_local_mcp_server(
-            &home.join(".claude.json"),
-            &target_dirs,
-            "storyboard_canvas",
-            &executable,
-            &args,
-        ) {
-            warn!("未能写入 Claude Code 配置（不影响画布内使用）：{error}");
+    if write_claude_config {
+        if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+            let executable = std::env::current_exe()
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let args = vec![
+                "--external-agent-mcp".to_string(),
+                descriptor_path.to_string_lossy().into_owned(),
+            ];
+            let target_dirs =
+                mcp_target_dirs(claude_code_project_dir.as_deref(), &hypit_project_dir);
+            if let Err(error) = super::claude_config::write_local_mcp_server(
+                &home.join(".claude.json"),
+                &target_dirs,
+                "storyboard_canvas",
+                &executable,
+                &args,
+            ) {
+                warn!("未能写入 Claude Code 配置（不影响画布内使用）：{error}");
+            }
+        } else {
+            warn!("未找到 HOME 目录，跳过写入 Claude Code 配置");
         }
-    } else {
-        warn!("未找到 HOME 目录，跳过写入 Claude Code 配置");
     }
-
     connection_info(&session)
 }
 
@@ -656,6 +707,7 @@ pub(crate) async fn rebuild_managed_connection(
         params.tools,
         params.claude_code_project_dir,
         params.permission_mode,
+        params.write_claude_config,
     )
     .await?;
     Ok(())
@@ -689,20 +741,41 @@ pub async fn set_external_agent_connection_permission(
     permission_mode: ExternalAgentPermissionMode,
 ) -> Result<ExternalAgentConnectionInfo, ExternalAgentCommandError> {
     if state.inner.managed_connection_id.read().await.as_deref() != Some(connection_id.as_str()) {
-        return Err(ExternalAgentCommandError::not_found("External Agent connection not found."));
+        return Err(ExternalAgentCommandError::not_found(
+            "External Agent connection not found.",
+        ));
     }
-    let session = state.inner.sessions.read().await.get(&connection_id).cloned()
-        .ok_or_else(|| ExternalAgentCommandError::not_found("External Agent connection not found."))?;
-    if !session.user_managed || session.cancelled.load(Ordering::SeqCst) || now_millis() >= session.capability_expires_at {
-        return Err(ExternalAgentCommandError::permission_denied("The Canvas connection is no longer active."));
+    let session = state
+        .inner
+        .sessions
+        .read()
+        .await
+        .get(&connection_id)
+        .cloned()
+        .ok_or_else(|| {
+            ExternalAgentCommandError::not_found("External Agent connection not found.")
+        })?;
+    if !session.user_managed
+        || session.cancelled.load(Ordering::SeqCst)
+        || now_millis() >= session.capability_expires_at
+    {
+        return Err(ExternalAgentCommandError::permission_denied(
+            "The Canvas connection is no longer active.",
+        ));
     }
-    let root = state.inner.connection_descriptor_root.lock()
-        .map_err(|_| ExternalAgentCommandError::process("Descriptor root lock is poisoned."))?.clone();
+    let root = state
+        .inner
+        .connection_descriptor_root
+        .lock()
+        .map_err(|_| ExternalAgentCommandError::process("Descriptor root lock is poisoned."))?
+        .clone();
     if let Some(mut params) = read_connection_params(&root) {
         params.permission_mode = permission_mode;
         write_connection_params(&root, &params)?;
     }
-    session.permission_mode.store(permission_mode.code(), Ordering::SeqCst);
+    session
+        .permission_mode
+        .store(permission_mode.code(), Ordering::SeqCst);
     connection_info(&session)
 }
 
@@ -849,6 +922,7 @@ mod tests {
             project_name: "画布".into(),
             tools: vec![],
             claude_code_project_dir: Some("/tmp/x".into()),
+            write_claude_config: true,
             permission_mode: ExternalAgentPermissionMode::Manual,
         };
         write_connection_params(root.path(), &params).unwrap();
@@ -879,17 +953,32 @@ mod tests {
 
     #[test]
     fn hypit_slug_is_deterministic_and_path_safe() {
-        let slug = hypit_project_slug("b9c96f36-e167-4d7d-9bbf-5dce6dd121d1", "AI4Animation 移植验收");
+        let slug = hypit_project_slug(
+            "b9c96f36-e167-4d7d-9bbf-5dce6dd121d1",
+            "AI4Animation 移植验收",
+        );
         assert_eq!(slug, "AI4Animation-移植验收-b9c96f36");
         assert!(!slug.contains('/') && !slug.contains('\\') && !slug.contains(' '));
         // 同输入必同输出
-        assert_eq!(slug, hypit_project_slug("b9c96f36-e167-4d7d-9bbf-5dce6dd121d1", "AI4Animation 移植验收"));
+        assert_eq!(
+            slug,
+            hypit_project_slug(
+                "b9c96f36-e167-4d7d-9bbf-5dce6dd121d1",
+                "AI4Animation 移植验收"
+            )
+        );
     }
 
     #[test]
     fn hypit_slug_handles_empty_and_symbol_only_names() {
-        assert_eq!(hypit_project_slug("abcdef0123456789", ""), "project-abcdef01");
-        assert_eq!(hypit_project_slug("abcdef0123456789", "///:::"), "project-abcdef01");
+        assert_eq!(
+            hypit_project_slug("abcdef0123456789", ""),
+            "project-abcdef01"
+        );
+        assert_eq!(
+            hypit_project_slug("abcdef0123456789", "///:::"),
+            "project-abcdef01"
+        );
         assert_eq!(hypit_project_slug("ABCDEF01-2345", "  x  "), "x-ABCDEF01");
     }
 
@@ -904,7 +993,10 @@ mod tests {
         let hypit = Path::new("/app/hypit-projects/p-abcdef01");
         assert_eq!(
             mcp_target_dirs(Some("/proj"), hypit),
-            vec!["/proj".to_string(), "/app/hypit-projects/p-abcdef01".to_string()],
+            vec![
+                "/proj".to_string(),
+                "/app/hypit-projects/p-abcdef01".to_string()
+            ],
         );
         // 空或未设置的 claudeCodeProjectDir 不影响视频工程目录
         for empty in [None, Some(""), Some("   ")] {
@@ -920,7 +1012,12 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let directory =
             prepare_hypit_project_dir(root.path(), "abcdef0123456789", "验收 项目").unwrap();
-        assert_eq!(directory, root.path().join("hypit-projects").join("验收-项目-abcdef01"));
+        assert_eq!(
+            directory,
+            root.path()
+                .join("hypit-projects")
+                .join("验收-项目-abcdef01")
+        );
 
         let manifest = directory.join("package.json");
         let parsed: serde_json::Value =
@@ -932,6 +1029,21 @@ mod tests {
         let again =
             prepare_hypit_project_dir(root.path(), "abcdef0123456789", "验收 项目").unwrap();
         assert_eq!(again, directory);
-        assert_eq!(std::fs::read_to_string(&manifest).unwrap(), r#"{"name":"hypit-owned"}"#);
+        assert_eq!(
+            std::fs::read_to_string(&manifest).unwrap(),
+            r#"{"name":"hypit-owned"}"#
+        );
+    }
+    #[test]
+    fn project_rename_reuses_original_hypit_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let old = prepare_hypit_project_dir(root.path(), "abcdef01-2345", "旧名字").unwrap();
+        std::fs::write(old.join("keep.txt"), "user work").unwrap();
+        let renamed = prepare_hypit_project_dir(root.path(), "abcdef01-2345", "新名字").unwrap();
+        assert_eq!(old, renamed);
+        assert_eq!(
+            std::fs::read_to_string(renamed.join("keep.txt")).unwrap(),
+            "user work"
+        );
     }
 }

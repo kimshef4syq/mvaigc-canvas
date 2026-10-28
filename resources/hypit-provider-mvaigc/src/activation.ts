@@ -1,8 +1,8 @@
 /**
  * Runtime activation: turn the Profile's Endpoint config into a live provider.
  *
- * Imports the Hypit runtime SDK, so it loads inside Hypit only — the same
- * constraint as `./endpoint.ts`. Covered by the end-to-end run.
+ * Loads the Hypit runtime SDK; tests use the same distribution bootstrap as
+ * the CLI, rather than skipping SDK integration coverage.
  */
 import type { RuntimeAdapterFactoryContext } from '@hypit/runtime-local/extension';
 import {

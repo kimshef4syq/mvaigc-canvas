@@ -7,6 +7,7 @@ mod process;
 mod process_tree;
 mod protocol;
 mod session;
+pub(crate) mod video_launch;
 mod workspace;
 
 use std::collections::HashMap;
@@ -471,6 +472,7 @@ pub(crate) struct ExternalAgentInner {
     workspace_root: StdMutex<PathBuf>,
     connection_descriptor_root: StdMutex<PathBuf>,
     managed_connection_id: RwLock<Option<String>>,
+    video_launch_lock: Mutex<()>,
 }
 
 #[derive(Clone)]
@@ -510,6 +512,7 @@ impl ExternalAgentState {
                         .join("connections"),
                 ),
                 managed_connection_id: RwLock::new(None),
+                video_launch_lock: Mutex::new(()),
             }),
         }
     }

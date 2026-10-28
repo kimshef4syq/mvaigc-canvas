@@ -134,3 +134,23 @@ test('a non-HTTPS, non-loopback baseUrl is refused before any request exists', (
   );
   assert.equal(calls.length, 0, 'no request may be sent');
 });
+
+test('a task missing from bounded history retains its receipt and never resubmits', async () => {
+  const { fetch, calls } = fakeFetch([{ json: { status: 'not_found', error: { message: '任务未找到，保留任务号' } } }]);
+  const { video } = createMvaigcEndpoints(options(fetch));
+  const failed = await video.poll({ handle: { id: 'old-task' }, credentials: creds });
+  assert.equal(failed.failure.code, 'MVAIGC_TASK_NOT_FOUND');
+  assert.equal(failed.receipt.id, 'old-task');
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/v1\/tasks\/old-task$/);
+});
+
+test('the actual SDK instance supports valid request constraints and refuses image tier substitution', async () => {
+  const { createMvaigcProvider } = await import('../dist/endpoint.js');
+  const provider = createMvaigcProvider(options(async () => { throw new Error('supports must not submit'); }));
+  const image = provider.offers.find(offer => offer.capability.name === 'nano-banana-pro');
+  const video = provider.offers.find(offer => offer.capability.name === 'minimax-h3');
+  assert.equal(image.supports({ constraints: { ports: { prompt: ['cat'], resolution: ['2K'], outputFormat: ['png'] } } }).status, 'supported');
+  assert.equal(image.supports({ constraints: { ports: { prompt: ['cat'], resolution: ['4K'], outputFormat: ['png'] } } }).status, 'unsupported');
+  assert.equal(video.supports({ constraints: { ports: { prompt: ['cat'], duration: [5], resolution: ['768P'] } } }).status, 'supported');
+});

@@ -1,4 +1,23 @@
 {
+  "videoAgentLaunch": {
+    "advanced": "More options",
+    "upgrade": "Upgrade this project’s production environment (keep configuration backup)",
+    "fromVideo": "Recreate with agent",
+    "fromProject": "Open project agent",
+    "options": "Choose agent and workflow",
+    "checking": "Checking environment…",
+    "connecting": "Connecting canvas…",
+    "reference": "Preparing reference…",
+    "preparing": "Preparing environment and terminal…",
+    "title": "Open project agent",
+    "description": "Open a terminal in this canvas project with the reference, Hypit and canvas connection prepared.",
+    "agent": "Default agent",
+    "mode": "Workflow",
+    "quick": "Quick recreation",
+    "full": "Full production",
+    "firstRun": "First-time preparation may take a few minutes. Uses your canvas generation account and preserves your model configuration. Importing results still requires approval.",
+    "open": "Prepare and open"
+},
   "canvasDefaults": {
   "title": "Canvas settings",
   "description": "Apply to all image and video generation nodes on this canvas, except running nodes. New nodes inherit these defaults and can be adjusted individually. Defaults are saved on this device and shared across canvases.",
@@ -1662,6 +1681,12 @@
       "replace": "Replace audio"
     },
     "videoNode": {
+      "play": "Play",
+      "pause": "Pause",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "fullscreen": "Fullscreen",
+      "position": "Playback position",
       "waitingResult": "Waiting for video result",
       "waitingResultDelayed": "Already waited {{minutes}} minutes with no video result yet. Still waiting...",
       "generationFailed": "Video generation failed",

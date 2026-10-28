@@ -22,9 +22,9 @@ test('outputFormat is accepted but never sent, because mvaigc picks the format',
   assert.equal(body.outputFormat, undefined);
 });
 
-test('an authored resolution is accepted but the request always asks for 2K', () => {
-  for (const tier of ['1K', '2K', '4K']) {
-    const { body } = buildImagePayload({ prompt: '猫', referenceImages: [], resolution: tier });
-    assert.equal(body.resolution, '2K', `${tier} must be overwritten to 2K`);
+test('explicit unsupported image resolution is refused before submitting', () => {
+  for (const tier of ['1K', '4K']) {
+    assert.throws(() => buildImagePayload({ prompt: '猫', referenceImages: [], resolution: tier }), /2K only/);
   }
+  assert.equal(buildImagePayload({ prompt: '猫', referenceImages: [], resolution: '2K' }).body.resolution, '2K');
 });

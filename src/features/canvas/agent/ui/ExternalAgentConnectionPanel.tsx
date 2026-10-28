@@ -1,3 +1,4 @@
+import { VideoAgentLaunchButton } from './VideoAgentLaunchButton';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -222,6 +223,7 @@ export function ExternalAgentConnectionPanel({
         <span className="text-text-muted/70">{t('canvasAgent.externalMcp.claudeProjectDirHint')}</span>
       </label>
 
+      {projectId && projectName && <div className="mt-3"><VideoAgentLaunchButton /></div>}
       {activeConnection ? (
         <>
           <dl className="mt-3 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1.5 text-[11px] leading-5 text-text-muted">

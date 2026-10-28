@@ -1,3 +1,5 @@
+import { CanvasVideoPlayer } from '@/features/canvas/ui/CanvasVideoPlayer';
+import { GenerationProgressOverlay } from '@/features/canvas/ui/GenerationProgressOverlay';
 import { SingleNodeToolbar as NodeToolbar } from '@/features/canvas/ui/SingleNodeToolbar';
 import {
   memo,
@@ -1446,13 +1448,10 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
               <span className="text-[11px]">{t('node.videoNode.waitingResult')}</span>
             </div>
           ) : displayVideoSource ? (
-            <video
+            <CanvasVideoPlayer
               src={displayVideoSource}
               poster={displayPosterUrl ? resolveImageDisplayUrl(displayPosterUrl) : undefined}
-              controls
-              playsInline
-              className="nowheel h-full w-full bg-black object-contain"
-              draggable={false}
+              className="h-full w-full"
             />
           ) : data.generationError ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-red-300">
@@ -1468,6 +1467,13 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
             <div className="flex h-full w-full items-center justify-center text-[11px] text-text-muted">
               {t('node.imageNode.emptyHint')}
             </div>
+          )}
+
+          {data.isGenerating && (
+            <GenerationProgressOverlay
+              startedAt={data.generationStartedAt}
+              durationMs={data.generationDurationMs ?? VIDEO_GENERATION_PROGRESS_DURATION_MS}
+            />
           )}
 
           {videoHistory.length > 1 && (
@@ -1501,6 +1507,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                           updateNodeData(id, {
                             mainVideoIndex: index,
                             videoUrl: entry.videoUrl,
+                            localVideoUrl: entry.localVideoUrl ?? null,
                             thumbnailUrl: entry.thumbnailUrl,
                           });
                           setHistoryOpen(false);
@@ -2436,12 +2443,10 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         containerClassName="!z-[13050]"
       >
         {videoPreviewSource && (
-          <video
+          <CanvasVideoPlayer
             src={videoPreviewSource}
-            controls
             autoPlay
-            playsInline
-            className="nowheel max-h-[70vh] w-full rounded-lg bg-black"
+            className="h-[65vh] max-h-[70vh] w-full rounded-lg"
           />
         )}
       </UiModal>

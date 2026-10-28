@@ -33,3 +33,26 @@ test('a value without a colon is refused, because the proxy needs account:passwo
 test('an account:password value with a real password is accepted', () => {
   assert.equal(secretFor({ credentials: { apiKey: { secret: 'acct:pw' } } }), 'acct:pw');
 });
+
+test('revocable canvas grants are accepted without duplicating account credentials', () => {
+  const secret = 'osc-local.12345678-1234-1234-1234-123456789abc';
+  assert.equal(secretFor({ credentials: { apiKey: { secret } } }), secret);
+  assert.throws(() => secretFor({ credentials: { apiKey: { secret: 'osc-local.bad' } } }));
+});
+
+test('a running worker reads renewed short-lived grants without retaining expired tokens', async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = mkdtempSync(join(tmpdir(), 'canvas-grant-'));
+  const path = join(root, 'grant');
+  const context = { credentials: { apiKey: { secret: `osc-grant-file:${path}` } } };
+  try {
+    writeFileSync(path, 'osc-local.12345678-1234-1234-1234-123456789abc', { mode: 0o600 });
+    assert.equal(secretFor(context), 'osc-local.12345678-1234-1234-1234-123456789abc');
+    writeFileSync(path, 'osc-local.87654321-1234-1234-1234-123456789abc', { mode: 0o600 });
+    assert.equal(secretFor(context), 'osc-local.87654321-1234-1234-1234-123456789abc');
+    writeFileSync(path, 'not-a-grant');
+    assert.throws(() => secretFor(context), /grant is unavailable/);
+  } finally { rmSync(root, { recursive: true }); }
+});

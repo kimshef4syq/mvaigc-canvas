@@ -20,6 +20,7 @@ pub const DEFAULT_PORT: u16 = 8787;
 /// Max accepted request body (base64 reference media can be large).
 const MAX_REQUEST_BODY_BYTES: usize = 128 * 1024 * 1024;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::{
@@ -39,10 +40,18 @@ use mapping::{decode_task_id, encode_task_id, map_image_request, map_video_reque
 
 /// Shared proxy state: the mvaigc client plus the credentials configured via
 /// the OSC settings panel (used when a request carries no Authorization).
+struct LocalGrant {
+    expires_at: u64,
+    active: Arc<dyn Fn() -> bool + Send + Sync>,
+    account: String,
+}
+
 pub struct ProxyState {
     client: MvaigcClient,
     credentials: RwLock<Option<(String, String)>>,
     reserved: std::sync::Mutex<Option<u16>>,
+    grants: RwLock<HashMap<String, LocalGrant>>,
+    missing_since: std::sync::Mutex<HashMap<String, u64>>,
 }
 
 impl Default for ProxyState {
@@ -57,11 +66,37 @@ impl ProxyState {
             client: MvaigcClient::new(),
             credentials: RwLock::new(None),
             reserved: std::sync::Mutex::new(None),
+            grants: RwLock::new(HashMap::new()),
+            missing_since: std::sync::Mutex::new(HashMap::new()),
         }
     }
 
     pub async fn set_credentials(&self, account: String, password: String) {
         *self.credentials.write().await = Some((account, password));
+    }
+
+    /// A revocable local-only grant; never duplicates the upstream password.
+    pub(crate) async fn issue_local_grant(
+        &self,
+        expires_at: u64,
+        active: Arc<dyn Fn() -> bool + Send + Sync>,
+    ) -> Result<String, String> {
+        let (account, _) = self
+            .stored_credentials()
+            .await
+            .ok_or("请先在画布设置登录 mvaigc")?;
+        let token = format!("osc-local.{}", uuid::Uuid::new_v4());
+        let mut grants = self.grants.write().await;
+        grants.retain(|_, grant| grant.expires_at > local_now() && (grant.active)());
+        grants.insert(
+            token.clone(),
+            LocalGrant {
+                expires_at,
+                active,
+                account,
+            },
+        );
+        Ok(token)
     }
 
     async fn stored_credentials(&self) -> Option<(String, String)> {
@@ -122,6 +157,13 @@ pub fn ensure_started(state: &SharedState, port: u16) -> Result<bool, String> {
 
 type SharedState = Arc<ProxyState>;
 
+fn local_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
 /// Pull `account`/`password` from the `Authorization: Bearer account:password`
 /// header, falling back to the state's stored credentials.
 async fn resolve_credentials(
@@ -133,11 +175,33 @@ async fn resolve_credentials(
         .and_then(|value| value.to_str().ok())
     {
         let token = raw.trim().strip_prefix("Bearer ").unwrap_or(raw.trim());
+        if token.starts_with("osc-local.") {
+            let grants = state.grants.read().await;
+            if let Some(grant) = grants.get(token) {
+                if grant.expires_at > local_now() && (grant.active)() {
+                    if let Some(pair) = state.stored_credentials().await {
+                        if pair.0 == grant.account {
+                            return Ok(pair);
+                        }
+                    }
+                }
+            }
+            return Err(error_response(
+                StatusCode::UNAUTHORIZED,
+                "本地工程授权已失效，请从视频节点重新打开智能体",
+            ));
+        }
         if let Some((account, password)) = token.split_once(':') {
             if !account.is_empty() && !password.is_empty() {
                 return Ok((account.to_string(), password.to_string()));
             }
         }
+    }
+    if headers.contains_key(axum::http::header::AUTHORIZATION) {
+        return Err(error_response(
+            StatusCode::UNAUTHORIZED,
+            "无效的本地服务授权",
+        ));
     }
     state.stored_credentials().await.ok_or_else(|| {
         error_response(
@@ -149,7 +213,11 @@ async fn resolve_credentials(
 
 /// Build an error response in the `{"error":{"message":...}}` shape.
 fn error_response(status: StatusCode, message: impl Into<String>) -> Response {
-    (status, Json(json!({ "error": { "message": message.into() } }))).into_response()
+    (
+        status,
+        Json(json!({ "error": { "message": message.into() } })),
+    )
+        .into_response()
 }
 
 /// The field holding an inline media URL: video/audio entries use
@@ -163,7 +231,11 @@ fn inline_media_url_key(entry: &Value) -> Option<&'static str> {
 /// Replace base64 `data:` URLs in `url` fields with a short static URL by
 /// uploading them to mvaigc first. mvaigc stores the request's `oper_info` in
 /// a DB column, so base64 payloads blow past its length limit.
-async fn upload_inline_media(state: &SharedState, token: &str, payload: &mut Value) -> Result<(), String> {
+async fn upload_inline_media(
+    state: &SharedState,
+    token: &str,
+    payload: &mut Value,
+) -> Result<(), String> {
     for field in ["images", "videos", "audios"] {
         let Some(list) = payload.get_mut(field).and_then(Value::as_array_mut) else {
             continue;
@@ -256,13 +328,17 @@ async fn list_models(State(state): State<SharedState>, headers: HeaderMap) -> Re
     let mut models = Vec::new();
     if let Some(map) = image.get("model").and_then(Value::as_object) {
         for key in map.keys() {
-            models.push(json!({"id": key, "object": "model", "owned_by": "mvaigc", "media": "image"}));
+            models.push(
+                json!({"id": key, "object": "model", "owned_by": "mvaigc", "media": "image"}),
+            );
         }
     }
     if let Some(list) = video.as_array() {
         for entry in list {
             if let Some(name) = entry.get("api_name").and_then(Value::as_str) {
-                models.push(json!({"id": name, "object": "model", "owned_by": "mvaigc", "media": "video"}));
+                models.push(
+                    json!({"id": name, "object": "model", "owned_by": "mvaigc", "media": "video"}),
+                );
             }
         }
     }
@@ -386,7 +462,21 @@ async fn task_status(
         }
     })
     .await;
+    // Upstream history can lag immediately after submit, but never wait forever.
     match result {
+        Ok(TaskState::Missing) => {
+            let mut missing = state.missing_since.lock().expect("missing task lock");
+            let now = local_now();
+            // Keep this bounded across long-running app sessions.
+            missing.retain(|_, first| now.saturating_sub(*first) < 24 * 60 * 60 * 1000);
+            let first = *missing.entry(id.clone()).or_insert(now);
+            if now.saturating_sub(first) < 60_000 {
+                Json(json!({"id": id, "status": "processing", "phase": "awaiting_history"}))
+                    .into_response()
+            } else {
+                Json(json!({"id": id, "status": "not_found", "error": {"code":"TASK_NOT_FOUND", "message":"在有界历史查询中未找到任务；保留任务号，稍后恢复查询，不要重新提交生成。"}})).into_response()
+            }
+        }
         Ok(TaskState::Running) => Json(json!({"id": id, "status": "processing"})).into_response(),
         Ok(TaskState::Succeeded(urls)) => {
             let output: Vec<Value> = urls.iter().map(|url| json!({"url": url})).collect();
@@ -449,10 +539,7 @@ pub async fn mvaigc_set_credentials(
     password: String,
     port: u16,
 ) -> Result<String, String> {
-    state
-        .state
-        .set_credentials(account, password)
-        .await;
+    state.state.set_credentials(account, password).await;
     match ensure_started(&state.state, port) {
         Ok(_) => Ok(format!("running:{port}")),
         Err(err) => Err(err),
@@ -575,5 +662,53 @@ mod tests {
         let count = body["data"].as_array().map(|list| list.len()).unwrap_or(0);
         println!("smoke_models → {count} models");
         assert!(count > 0, "expected at least one model");
+    }
+    #[tokio::test]
+    async fn local_grant_is_revocable_expiring_and_account_bound() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let state = Arc::new(ProxyState::new());
+        state
+            .set_credentials("account".into(), "password".into())
+            .await;
+        let active = Arc::new(AtomicBool::new(true));
+        let flag = active.clone();
+        let token = state
+            .issue_local_grant(
+                local_now() + 60_000,
+                Arc::new(move || flag.load(Ordering::SeqCst)),
+            )
+            .await
+            .unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+        assert!(resolve_credentials(&state, &headers).await.is_ok());
+        active.store(false, Ordering::SeqCst);
+        assert!(resolve_credentials(&state, &headers).await.is_err());
+        let expired = state.issue_local_grant(0, Arc::new(|| true)).await.unwrap();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {expired}").parse().unwrap(),
+        );
+        assert!(resolve_credentials(&state, &headers).await.is_err());
+        let other = state
+            .issue_local_grant(local_now() + 60_000, Arc::new(|| true))
+            .await
+            .unwrap();
+        state
+            .set_credentials("different".into(), "password".into())
+            .await;
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {other}").parse().unwrap(),
+        );
+        assert!(resolve_credentials(&state, &headers).await.is_err());
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            "Bearer bad".parse().unwrap(),
+        );
+        assert!(resolve_credentials(&state, &headers).await.is_err());
     }
 }

@@ -2,11 +2,8 @@
  * The Hypit-facing wiring: port tables, capability declarations, and the
  * `defineEndpoint` instance.
  *
- * This module is the only place that imports the Hypit SDK at runtime. The
- * SDK resolves its `import` condition to TypeScript source that Node refuses
- * to load from `node_modules`, so nothing here can be unit-tested outside
- * Hypit — it is covered by the end-to-end run instead. Keep pure translation
- * in `./provider.ts`, which imports nothing from the SDK.
+ * Integration tests load the real SDK using test/setup.mjs (tsx plus the
+ * distribution resolver), matching Hypit's CLI bootstrap.
  */
 import { defineEndpoint } from '@hypit/hypit/endpoint';
 import type { AsyncEndpoint, CredentialRef, EndpointInstance, EndpointRequest } from '@hypit/hypit/endpoint';
@@ -62,6 +59,9 @@ function supportFor(mapping: GenerationWireMapping) {
     }
     const ports = portsOfConstraints(constraints);
     const tiers = ports.resolution;
+    if (mapping === imageMapping && tiers !== undefined && String(tiers[0]) !== '2K') {
+      return { status: 'unsupported' as const, reason: `mvaigc images support 2K only, not ${String(tiers[0])}` };
+    }
     if (mapping === videoMapping && tiers !== undefined) {
       const tier = String(tiers[0]);
       if (tier !== '768P' && tier !== '2K') {

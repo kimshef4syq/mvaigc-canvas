@@ -59,6 +59,9 @@ export type CanvasGenerationJobState =
 
 export interface NodeDisplayData {
   displayName?: string;
+  /** Persisted receipt for an external media import batch. */
+  canvasImportOperationId?: string;
+  canvasImportFingerprint?: string;
   /** Stable reference into the project's SQLite assets table when media is indexed. */
   assetId?: string;
   [key: string]: unknown;
