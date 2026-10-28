@@ -7,6 +7,7 @@ mod process;
 mod process_tree;
 mod protocol;
 mod session;
+pub(crate) mod video_launch;
 mod workspace;
 
 use std::collections::HashMap;
@@ -427,6 +428,7 @@ pub(crate) struct ExternalAgentSession {
     permission_mode: std::sync::atomic::AtomicU8,
     project_id: Option<String>,
     project_name: Option<String>,
+    hypit_project_dir: Option<PathBuf>,
     descriptor_path: Option<PathBuf>,
     connected_at: AtomicU64,
     last_activity_at: AtomicU64,
@@ -470,6 +472,7 @@ pub(crate) struct ExternalAgentInner {
     workspace_root: StdMutex<PathBuf>,
     connection_descriptor_root: StdMutex<PathBuf>,
     managed_connection_id: RwLock<Option<String>>,
+    video_launch_lock: Mutex<()>,
 }
 
 #[derive(Clone)]
@@ -509,6 +512,7 @@ impl ExternalAgentState {
                         .join("connections"),
                 ),
                 managed_connection_id: RwLock::new(None),
+                video_launch_lock: Mutex::new(()),
             }),
         }
     }
@@ -698,6 +702,7 @@ pub async fn start_external_agent_session(
         permission_mode: std::sync::atomic::AtomicU8::new(0),
         project_id: None,
         project_name: None,
+        hypit_project_dir: None,
         descriptor_path: None,
         connected_at: AtomicU64::new(0),
         last_activity_at: AtomicU64::new(0),
@@ -1009,6 +1014,7 @@ mod tests {
             permission_mode: std::sync::atomic::AtomicU8::new(0),
             project_id: None,
             project_name: None,
+            hypit_project_dir: None,
             descriptor_path: None,
             connected_at: AtomicU64::new(0),
             last_activity_at: AtomicU64::new(0),

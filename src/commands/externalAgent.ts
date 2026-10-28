@@ -68,6 +68,7 @@ export interface ExternalAgentConnectionInfo {
   lastActivityAt: number | null;
   callCount: number;
   descriptorPath: string | null;
+  hypitProjectDir: string | null;
   configs: {
     codex: ExternalAgentProviderConfig;
     claude: ExternalAgentProviderConfig;
@@ -79,6 +80,7 @@ export interface CreateExternalAgentConnectionRequest {
   projectName: string;
   tools: ExternalAgentToolDefinition[];
   claudeCodeProjectDir?: string;
+  writeClaudeConfig?: boolean;
   permissionMode?: ExternalAgentPermissionMode;
 }
 
@@ -288,4 +290,23 @@ export async function listenExternalAgentEvents(
     }
     handler(event.payload);
   });
+}
+
+export interface VideoAgentLaunchRequest {
+  connectionId: string;
+  projectId: string;
+  runtime: ExternalAgentRuntime;
+  nodeId?: string;
+  assetId?: string;
+  referencePath?: string;
+  fullProduction?: boolean;
+  upgradeEnvironment?: boolean;
+}
+
+export function launchVideoAgent(request: VideoAgentLaunchRequest): Promise<{
+  launchId: string;
+  projectDir: string;
+  manifestPath: string;
+}> {
+  return invokeExternalAgent('launch_video_agent', { request });
 }

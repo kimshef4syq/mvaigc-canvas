@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { customImageProviderDraftToConfig } from '@/features/canvas/application/customImageProviderConfig';
-import { createComfyUIWorkflowTemplate, parseComfyUIConfig, prepareComfyUIWorkflow } from '@/features/canvas/infrastructure/comfyuiGateway';
+import { createComfyUIWorkflowTemplate, validateComfyUIRequest, parseComfyUIConfig, prepareComfyUIWorkflow } from '@/features/canvas/infrastructure/comfyuiGateway';
 import {
   createCustomImageProviderWorkbenchDraft,
   createComfyUIProviderWorkbenchDraft,
   createWorkbenchPreviewRequest,
+  createWorkbenchImportedBindings,
   getImageToImageVariant,
   updateFirstWorkbenchImageField,
 } from './customImageProviderWorkbenchState';
@@ -81,4 +82,80 @@ describe('manual image provider workbench', () => {
       },
     });
   });
+});
+
+describe('ComfyUI audio workbench', () => {
+  it('previews audio without image geometry or video parameters', () => {
+    const draft = createComfyUIProviderWorkbenchDraft();
+    draft.mediaType = 'audio';
+    draft.extraParams.comfyui = {
+      workflow: {
+        '1': { class_type: 'Voice', inputs: { text: ['2', 0] } },
+        '2': { class_type: 'JjkText', inputs: { text: '' } },
+        '3': { class_type: 'SaveAudio', inputs: { audio: ['1', 0] } },
+      }, bindings: { images: [], audios: [] }, outputNodeIds: ['3'],
+    };
+    const config = customImageProviderDraftToConfig(draft, 'audio').value!;
+    const sample = createWorkbenchPreviewRequest(config, 'workflow');
+    expect(sample).toMatchObject({ size: '', aspect_ratio: 'auto' });
+    expect(sample.reference_images).toBeUndefined();
+    expect(sample.extra_params?.seconds).toBeUndefined();
+    expect(prepareComfyUIWorkflow(parseComfyUIConfig(config), sample)['2']).toMatchObject({ inputs: { text: 'preview prompt' } });
+  });
+
+  it('keeps imported linked negative text transient and preserves legacy image prompt validation', () => {
+    const workflow = {
+      '1': { class_type: 'CLIPTextEncode', inputs: { text: 'positive inline' } },
+      '2': { class_type: 'CLIPTextEncode', inputs: { text: ['3', 0] } },
+      '3': { class_type: 'PrimitiveString', inputs: { value: 'negative' } },
+      '4': { class_type: 'SaveImage', inputs: { images: ['1', 0] } },
+    };
+    const bindings = createWorkbenchImportedBindings(workflow);
+    expect(bindings).not.toHaveProperty('texts');
+    const draft = createComfyUIProviderWorkbenchDraft();
+    draft.extraParams.comfyui = { workflow, bindings, outputNodeIds: ['4'] };
+    const config = customImageProviderDraftToConfig(draft, 'image').value!;
+    expect(() => prepareComfyUIWorkflow(parseComfyUIConfig(config), createWorkbenchPreviewRequest(config, 'workflow')))
+      .toThrow('提示词');
+  });
+});
+
+it('validates previews of audio workflows that require a canvas reference', () => {
+  const draft = createComfyUIProviderWorkbenchDraft();
+  draft.mediaType = 'audio';
+  draft.extraParams.comfyui = {
+    workflow: {
+      '1': { class_type: 'LoadAudio', inputs: { audio: '' } },
+      '2': { class_type: 'VoiceClone', inputs: { target_text: ['3', 0], audio: ['1', 0] } },
+      '3': { class_type: 'JjkText', inputs: { text: '' } },
+      '4': { class_type: 'SaveAudio', inputs: { audio: ['2', 0] } },
+    }, bindings: { images: [], audios: [] }, outputNodeIds: ['4'],
+  };
+  const config = customImageProviderDraftToConfig(draft, 'clone').value!;
+  const sample = createWorkbenchPreviewRequest(config, 'workflow');
+  expect(sample.reference_audios).toHaveLength(1);
+  expect(() => validateComfyUIRequest(parseComfyUIConfig(config), sample)).not.toThrow();
+});
+
+it('round-trips explicit ABC score and planning mappings through workbench configuration', () => {
+  const draft = createComfyUIProviderWorkbenchDraft();
+  draft.mediaType = 'audio';
+  draft.extraParams.comfyui = {
+    workflow: {
+      'plan': { class_type: 'PrimitiveBoolean', inputs: { value: true } },
+      'music': { class_type: 'YuE2GenerateMusic', inputs: { abc: '' } },
+      'save': { class_type: 'SaveAudio', inputs: { audio: ['music', 0] } },
+    }, bindings: {
+      texts: [{ nodeId: 'music', input: 'abc', label: 'ABC', preserveWhenEmpty: true }],
+      booleans: [{ nodeId: 'plan', input: 'value', label: 'ABC planning', defaultValue: false }],
+      images: [], audios: [],
+    }, outputNodeIds: ['save'],
+  };
+  const saved = customImageProviderDraftToConfig(draft, 'abc');
+  expect(saved.issues).toEqual([]);
+  const config = parseComfyUIConfig(saved.value!);
+  expect(config.bindings.texts?.[0]).toMatchObject({ preserveWhenEmpty: true });
+  expect(config.bindings.booleans?.[0]).toMatchObject({ defaultValue: false });
+  expect(prepareComfyUIWorkflow(config, createWorkbenchPreviewRequest(saved.value!, 'workflow')).plan)
+    .toMatchObject({ inputs: { value: false } });
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -24,9 +24,11 @@ vi.mock('../application/externalAgentCanvasBridge', () => ({
 }));
 
 import { ExternalAgentConnectionPanel } from './ExternalAgentConnectionPanel';
+import { useExternalAgentApprovalStore } from './useExternalAgentApprovals';
 
 describe('ExternalAgentConnectionPanel', () => {
-  it('explains the external process and manual approval boundary', () => {
+  beforeEach(() => useExternalAgentApprovalStore.setState({ connection: null, pendingApprovals: [], automaticReads: [], approvalBusy: false }));
+  it('explains the external process and explicit permission modes', () => {
     const markup = renderToStaticMarkup(React.createElement(ExternalAgentConnectionPanel, {
       projectId: 'project-1',
       projectName: 'Opening sequence',
@@ -39,8 +41,17 @@ describe('ExternalAgentConnectionPanel', () => {
     }));
     expect(markup).toContain('canvasAgent.externalMcp.title');
     expect(markup).toContain('canvasAgent.externalMcp.description');
+    expect(markup).toContain('canvasAgent.externalMcp.permissionLabel');
+    expect(markup).toContain('canvasAgent.externalMcp.modeHints.analysis');
+    expect(markup).toContain('canvasAgent.externalMcp.modes.collaboration');
     expect(markup).toContain('canvasAgent.externalMcp.modes.manual');
     expect(markup).not.toContain('启动 Codex');
     expect(markup).not.toContain('启动 Claude');
   });
+  it('offers the project terminal entry before manual connection setup', () => {
+    const markup = renderToStaticMarkup(React.createElement(ExternalAgentConnectionPanel, { projectId: 'project-1', projectName: 'Project', tools: [] }));
+    expect(markup).toContain('videoAgentLaunch.fromProject');
+    expect(markup).toContain('canvasAgent.externalMcp.status.disconnected');
+  });
+
 });

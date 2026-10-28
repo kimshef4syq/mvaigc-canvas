@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { useCustomProvidersStore } from '@/stores/customProvidersStore';
+import { customProviderMediaType, useCustomProvidersStore } from '@/stores/customProvidersStore';
 import { CustomImageProviderWorkbench } from './CustomImageProviderWorkbench';
 
 export function ComfyUISettingsSection() {
@@ -41,7 +41,7 @@ export function ComfyUISettingsSection() {
                   <div className="truncate text-xs font-medium text-text-dark">{provider.label}</div>
                   <div className="mt-1 truncate text-[11px] text-text-muted">{provider.baseUrl}</div>
                 </div>
-                <span className="rounded border border-border-dark px-1.5 py-0.5 text-[10px] text-text-muted">{t(provider.mediaType === 'video' ? 'settings.customProviders.workbench.comfyOutputVideo' : 'settings.customProviders.workbench.comfyOutputImage')}</span>
+                <span className="rounded border border-border-dark px-1.5 py-0.5 text-[10px] text-text-muted">{t(customProviderMediaType(provider) === 'audio' ? 'settings.customProviders.workbench.comfyOutputAudio' : customProviderMediaType(provider) === 'video' ? 'settings.customProviders.workbench.comfyOutputVideo' : 'settings.customProviders.workbench.comfyOutputImage')}</span>
                 <button type="button" onClick={() => startEdit(provider.id)} className="rounded-md px-2 py-1.5 text-xs text-accent hover:bg-accent/10 focus:outline-none focus:ring-2 focus:ring-accent/60">{t('settings.comfyui.edit')}</button>
               </div>
             ))}

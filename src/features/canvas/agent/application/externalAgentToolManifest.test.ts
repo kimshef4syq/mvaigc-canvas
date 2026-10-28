@@ -50,4 +50,14 @@ describe('external Canvas MCP manifest', () => {
     const planTool = assertExternalCanvasToolAllowed(manifest, 'production_plan');
     expect(planTool.annotations.idempotentHint).toBe(true);
   });
+  it('exposes assets_import only when the media-import kind is requested', () => {
+    const withImport = buildExternalCanvasMcpManifest(['canvas', 'media-import']);
+    const importTool = withImport.tools.find((tool) => tool.name === 'assets_import');
+    expect(importTool).toBeDefined();
+    expect(importTool?.annotations.readOnlyHint).toBe(false);
+    expect(importTool?.annotations.openWorldHint).toBe(false);
+
+    const withoutImport = buildExternalCanvasMcpManifest(['canvas']);
+    expect(withoutImport.tools.map((tool) => tool.name)).not.toContain('assets_import');
+  });
 });

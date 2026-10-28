@@ -7,7 +7,7 @@ import {
   type CanvasCommand,
   type CanvasTransaction,
 } from '../domain/canvasCommands';
-import { CANVAS_NODE_TYPES } from '../domain/canvasNodes';
+import { CANVAS_NODE_TYPES, type CanvasNodeType } from '../domain/canvasNodes';
 import { canvasCommandRegistry } from './canvasCommandService';
 import { canvasEventBus } from './canvasServices';
 import { CanvasTransactionCoordinator } from './canvasTransactionCoordinator';
@@ -1269,5 +1269,128 @@ describe('shared node.create field compatibility', () => {
     const command = { type: 'node.create', version: CANVAS_COMMAND_VERSION, input: { type: CANVAS_NODE_TYPES.aiVideo, nodeType: CANVAS_NODE_TYPES.imageEdit, position: { x: 0, y: 0 } } } as unknown as CanvasCommand;
     expect(canvasCommandRegistry.inspect(command, 'agent').valid).toBe(false);
     expect(useCanvasStore.getState().nodes).toHaveLength(0);
+  });
+});
+
+
+describe('asset.import', () => {
+  beforeEach(resetCanvas);
+
+  const node = (type: CanvasNodeType) => ({
+    nodeType: type,
+    position: { x: 10, y: 20 },
+    data: { imageUrl: '/abs/imports/a.png', aspectRatio: '16:9' },
+  });
+
+  it('adds imported nodes and advances the revision', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    const result = await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION, input: { nodes: [node(CANVAS_NODE_TYPES.upload)] } },
+      before,
+      'agent',
+    );
+    expect(result.ok).toBe(true);
+    expect(useCanvasStore.getState().revision).toBe(before + 1);
+    expect(useCanvasStore.getState().nodes.some((n) => n.data.imageUrl === '/abs/imports/a.png')).toBe(true);
+  });
+
+  it('rejects node types outside the import allowlist', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    const result = await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION, input: { nodes: [node(CANVAS_NODE_TYPES.blueprint)] } },
+      before,
+      'agent',
+    );
+    expect(result.ok).toBe(false);
+    expect(useCanvasStore.getState().revision).toBe(before);
+  });
+
+  it('rejects a revision conflict without touching the graph', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    const result = await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION, input: { nodes: [node(CANVAS_NODE_TYPES.upload)] } },
+      before - 1,
+      'agent',
+    );
+    expect(result.ok).toBe(false);
+    expect(useCanvasStore.getState().revision).toBe(before);
+  });
+});
+
+
+describe('asset.import grouping', () => {
+  beforeEach(resetCanvas);
+
+  const node = (type: CanvasNodeType, data: Record<string, unknown> = {}) => ({
+    nodeType: type,
+    position: { x: 10, y: 20 },
+    data: { imageUrl: '/abs/imports/a.png', aspectRatio: '16:9', ...data },
+  });
+
+  it('groups the batch and puts the video at the group lower right', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    const result = await canvasCommandRegistry.executeApproved(
+      {
+        type: 'asset.import', version: CANVAS_COMMAND_VERSION,
+        input: {
+          group: {},
+          nodes: [
+            node(CANVAS_NODE_TYPES.upload, { imageUrl: '/abs/imports/still.png' }),
+            node(CANVAS_NODE_TYPES.upload, { imageUrl: '/abs/imports/still2.png' }),
+            node(CANVAS_NODE_TYPES.video, { localVideoUrl: '/abs/imports/clip.mp4' }),
+          ],
+        },
+      },
+      before,
+      'agent',
+    );
+    expect(result.ok).toBe(true);
+    const nodes = useCanvasStore.getState().nodes;
+    const group = nodes.find((n) => n.type === CANVAS_NODE_TYPES.group);
+    expect(group).toBeDefined();
+    const members = nodes.filter((n) => n.parentId === group!.id);
+    expect(members).toHaveLength(3);
+    expect(members.every((n) => n.extent === 'parent')).toBe(true);
+
+    const video = members.find((n) => n.type === CANVAS_NODE_TYPES.video)!;
+    const images = members.filter((n) => n.type === CANVAS_NODE_TYPES.upload);
+    // 视频在图片下方、且在组的右侧区域
+    expect(video.position.y).toBeGreaterThan(Math.max(...images.map((n) => n.position.y)));
+    expect(video.position.x).toBeGreaterThan(Math.min(...images.map((n) => n.position.x)));
+  });
+
+  it('names the group hypit复刻 with an incrementing number', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION,
+        input: { group: {}, nodes: [node(CANVAS_NODE_TYPES.upload)] } },
+      before, 'agent',
+    );
+    const group = useCanvasStore.getState().nodes.find((n) => n.type === CANVAS_NODE_TYPES.group)!;
+    expect(group.data.displayName).toMatch(/^hypit复刻 \d+$/);
+  });
+
+  it('honours an explicit group name', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION,
+        input: { group: { name: '橘猫窗台' }, nodes: [node(CANVAS_NODE_TYPES.upload)] } },
+      before, 'agent',
+    );
+    const group = useCanvasStore.getState().nodes.find((n) => n.type === CANVAS_NODE_TYPES.group)!;
+    expect(group.data.displayName).toBe('橘猫窗台');
+  });
+
+  it('leaves nodes ungrouped when no group is requested', async () => {
+    const before = canvasCommandRegistry.getRevision();
+    const result = await canvasCommandRegistry.executeApproved(
+      { type: 'asset.import', version: CANVAS_COMMAND_VERSION,
+        input: { nodes: [node(CANVAS_NODE_TYPES.upload)] } },
+      before, 'agent',
+    );
+    expect(result.ok).toBe(true);
+    const nodes = useCanvasStore.getState().nodes;
+    expect(nodes.some((n) => n.type === CANVAS_NODE_TYPES.group)).toBe(false);
+    expect(nodes.every((n) => n.parentId === undefined)).toBe(true);
   });
 });

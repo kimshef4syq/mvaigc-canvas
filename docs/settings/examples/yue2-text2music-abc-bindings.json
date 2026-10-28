@@ -1,0 +1,12 @@
+{
+  "texts": [
+    { "nodeId": "33:36", "input": "value", "label": "曲风" },
+    { "nodeId": "33:37", "input": "value", "label": "歌词" },
+    { "nodeId": "33:25", "input": "abc", "label": "ABC 乐谱（可选）", "preserveWhenEmpty": true }
+  ],
+  "booleans": [
+    { "nodeId": "33:31", "input": "value", "label": "ABC planning（自动规划）", "defaultValue": false }
+  ],
+  "images": [],
+  "audios": []
+}

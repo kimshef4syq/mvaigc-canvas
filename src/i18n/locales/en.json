@@ -1,4 +1,23 @@
 {
+  "videoAgentLaunch": {
+    "advanced": "More options",
+    "upgrade": "Upgrade this project’s production environment (keep configuration backup)",
+    "fromVideo": "Recreate with agent",
+    "fromProject": "Open project agent",
+    "options": "Choose agent and workflow",
+    "checking": "Checking environment…",
+    "connecting": "Connecting canvas…",
+    "reference": "Preparing reference…",
+    "preparing": "Preparing environment and terminal…",
+    "title": "Open project agent",
+    "description": "Open a terminal in this canvas project with the reference, Hypit and canvas connection prepared.",
+    "agent": "Default agent",
+    "mode": "Workflow",
+    "quick": "Quick recreation",
+    "full": "Full production",
+    "firstRun": "First-time preparation may take a few minutes. Uses your canvas generation account and preserves your model configuration. Importing results still requires approval.",
+    "open": "Prepare and open"
+},
   "canvasDefaults": {
   "title": "Canvas settings",
   "description": "Apply to all image and video generation nodes on this canvas, except running nodes. New nodes inherit these defaults and can be adjusted individually. Defaults are saved on this device and shared across canvases.",
@@ -60,6 +79,10 @@
     "title": "Canvas Agent",
     "panel": "Canvas Agent panel",
     "open": "Open Canvas Agent",
+    "hypitProjectDirLabel": "Hypit video project",
+    "hypitProjectMissing": "Not created yet (recreate the connection).",
+    "hypitProjectDirHint": "Open claude in this directory to use Hypit and the canvas together.",
+    "assetsImportNeedsReconnect": "This connection predates the upgrade. Recreate it to enable assets_import.",
     "externalMcp": {
       "title": "Connect another Agent",
       "description": "Connect your own Codex or Claude Code to this canvas. Reads and changes follow the connection permissions; requests requiring approval appear on the right.",
@@ -1634,6 +1657,7 @@
       "staleResult": "The result may be stale"
     },
     "aiAudio": {
+      "expandText": "Expand editor",
       "promptPlaceholder": "Enter text to synthesize, or connect a text node as input",
       "textRequired": "Enter text to synthesize, or connect a text node",
       "noModel": "Configure and enable an audio model in Settings first",
@@ -1657,6 +1681,12 @@
       "replace": "Replace audio"
     },
     "videoNode": {
+      "play": "Play",
+      "pause": "Pause",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "fullscreen": "Fullscreen",
+      "position": "Playback position",
       "waitingResult": "Waiting for video result",
       "waitingResultDelayed": "Already waited {{minutes}} minutes with no video result yet. Still waiting...",
       "generationFailed": "Video generation failed",
@@ -2173,6 +2203,7 @@
         "comfyDescription": "Enable Dev Mode in ComfyUI and export with “Save (API Format)”. Bindings are optional; common nodes can be inferred automatically.",
         "comfyOutputImage": "Image Output",
         "comfyOutputVideo": "Video Output",
+        "comfyOutputAudio": "Audio Output",
         "comfyTest": "Read-only Connection Test",
         "comfyTestNotice": "The connection test only reads ComfyUI status and does not submit a generation task.",
         "comfyReviewDescription": "Review the workflow output type and request preview. The connection test is read-only; then save.",
@@ -2279,7 +2310,7 @@
           "pollingRequestBody": "Use {taskId} in string values when the polling endpoint requires a POST body.",
           "comfyWorkflow": "Only API Format workflows are supported, not canvas nodes/links exports. Do not embed images or model files in JSON.",
           "comfyBindings": "For example {\"prompt\":{\"nodeId\":\"6\",\"input\":\"text\"},\"images\":[{\"nodeId\":\"10\",\"input\":\"image\"]}.",
-          "comfyOutputs": "For example [\"9\"]. Leave it empty to infer SaveImage/SaveVideo nodes."
+          "comfyOutputs": "For example [\"9\"]. Leave it empty to infer SaveImage/SaveVideo/SaveAudio nodes."
         },
         "errors": {
           "comfyOutputs": "ComfyUI output node IDs must be a non-empty string array.",

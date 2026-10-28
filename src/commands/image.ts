@@ -202,6 +202,25 @@ export async function persistVideoSource(
   return await invoke('persist_video_source', { source, headers, network });
 }
 
+export async function persistAudioSource(
+  source: string,
+  headers?: Record<string, string>,
+  network?: MediaNetworkRoute,
+): Promise<string> {
+  return await invoke('persist_audio_source', { source, headers, network });
+}
+
+export interface ImportMediaPathCheck {
+  path: string;
+  exists: boolean;
+  isFile: boolean;
+  bytes: number;
+}
+
+export async function inspectImportMediaPaths(paths: string[]): Promise<ImportMediaPathCheck[]> {
+  return await invoke('inspect_import_media_paths', { paths });
+}
+
 export async function persistImageBinary(
   bytes: Uint8Array,
   extension = 'png'
@@ -259,11 +278,13 @@ export async function saveImageSourceToDirectory(
 
 export async function saveVideoSourceToPath(
   source: string,
-  targetPath: string
+  targetPath: string,
+  contentAddressed = false
 ): Promise<string> {
   return await invoke('save_video_source_to_path', {
     source,
     targetPath,
+    contentAddressed,
   });
 }
 

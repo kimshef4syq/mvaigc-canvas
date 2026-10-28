@@ -1,4 +1,3 @@
-use base64::Engine as _;
 use std::sync::OnceLock;
 
 use regex::Regex;
@@ -228,6 +227,29 @@ pub(crate) fn validate_tools(
     Ok(tools)
 }
 
+/// Only paths the bridge itself produced may bypass result redaction: an absolute
+/// path whose parent directory is `imports/`. The bridge writes exactly
+/// `<hypitProjectDir>/imports/<assetId>.<ext>`, so this admits its output and
+/// rejects anything else an agent could try to smuggle through the envelope.
+fn validate_import_export_path(path: &str) -> Result<(), ExternalAgentCommandError> {
+    let invalid = || {
+        ExternalAgentCommandError::invalid_request(
+            "Invalid canvas asset export path.",
+        )
+    };
+    if !path.starts_with('/') || path.len() > 4096 {
+        return Err(invalid());
+    }
+    let parent = path.rsplit_once('/').map(|(head, _)| head).unwrap_or_default();
+    if parent.rsplit('/').next() != Some("imports") {
+        return Err(invalid());
+    }
+    if path.contains('\0') || path.contains("..") {
+        return Err(invalid());
+    }
+    Ok(())
+}
+
 pub(crate) fn validate_tool_resolution(
     resolution: &ExternalAgentToolResolution,
 ) -> Result<ExternalAgentToolResolution, ExternalAgentCommandError> {
@@ -247,6 +269,11 @@ pub(crate) fn validate_tool_resolution(
         let image = metadata
             .as_object_mut()
             .and_then(|value| value.remove("canvasImage"));
+        let path = metadata
+            .as_object_mut()
+            .and_then(|value| value.get("path"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
         let mut safe = sanitize_json(&metadata)?;
         if let Some(image) = image {
             let mime = image.get("mimeType").and_then(Value::as_str);
@@ -270,6 +297,15 @@ pub(crate) fn validate_tool_resolution(
                 ));
             }
             safe["canvasImage"] = image;
+        }
+        // `asset_read` returns a path inside the Hypit project's `imports/` transit
+        // directory and nothing else useful — redacting it would empty the result.
+        // Validated narrowly so this bypass can never carry an arbitrary path.
+        if let Some(path) = path {
+            if metadata.get("assetId").and_then(Value::as_str).is_some() {
+                validate_import_export_path(&path)?;
+                safe["path"] = Value::String(path);
+            }
         }
         normalized.result = Some(safe);
     }
@@ -488,5 +524,39 @@ mod tests {
         let error = read_bounded_jsonl_line(&mut reader).await.unwrap_err();
         assert_eq!(error.code, "protocol_error");
         assert!(error.message.contains("UTF-8"));
+    }
+    #[test]
+    fn only_imports_paths_bypass_result_redaction() {
+        let good = "/Users/me/Library/Application Support/app/hypit-projects/p-abcdef01/imports/a.png";
+        assert!(validate_import_export_path(good).is_ok());
+
+        for bad in [
+            "/Users/me/Documents/private/secret.png",
+            "/Users/me/imports-evil/a.png",
+            "/Users/me/imports/../secrets/a.png",
+            "relative/imports/a.png",
+            "/Users/me/imports/nested/deep.png",
+            "",
+        ] {
+            assert!(validate_import_export_path(bad).is_err(), "must reject {bad}");
+        }
+    }
+
+    #[test]
+    fn an_asset_export_result_keeps_its_path_but_redacts_other_paths() {
+        let path = "/Users/me/Library/Application Support/app/hypit-projects/p-abcdef01/imports/a.png";
+        let resolution = ExternalAgentToolResolution {
+            outcome: "approved".to_string(),
+            result: Some(json!({"assetId": "a", "kind": "image", "path": path,
+                "note": "/Users/me/Documents/private/secret.png"})),
+            error_code: None,
+            message: None,
+            revision: None,
+            receipt_id: None,
+        };
+        let validated = validate_tool_resolution(&resolution).unwrap();
+        let result = validated.result.unwrap();
+        assert_eq!(result["path"], path);
+        assert_eq!(result["note"], "[local path omitted]");
     }
 }

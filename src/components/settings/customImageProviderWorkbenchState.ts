@@ -4,7 +4,7 @@ import {
 } from '@/features/canvas/application/customImageProviderConfig';
 import type { GenerateRequest } from '@/commands/ai';
 import type { CustomProviderConfig } from '@/stores/customProvidersStore';
-import { createComfyUIWorkflowTemplate, getComfyUIReferenceRequirements, getComfyUIVideoCapabilities, parseComfyUIConfig } from '@/features/canvas/infrastructure/comfyuiGateway';
+import { createComfyUIWorkflowTemplate, suggestComfyUIBindings, getComfyUIAudioReferenceRequirements, getComfyUIReferenceRequirements, getComfyUIVideoCapabilities, parseComfyUIConfig } from '@/features/canvas/infrastructure/comfyuiGateway';
 import type { ImageFieldDescriptorV1, ImageRequestVariantV1, JsonTemplateValue } from '@/features/canvas/application/customImageProviderContract';
 
 export type CustomImageProviderCreationRoute = 'ai' | 'manual' | 'comfyui';
@@ -109,12 +109,25 @@ export function updateFirstWorkbenchImageField(
   return [{ ...first, ...patch }, ...(variant.imageFields?.slice(1) ?? [])];
 }
 
+/** Keep inferred text slots transient so import does not turn them into explicit mappings. */
+export function createWorkbenchImportedBindings(workflow: unknown) {
+  const { texts: _detectedTexts, ...bindings } = suggestComfyUIBindings(workflow);
+  return bindings;
+}
+
 export function createWorkbenchPreviewRequest(config: CustomProviderConfig, model: string): GenerateRequest {
   const sample: GenerateRequest = {
     prompt: 'preview prompt', model: `custom:${config.id}:${model}`, size: '1024x1024', aspect_ratio: '1:1',
   };
   if (config.apiStyle !== 'comfyui') return sample;
   const comfy = parseComfyUIConfig(config);
+  if (comfy.mediaType === 'audio') {
+    const { min } = getComfyUIAudioReferenceRequirements(comfy);
+    return {
+      ...sample, size: '', aspect_ratio: 'auto',
+      ...(min > 0 ? { reference_audios: Array.from({ length: min }, () => 'data:audio/wav;base64,AAAA') } : {}),
+    };
+  }
   const references = getComfyUIReferenceRequirements(comfy);
   sample.reference_images = Array.from({ length: references.min }, () => 'data:image/png;base64,AAAA');
   if (config.mediaType === 'video') {

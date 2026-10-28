@@ -1,7 +1,7 @@
 import type { CustomHttpMultipartBody, GenerateRequest } from '@/commands/ai';
 import { resolveImageOutputGeometry } from '@/features/canvas/application/imageOutputGeometry';
 import type { VideoInputSchema } from '@/features/canvas/application/videoInputSchema';
-import type { CustomProviderConfig } from '@/stores/customProvidersStore';
+import { customProviderMediaType, type CustomProviderConfig } from '@/stores/customProvidersStore';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -10,8 +10,21 @@ export interface ComfyUIInputBinding {
   input: string;
 }
 
+export interface ComfyUITextBinding extends ComfyUIInputBinding {
+  label?: string;
+  /** Blank optional text preserves the workflow's original literal or connection. */
+  preserveWhenEmpty?: boolean;
+}
+
+export interface ComfyUIBooleanBinding extends ComfyUIInputBinding {
+  label?: string;
+  defaultValue?: boolean;
+}
+
 export interface ComfyUIBindings {
   prompt?: ComfyUIInputBinding;
+  texts?: ComfyUITextBinding[];
+  booleans?: ComfyUIBooleanBinding[];
   seed?: ComfyUIInputBinding;
   width?: ComfyUIInputBinding;
   height?: ComfyUIInputBinding;
@@ -19,7 +32,10 @@ export interface ComfyUIBindings {
   resolution?: ComfyUIInputBinding;
   aspectRatio?: ComfyUIInputBinding;
   images: ComfyUIInputBinding[];
+  audios: ComfyUIInputBinding[];
 }
+
+export type ComfyUIMediaType = 'image' | 'video' | 'audio';
 
 export interface ComfyUIConfig {
   workflow: Record<string, JsonRecord>;
@@ -27,7 +43,9 @@ export interface ComfyUIConfig {
   outputNodeIds: string[];
   pollIntervalMs: number;
   pollTimeoutMs: number;
-  mediaType?: 'image' | 'video';
+  mediaType?: ComfyUIMediaType;
+  // True when the stored config maps at least one text slot, so auto-detection must not apply.
+  textBindingsExplicit: boolean;
 }
 
 export interface ComfyUITransport {
@@ -66,6 +84,7 @@ export function createComfyUIWorkflowTemplate(id: ComfyUITemplateId, checkpoint 
       seed: { nodeId: '6', input: 'seed' },
       ...(id === 'text-to-image' ? { width: { nodeId: '4', input: 'width' }, height: { nodeId: '4', input: 'height' } } : {}),
       images: id === 'image-to-image' ? [{ nodeId: '4', input: 'image' }] : [],
+      audios: [],
     },
     outputNodeIds: ['8'],
   };
@@ -112,6 +131,7 @@ const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const MAX_WORKFLOW_BYTES = 8 * 1024 * 1024;
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'avif']);
 const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'm4v']);
+const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'flac', 'ogg', 'opus', 'm4a', 'aac', 'webm']);
 
 function asRecord(value: unknown): JsonRecord | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -138,23 +158,54 @@ function parseBinding(value: unknown, label: string): ComfyUIInputBinding | unde
   return { nodeId, input };
 }
 
+function parseBindingList(value: unknown, label: string): ComfyUIInputBinding[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new Error(`ComfyUI ${label}映射必须是数组。`);
+  return value.map((entry, index) => {
+    const binding = parseBinding(entry, `${label} ${index + 1}`);
+    if (!binding) throw new Error(`ComfyUI ${label} ${index + 1} 映射不能为空。`);
+    return binding;
+  });
+}
+
 function parseBindings(value: unknown): ComfyUIBindings {
   const raw = asRecord(value) ?? {};
-  const images = raw.images === undefined ? [] : raw.images;
-  if (!Array.isArray(images)) throw new Error('ComfyUI 参考图映射必须是数组。');
+  const texts = raw.texts === undefined ? [] : raw.texts;
+  if (!Array.isArray(texts)) throw new Error('ComfyUI 文本槽映射必须是数组。');
+  const booleans = raw.booleans;
+  if (booleans !== undefined && !Array.isArray(booleans)) throw new Error('ComfyUI 开关映射必须是数组。');
   return {
     prompt: parseBinding(raw.prompt, '提示词'),
+    texts: texts.map((entry, index) => {
+      const binding = parseBinding(entry, `文本槽 ${index + 1}`);
+      if (!binding) throw new Error(`ComfyUI 文本槽 ${index + 1} 映射不能为空。`);
+      const label = nonemptyString(asRecord(entry)?.label);
+      const preserveWhenEmpty = asRecord(entry)?.preserveWhenEmpty;
+      if (preserveWhenEmpty !== undefined && typeof preserveWhenEmpty !== 'boolean') {
+        throw new Error(`ComfyUI 文本槽 ${index + 1} preserveWhenEmpty 必须是布尔值。`);
+      }
+      return { ...binding, ...(label ? { label } : {}),
+        ...(preserveWhenEmpty !== undefined ? { preserveWhenEmpty } : {}) };
+    }),
+    ...(Array.isArray(booleans) ? { booleans: booleans.map((entry, index) => {
+      const binding = parseBinding(entry, `开关 ${index + 1}`);
+      if (!binding) throw new Error(`ComfyUI 开关 ${index + 1} 映射不能为空。`);
+      const rawEntry = asRecord(entry)!;
+      if (rawEntry.defaultValue !== undefined && typeof rawEntry.defaultValue !== 'boolean') {
+        throw new Error(`ComfyUI 开关 ${index + 1} defaultValue 必须是布尔值。`);
+      }
+      const label = nonemptyString(rawEntry.label);
+      return { ...binding, ...(label ? { label } : {}),
+        ...(typeof rawEntry.defaultValue === 'boolean' ? { defaultValue: rawEntry.defaultValue } : {}) };
+    }) } : {}),
     seed: parseBinding(raw.seed, '种子'),
     width: parseBinding(raw.width, '宽度'),
     height: parseBinding(raw.height, '高度'),
     duration: parseBinding(raw.duration, '时长'),
     resolution: parseBinding(raw.resolution, '分辨率'),
     aspectRatio: parseBinding(raw.aspectRatio, '画幅比例'),
-    images: images.map((entry, index) => {
-      const binding = parseBinding(entry, `参考图 ${index + 1}`);
-      if (!binding) throw new Error(`ComfyUI 参考图 ${index + 1} 映射不能为空。`);
-      return binding;
-    }),
+    images: parseBindingList(raw.images, '参考图'),
+    audios: parseBindingList(raw.audios, '参考音频'),
   };
 }
 
@@ -209,10 +260,22 @@ export function parseComfyUIConfig(cfg: CustomProviderConfig): ComfyUIConfig {
       throw new Error(`ComfyUI 输出节点 ${nodeId} 不在工作流中。`);
     }
   }
+  const bindings = parseBindings(raw.bindings);
+  // Decided from the stored config, before any inference below, so auto-detection can never override
+  // a slot the user mapped explicitly.
+  const textBindingsExplicit = Boolean(bindings.prompt) || Boolean(bindings.texts?.length);
+  // A config that maps no text slot at all still resolves the workflow's unambiguous prompt node,
+  // so `bindings` alone describes the effective slots for `effectiveTextSlots` callers. Detected
+  // multi-slot results stay out of the stored shape; `effectiveBindings` merges them at runtime.
+  const unbound = !textBindingsExplicit;
   return {
     workflow,
-    mediaType: cfg.mediaType === 'video' ? 'video' : 'image',
-    bindings: parseBindings(raw.bindings),
+    mediaType: customProviderMediaType(cfg) === 'audio' ? 'audio' : customProviderMediaType(cfg) === 'video' ? 'video' : 'image',
+    textBindingsExplicit,
+    bindings: {
+      ...bindings,
+      prompt: bindings.prompt ?? (unbound ? suggestComfyUIBindings(workflow).prompt : undefined),
+    },
     outputNodeIds: outputNodeIds as string[],
     pollIntervalMs: boundedNumber(raw.pollIntervalMs, 1500, 500, 10000),
     pollTimeoutMs: boundedNumber(raw.pollTimeoutMs, 10 * 60 * 1000, 5000, 30 * 60 * 1000),
@@ -260,30 +323,184 @@ export function isLocalH3Workflow(workflowInput: unknown): boolean {
   return Object.values(asRecord(workflowInput) ?? {}).some((node) => LOCAL_H3_NODE.test(nonemptyString(asRecord(node)?.class_type)));
 }
 
+const TEXT_INPUT_FIELDS = ['target_text', 'text', 'style', 'lyrics', 'instruct', 'ref_text', 'prompt'];
+// Fields a switch/forwarding node exposes so a link can be followed through it.
+const TEXT_TRACE_FIELDS = ['value', 'text', 'style', 'lyrics'];
+const TEXT_LITERAL_NODE = /^(?:PrimitiveString|PrimitiveStringMultiline|JjkText|Text|CR Text|String|CR Prompt Text)$/i;
+const TEXT_FIELD_LABELS: Record<string, string> = {
+  target_text: '目标文本',
+  text: '目标文本',
+  instruct: '音色描述',
+  style: '曲风',
+  lyrics: '歌词',
+  ref_text: '参考文本',
+};
+const MAX_TEXT_TRACE_HOPS = 12;
+
+function linkTarget(value: unknown): string | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const nodeId = value[0];
+  return typeof nodeId === 'string' || typeof nodeId === 'number' ? String(nodeId) : null;
+}
+
+// Follows a link through forwarding nodes until it reaches the node holding the literal string.
+function literalTextSlot(
+  workflow: Record<string, JsonRecord>,
+  startNodeId: string,
+): ComfyUIInputBinding | null {
+  const visited = new Set<string>();
+  let nodeId = startNodeId;
+  for (let hop = 0; hop < MAX_TEXT_TRACE_HOPS; hop += 1) {
+    if (visited.has(nodeId)) return null;
+    visited.add(nodeId);
+    const node = asRecord(workflow[nodeId]);
+    const inputs = asRecord(node?.inputs);
+    if (!node || !inputs) return null;
+    if (TEXT_LITERAL_NODE.test(nonemptyString(node.class_type))) {
+      const literal = Object.entries(inputs).find(([, value]) => typeof value === 'string');
+      return literal ? { nodeId, input: literal[0] } : null;
+    }
+    const next = TEXT_TRACE_FIELDS.map((field) => linkTarget(inputs[field])).find((id) => id !== null);
+    if (!next) return null;
+    nodeId = next;
+  }
+  return null;
+}
+
+// Field-driven detection: a bindable slot is always a literal node reached through a consumer's text field.
+// Inline literals stay with the workflow, and a field name that resolves to unrelated slots is dropped as
+// ambiguous rather than guessed at.
+function suggestTextSlots(workflow: Record<string, JsonRecord>): ComfyUITextBinding[] {
+  const hits: { field: string; slot: ComfyUIInputBinding }[] = [];
+  for (const node of Object.values(workflow)) {
+    const inputs = asRecord(node.inputs);
+    if (!inputs || TEXT_LITERAL_NODE.test(nonemptyString(node.class_type))) continue;
+    for (const field of TEXT_INPUT_FIELDS) {
+      const target = linkTarget(inputs[field]);
+      const slot = target ? literalTextSlot(workflow, target) : null;
+      if (slot) hits.push({ field, slot });
+    }
+  }
+  const slotsPerField = new Map<string, Set<string>>();
+  for (const { field, slot } of hits) {
+    const keys = slotsPerField.get(field) ?? new Set<string>();
+    keys.add(textSlotKey(slot));
+    slotsPerField.set(field, keys);
+  }
+  const slots: ComfyUITextBinding[] = [];
+  const seen = new Set<string>();
+  for (const { field, slot } of hits) {
+    if ((slotsPerField.get(field)?.size ?? 0) > 1) continue;
+    const key = textSlotKey(slot);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    slots.push({ ...slot, label: TEXT_FIELD_LABELS[field] ?? key });
+  }
+  return slots;
+}
+
+/** Recognize YuE2's ABC planning branch by connections rather than exported node IDs. */
+function suggestABCBindings(workflow: Record<string, JsonRecord>) {
+  const texts: ComfyUITextBinding[] = [];
+  const booleans: ComfyUIBooleanBinding[] = [];
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (node.class_type !== 'YuE2GenerateMusic') continue;
+    const inputs = asRecord(node.inputs);
+    let upstream = linkTarget(inputs?.abc);
+    const visited = new Set<string>();
+    for (let hop = 0; upstream && hop < MAX_TEXT_TRACE_HOPS; hop++) {
+      if (visited.has(upstream)) break;
+      visited.add(upstream);
+      const source = workflow[upstream];
+      const sourceInputs = asRecord(source?.inputs);
+      if (source?.class_type === 'PreviewAny') {
+        upstream = linkTarget(sourceInputs?.source);
+        continue;
+      }
+      if (source?.class_type === 'ComfySwitchNode') {
+        const booleanNodeId = linkTarget(sourceInputs?.switch);
+        const plannerNodeId = linkTarget(sourceInputs?.on_true);
+        const booleanNode = booleanNodeId ? workflow[booleanNodeId] : undefined;
+        const booleanInputs = asRecord(booleanNode?.inputs);
+        if (booleanNodeId && booleanNode?.class_type === 'PrimitiveBoolean'
+          && booleanInputs && Object.prototype.hasOwnProperty.call(booleanInputs, 'value')
+          && plannerNodeId && workflow[plannerNodeId]?.class_type === 'YuE2GenerateABC') {
+          texts.push({ nodeId, input: 'abc', label: 'ABC 乐谱（可选）', preserveWhenEmpty: true });
+          if (!booleans.some(binding => binding.nodeId === booleanNodeId)) {
+            booleans.push({ nodeId: booleanNodeId, input: 'value', label: 'ABC planning（自动规划）',
+              defaultValue: typeof booleanInputs.value === 'boolean' ? booleanInputs.value : false });
+          }
+        }
+      }
+      break;
+    }
+  }
+  return { texts, booleans };
+}
+
 export function suggestComfyUIBindings(workflowInput: unknown): ComfyUIBindings {
   const workflow = cloneWorkflow(workflowInput);
   const imageNodes = Object.entries(workflow).filter(([, node]) =>
     /^LoadImage$/i.test(nonemptyString(node.class_type))
     && Object.prototype.hasOwnProperty.call(asRecord(node.inputs) ?? {}, 'image')
   );
+  const audioNodes = Object.entries(workflow).filter(([, node]) =>
+    /^LoadAudio$/i.test(nonemptyString(node.class_type))
+    && Object.prototype.hasOwnProperty.call(asRecord(node.inputs) ?? {}, 'audio')
+  );
+  const prompt = findInput(workflow, LOCAL_H3_NODE, 'prompt') ?? findInput(workflow, /^CLIPTextEncode$/i, 'text');
+  const detected = suggestTextSlots(workflow);
+  const abc = suggestABCBindings(workflow);
+  // The legacy single-prompt rule keeps its slot, and keeps it first, so image/video workflows that
+  // only ever had a CLIPTextEncode or H3 prompt write `request.prompt` exactly where they used to.
+  const legacySlot = prompt && !detected.some((slot) => textSlotKey(slot) === textSlotKey(prompt)) ? [prompt] : [];
   return {
-    prompt: findInput(workflow, LOCAL_H3_NODE, 'prompt') ?? findInput(workflow, /^CLIPTextEncode$/i, 'text'),
+    prompt,
+    // `texts` here is a suggestion, not a stored binding. Callers that persist this result (the settings
+    // workbench import path writes it into the bindings JSON) must strip `texts`, otherwise the detected
+    // slots become explicit config and permanently disable detection for that provider.
+    texts: [...legacySlot, ...detected, ...abc.texts],
+    ...(abc.booleans.length ? { booleans: abc.booleans } : {}),
     seed: findInput(workflow, /^KSampler$/i, 'seed')
       ?? findInput(workflow, /^(?:KSamplerAdvanced|RandomNoise)$/i, 'noise_seed'),
     width: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'width') ?? findInput(workflow, /^EmptyLatentImage$/i, 'width'),
     height: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'height') ?? findInput(workflow, /^EmptyLatentImage$/i, 'height'),
-    duration: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'length'),
+    duration: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'length')
+      ?? findInput(workflow, /^YuE2GenerateMusic$/i, 'max_duration'),
     images: imageNodes.map(([nodeId]) => ({ nodeId, input: 'image' })),
+    audios: audioNodes.map(([nodeId]) => ({ nodeId, input: 'audio' })),
   };
 }
 
-function effectiveBindings(config: ComfyUIConfig): ComfyUIBindings {
+export function effectiveTextSlots(bindings: ComfyUIBindings): ComfyUITextBinding[] {
+  if (bindings.texts?.length) return bindings.texts;
+  return bindings.prompt ? [bindings.prompt] : [];
+}
+
+export function textSlotKey(binding: ComfyUIInputBinding): string {
+  return `${binding.nodeId}.${binding.input}`;
+}
+
+/** Stored bindings merged with the auto-detected ones. Read-only consumers (the audio catalog) need
+ *  this because detected slots are never persisted into `bindings`. */
+export function effectiveBindings(config: ComfyUIConfig): ComfyUIBindings {
   const suggested = suggestComfyUIBindings(config.workflow);
   const result = { ...suggested };
   for (const key of ['prompt', 'seed', 'width', 'height', 'duration', 'resolution', 'aspectRatio'] as const) {
     if (config.bindings[key]) result[key] = config.bindings[key];
   }
   result.images = config.bindings.images.length ? config.bindings.images : suggested.images;
+  result.audios = config.bindings.audios.length ? config.bindings.audios : suggested.audios;
+  result.booleans = config.bindings.booleans
+    ?? (config.mediaType === 'audio' ? suggested.booleans : undefined);
+  // Detected slots are only trusted for audio, the one media type whose workflow shape cannot tell a
+  // positive prompt from a negative one. Image and video keep the legacy prompt-or-throw behaviour
+  // when bindings.texts is empty; explicit text mappings remain the user's responsibility.
+  // An explicit prompt or texts mapping suppresses detection entirely.
+  const useDetected = config.mediaType === 'audio' && !config.textBindingsExplicit;
+  result.texts = useDetected
+    ? config.bindings.texts?.length ? config.bindings.texts : suggested.texts
+    : config.bindings.texts?.length ? config.bindings.texts : undefined;
   return result;
 }
 
@@ -296,11 +513,24 @@ function bindingValue(config: ComfyUIConfig, binding: ComfyUIInputBinding | unde
   return inputs[binding.input];
 }
 
+export function effectiveBooleanSlots(config: ComfyUIConfig, bindings = effectiveBindings(config)): ComfyUIBooleanBinding[] {
+  return (bindings.booleans ?? []).map((slot) => {
+    const existing = bindingValue(config, slot);
+    return { ...slot, defaultValue: slot.defaultValue ?? (typeof existing === 'boolean' ? existing : false) };
+  });
+}
+
 export function getComfyUIReferenceRequirements(config: ComfyUIConfig): { min: number; max: number } {
   const images = effectiveBindings(config).images;
   // A server-side filename is usable without a canvas replacement. Empty slots must be supplied in binding order.
   const min = images.reduce((required, binding, index) => nonemptyString(bindingValue(config, binding)) ? required : index + 1, 0);
   return { min, max: images.length };
+}
+
+export function getComfyUIAudioReferenceRequirements(config: ComfyUIConfig): { min: number; max: number } {
+  const audios = effectiveBindings(config).audios;
+  const min = audios.reduce((required, binding, index) => nonemptyString(bindingValue(config, binding)) ? required : index + 1, 0);
+  return { min, max: audios.length };
 }
 
 export function getComfyUIVideoCapabilities(config: ComfyUIConfig): {
@@ -334,7 +564,7 @@ export function getComfyUIVideoCapabilities(config: ComfyUIConfig): {
 export function suggestComfyUIOutputNodes(workflowInput: unknown): string[] {
   const workflow = cloneWorkflow(workflowInput);
   return Object.entries(workflow)
-    .filter(([, node]) => /(?:SaveImage|SaveVideo|SaveAnimated|VideoCombine|VHS_)/i.test(nonemptyString(node.class_type)))
+    .filter(([, node]) => /(?:SaveImage|SaveVideo|SaveAnimated|VideoCombine|VHS_|SaveAudio|SaveAudioMP3|SaveAudioOpus|SaveAudioAdvanced|PreviewAudio)/i.test(nonemptyString(node.class_type)))
     .map(([nodeId]) => nodeId);
 }
 
@@ -342,6 +572,7 @@ export function prepareComfyUIWorkflow(
   config: ComfyUIConfig,
   request: GenerateRequest,
   uploadedNames: string[] = [],
+  uploadedAudioNames: string[] = [],
 ): Record<string, JsonRecord> {
   const workflow = cloneWorkflow(config.workflow);
   const bindings = effectiveBindings(config);
@@ -350,16 +581,39 @@ export function prepareComfyUIWorkflow(
     if (Array.isArray(binding)) binding.forEach((item) => bindingValue(config, item));
     else if (binding) bindingValue(config, binding);
   }
-  if (!bindings.prompt) throw new Error('请选择 ComfyUI 提示词节点及其输入字段。');
-  setInput(workflow, bindings.prompt, request.prompt);
+  const textSlots = effectiveTextSlots(bindings);
+  // Audio workflows may legitimately have no text input at all; image/video ones still require a slot.
+  if (textSlots.length === 0 && config.mediaType !== 'audio') {
+    throw new Error('请选择 ComfyUI 提示词节点及其输入字段。');
+  }
+  const writeText = (slot: ComfyUITextBinding, value: string) => {
+    if (!slot.preserveWhenEmpty || value.trim()) setInput(workflow, slot, value);
+  };
+  if (textSlots[0]) writeText(textSlots[0], request.prompt);
+  const slotValues = asRecord(request.extra_params?.textSlotValues);
+  if (slotValues) {
+    for (const slot of textSlots) {
+      const value = slotValues[textSlotKey(slot)];
+      if (typeof value === 'string') writeText(slot, value);
+    }
+  }
+
+  const booleanValues = asRecord(request.extra_params?.booleanSlotValues);
+  for (const slot of effectiveBooleanSlots(config, bindings)) {
+    const value = booleanValues?.[textSlotKey(slot)];
+    if (value !== undefined && typeof value !== 'boolean') {
+      throw new Error(`ComfyUI 开关 ${slot.label ?? textSlotKey(slot)} 必须是布尔值。`);
+    }
+    setInput(workflow, slot, value ?? slot.defaultValue ?? false);
+  }
 
   const seedValue = Number(request.extra_params?.seed);
   if (bindings.seed && Number.isFinite(seedValue) && request.extra_params?.seed !== undefined) {
     setInput(workflow, bindings.seed, Math.floor(seedValue));
   }
   const h3 = isLocalH3Workflow(workflow);
-  const video = config.mediaType === 'video' || h3;
-  if (video && ((request.reference_videos?.length ?? 0) > 0 || (request.reference_audios?.length ?? 0) > 0)) {
+  const nonImage = config.mediaType === 'video' || config.mediaType === 'audio' || h3;
+  if (nonImage && (request.reference_videos?.length ?? 0) > 0) {
     throw new Error('ComfyUI 当前只支持画布参考图上传；视频和音频输入请在服务器工作流中配置。');
   }
   if (h3 && bindings.width && bindings.height) {
@@ -380,8 +634,8 @@ export function prepareComfyUIWorkflow(
     }
     setInput(workflow, bindings.width, width);
     setInput(workflow, bindings.height, height);
-  } else if (bindings.width || bindings.height) {
-    if (video) {
+  } else if (config.mediaType !== 'audio' && (bindings.width || bindings.height)) {
+    if (nonImage) {
       const pixels = /^(\d+)x(\d+)$/i.exec(request.size ?? '');
       if (pixels) {
         if (bindings.width) setInput(workflow, bindings.width, Number(pixels[1]));
@@ -415,12 +669,38 @@ export function prepareComfyUIWorkflow(
   }
   if (uploadedNames.length !== referenceCount) throw new Error('ComfyUI 参考图上传结果数量不匹配。');
   uploadedNames.forEach((name, index) => setInput(workflow, bindings.images[index], name));
+
+  const audioCount = request.reference_audios?.length ?? 0;
+  // Audio slots are only enforced for audio workflows, mirroring the media-type gate on detected text
+  // slots: `effectiveBindings` detects `LoadAudio` in any workflow, so an unguarded rule would make an
+  // empty audio slot block an image or video workflow that prepared fine before.
+  if (config.mediaType === 'audio') {
+    if (audioCount > 0 && bindings.audios.length === 0) {
+      throw new Error('ComfyUI 工作流没有音频输入槽；请在服务器工作流中添加 LoadAudio 映射。');
+    }
+    const audioRequirements = getComfyUIAudioReferenceRequirements(config);
+    if (audioCount < audioRequirements.min) throw new Error(`工作流至少需要 ${audioRequirements.min} 个参考音频；请连接音频卡片或在工作流中填写服务器音频文件名。`);
+    if (audioCount > bindings.audios.length) {
+      throw new Error(`工作流只有 ${bindings.audios.length} 个参考音频输入，画布传入 ${audioCount} 个；请增加 LoadAudio 映射或减少参考音频。`);
+    }
+    if (uploadedAudioNames.length !== audioCount) throw new Error('ComfyUI 参考音频上传结果数量不匹配。');
+    uploadedAudioNames.forEach((name, index) => setInput(workflow, bindings.audios[index], name));
+  } else if (audioCount > 0) {
+    // Never drop supplied audio silently: a workflow that is not audio output cannot consume it.
+    throw new Error('该工作流不是音频输出类型，不能传入参考音频。');
+  }
   return workflow;
 }
 
 export function validateComfyUIRequest(config: ComfyUIConfig, request: GenerateRequest): void {
   const count = request.reference_images?.length ?? 0;
-  prepareComfyUIWorkflow(config, request, Array.from({ length: count }, (_, index) => `reference-${index + 1}.png`));
+  const audioCount = request.reference_audios?.length ?? 0;
+  prepareComfyUIWorkflow(
+    config,
+    request,
+    Array.from({ length: count }, (_, index) => `reference-${index + 1}.png`),
+    Array.from({ length: audioCount }, (_, index) => `reference-audio-${index + 1}.mp3`),
+  );
 }
 
 function uploadedImageName(payload: unknown): string {
@@ -455,7 +735,21 @@ export async function submitComfyUIWorkflow(
     });
     uploadedNames.push(uploadedImageName(response));
   }
-  const workflow = prepareComfyUIWorkflow(config, request, uploadedNames);
+  const uploadedAudioNames: string[] = [];
+  for (const [index, source] of (request.reference_audios ?? []).entries()) {
+    if (!/^data:audio\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/i.test(source)) {
+      throw new Error('ComfyUI 参考音频必须先转换为本地 data URL，不能直接上传远程地址。');
+    }
+    const mimeType = source.slice(5, source.indexOf(';'));
+    // ComfyUI's upload route only accepts the hardcoded `image` field, and its file type is never checked.
+    const extension = mimeType.split('/')[1]?.replace('mpeg', 'mp3') || 'wav';
+    const response = await transport.multipart('/upload/image', {
+      fields: [{ name: 'type', value: 'input' }],
+      files: [{ name: 'image', fileName: `canvas-audio-${index + 1}.${extension}`, mimeType, dataUrl: source }],
+    });
+    uploadedAudioNames.push(uploadedImageName(response));
+  }
+  const workflow = prepareComfyUIWorkflow(config, request, uploadedNames, uploadedAudioNames);
   const parsed = asRecord(await transport.json('/prompt', 'POST', { prompt: workflow }));
   const promptId = nonemptyString(parsed?.prompt_id);
   if (!promptId) {
@@ -473,12 +767,17 @@ interface ComfyOutputFile {
   type: string;
 }
 
-function outputFile(value: unknown, mediaType: 'image' | 'video'): ComfyOutputFile | null {
+function extensionsFor(mediaType: ComfyUIMediaType): Set<string> {
+  if (mediaType === 'audio') return AUDIO_EXTENSIONS;
+  return mediaType === 'video' ? VIDEO_EXTENSIONS : IMAGE_EXTENSIONS;
+}
+
+function outputFile(value: unknown, mediaType: ComfyUIMediaType): ComfyOutputFile | null {
   const record = asRecord(value);
   const filename = nonemptyString(record?.filename);
   if (!filename || filename.includes('/') || filename.includes('\\') || filename === '.' || filename === '..') return null;
   const extension = filename.split('.').pop()?.toLowerCase() ?? '';
-  if (!(mediaType === 'image' ? IMAGE_EXTENSIONS : VIDEO_EXTENSIONS).has(extension)) return null;
+  if (!extensionsFor(mediaType).has(extension)) return null;
   const subfolder = nonemptyString(record?.subfolder);
   if (subfolder.split(/[\\/]/).some((part) => part === '..')) return null;
   const type = nonemptyString(record?.type) || 'output';
@@ -489,13 +788,14 @@ function outputFile(value: unknown, mediaType: 'image' | 'video'): ComfyOutputFi
 function findOutputFile(
   outputs: JsonRecord,
   nodeIds: string[],
-  mediaType: 'image' | 'video',
+  mediaType: ComfyUIMediaType,
 ): ComfyOutputFile | null {
   const candidates: ComfyOutputFile[] = [];
   for (const nodeId of nodeIds) {
     const nodeOutput = asRecord(outputs[nodeId]);
     if (!nodeOutput) continue;
-    const preferredKeys = mediaType === 'image' ? ['images', 'gifs', 'files'] : ['videos', 'gifs', 'files'];
+    const preferredKeys = mediaType === 'audio' ? ['audio', 'files']
+      : mediaType === 'video' ? ['videos', 'gifs', 'files'] : ['images', 'gifs', 'files'];
     const keys = [
       ...preferredKeys,
       ...Object.keys(nodeOutput).filter((key) => !preferredKeys.includes(key)),
@@ -528,7 +828,7 @@ export function inspectComfyUIHistory(
   payload: unknown,
   promptId: string,
   config: ComfyUIConfig,
-  mediaType: 'image' | 'video',
+  mediaType: ComfyUIMediaType,
 ): { state: 'pending' | 'failed' | 'ready'; file?: ComfyOutputFile; error?: string } {
   const root = asRecord(payload);
   const entry = asRecord(root?.[promptId]) ?? (root?.outputs ? root : null);
@@ -543,7 +843,8 @@ export function inspectComfyUIHistory(
   if (file) return { state: 'ready', file };
   const status = asRecord(entry.status);
   if (status?.completed === true || nonemptyString(status?.status_str).toLowerCase() === 'success') {
-    return { state: 'failed', error: `ComfyUI 已完成，但所选输出节点没有 ${mediaType === 'image' ? '图片' : '视频'}文件。` };
+    const label = mediaType === 'image' ? '图片' : mediaType === 'audio' ? '音频' : '视频';
+    return { state: 'failed', error: `ComfyUI 已完成，但所选输出节点没有 ${label}文件。` };
   }
   return { state: 'pending' };
 }
@@ -551,7 +852,7 @@ export function inspectComfyUIHistory(
 export async function pollComfyUIWorkflow(
   config: ComfyUIConfig,
   promptId: string,
-  mediaType: 'image' | 'video',
+  mediaType: ComfyUIMediaType,
   transport: ComfyUITransport,
 ): Promise<string> {
   const startedAt = Date.now();

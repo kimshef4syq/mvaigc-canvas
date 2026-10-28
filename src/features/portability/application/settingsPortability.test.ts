@@ -263,3 +263,15 @@ describe('settings portability security', () => {
     expect(useThemeStore.getState().theme).toBe('dark');
   });
 });
+
+
+it('imports an exported audio provider without rejecting the providers category', () => {
+  useCustomProvidersStore.setState({ providers: [{
+    id: 'comfy-audio', label: 'Audio', mediaType: 'audio', baseUrl: 'http://127.0.0.1:8188',
+    apiKey: '', apiStyle: 'comfyui', models: ['workflow'], supportsWebSearch: false,
+    extraParams: { allowNoApiKey: true },
+  }] });
+  const payload = buildSettingsBundle(false);
+  expect(() => previewSettingsImport(payload)).not.toThrow();
+  expect(payload.categories.providers).toMatchObject({ items: [{ mediaType: 'audio' }] });
+});

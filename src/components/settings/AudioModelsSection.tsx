@@ -18,9 +18,9 @@ type AudioSettingsPatch =
   Partial<Omit<AudioGenerationSettings, 'models'>>
   & { models?: AudioModelConfig[] };
 
-const AUDIO_PROVIDER_ORDER: AudioProviderKind[] = ['local-doubao-tts', 'gradio-voxcpm'];
+const AUDIO_PROVIDER_ORDER: Array<Exclude<AudioProviderKind, 'comfyui'>> = ['local-doubao-tts', 'gradio-voxcpm'];
 
-const PROVIDER_LABELS: Record<AudioProviderKind, { title: string; description: string }> = {
+const PROVIDER_LABELS: Record<Exclude<AudioProviderKind, 'comfyui'>, { title: string; description: string }> = {
   'local-doubao-tts': {
     title: '豆包 TTS',
     description: '本地音频 API 与音色同步',
@@ -125,7 +125,7 @@ export function AudioModelsSection() {
   const audioGenerationSettings = useSettingsStore((state) => state.audioGenerationSettings);
   const setAudioGenerationSettings = useSettingsStore((state) => state.setAudioGenerationSettings);
   const [draft, setDraft] = useState<AudioGenerationSettings>(() => cloneSettings(audioGenerationSettings));
-  const [selectedProvider, setSelectedProvider] = useState<AudioProviderKind>('local-doubao-tts');
+  const [selectedProvider, setSelectedProvider] = useState<Exclude<AudioProviderKind, 'comfyui'>>('local-doubao-tts');
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);

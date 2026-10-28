@@ -2126,6 +2126,41 @@ fn persist_video_bytes(app: &AppHandle, bytes: &[u8], extension: &str) -> Result
     Ok(output_path.to_string_lossy().to_string())
 }
 
+fn resolve_audio_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to resolve app data dir: {}", e))?;
+
+    let audio_dir = app_data_dir.join("audio");
+    std::fs::create_dir_all(&audio_dir)
+        .map_err(|e| format!("Failed to create audio dir: {}", e))?;
+
+    Ok(audio_dir)
+}
+
+fn persist_audio_bytes_in(
+    directory: &Path,
+    bytes: &[u8],
+    extension: &str,
+) -> Result<String, String> {
+    let digest = md5::compute(bytes);
+    let filename = format!("{:x}.{}", digest, normalize_audio_extension(extension));
+    let output_path = directory.join(filename);
+
+    if !output_path.exists() {
+        std::fs::write(&output_path, bytes)
+            .map_err(|e| format!("Failed to persist generated audio: {}", e))?;
+    }
+
+    Ok(output_path.to_string_lossy().to_string())
+}
+
+fn persist_audio_bytes(app: &AppHandle, bytes: &[u8], extension: &str) -> Result<String, String> {
+    let audio_dir = resolve_audio_dir(app)?;
+    persist_audio_bytes_in(&audio_dir, bytes, extension)
+}
+
 fn normalize_extension(raw_ext: &str) -> String {
     let ext = raw_ext.trim().trim_start_matches('.').to_ascii_lowercase();
     if ext.is_empty() {
@@ -2569,7 +2604,11 @@ async fn resolve_video_source_bytes_with_headers(
     Ok((bytes, ext))
 }
 
-async fn resolve_audio_source_bytes(source: &str) -> Result<(Vec<u8>, String), String> {
+async fn resolve_audio_source_bytes(
+    source: &str,
+    headers: Option<&HashMap<String, String>>,
+    network: Option<&MediaNetworkRouteDto>,
+) -> Result<(Vec<u8>, String), String> {
     let trimmed = source.trim();
     if trimmed.is_empty() {
         return Err("Audio source is empty".to_string());
@@ -2583,10 +2622,10 @@ async fn resolve_audio_source_bytes(source: &str) -> Result<(Vec<u8>, String), S
     if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
         let download = download_remote_media_bytes(
             trimmed,
-            None,
+            headers,
             "audio/mpeg,audio/wav,audio/ogg,audio/webm,audio/*,*/*;q=0.8",
             "audio",
-            None,
+            network,
         )
         .await?;
         let content_type = download.content_type;
@@ -3204,6 +3243,45 @@ mod external_video_tests {
     }
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportMediaPathCheck {
+    pub path: String,
+    pub exists: bool,
+    pub is_file: bool,
+    pub bytes: u64,
+}
+
+/// Classifies candidate import paths without opening them. `symlink_metadata`
+/// keeps directories, symlinks and special files (FIFOs, devices) out of the
+/// import path, where reading a FIFO would block the canvas indefinitely.
+#[tauri::command]
+pub fn inspect_import_media_paths(paths: Vec<String>) -> Result<Vec<ImportMediaPathCheck>, String> {
+    if paths.is_empty() || paths.len() > 16 {
+        return Err("Import media paths must contain between 1 and 16 entries.".to_string());
+    }
+    Ok(paths
+        .into_iter()
+        .map(|path| {
+            let trimmed = path.trim().to_string();
+            match std::fs::symlink_metadata(&trimmed) {
+                Ok(metadata) => ImportMediaPathCheck {
+                    path: trimmed,
+                    exists: true,
+                    is_file: metadata.file_type().is_file(),
+                    bytes: metadata.len(),
+                },
+                Err(_) => ImportMediaPathCheck {
+                    path: trimmed,
+                    exists: false,
+                    is_file: false,
+                    bytes: 0,
+                },
+            }
+        })
+        .collect())
+}
+
 #[tauri::command]
 pub async fn prepare_external_video_source(
     app: AppHandle,
@@ -3269,6 +3347,36 @@ pub async fn persist_video_source(
     let output = persist_video_bytes(&app, &bytes, &extension)?;
     info!(
         "persist_video_source done: bytes={}, ext={}, elapsed={}ms",
+        bytes.len(),
+        extension,
+        started.elapsed().as_millis()
+    );
+    Ok(output)
+}
+
+#[tauri::command]
+pub async fn persist_audio_source(
+    app: AppHandle,
+    source: String,
+    headers: Option<HashMap<String, String>>,
+    network: Option<MediaNetworkRouteDto>,
+) -> Result<String, String> {
+    let started = Instant::now();
+    let trimmed = source.trim();
+    if trimmed.is_empty() {
+        return Err("Audio source is empty".to_string());
+    }
+
+    info!(source = %describe_remote_media_url(trimmed), "persist_audio_source started");
+    let (bytes, extension) = resolve_audio_source_bytes(trimmed, headers.as_ref(), network.as_ref())
+        .await
+        .map_err(|error| {
+            warn!(elapsed_ms = started.elapsed().as_millis(), error = %error, "persist_audio_source failed");
+            error
+        })?;
+    let output = persist_audio_bytes(&app, &bytes, &extension)?;
+    info!(
+        "persist_audio_source done: bytes={}, ext={}, elapsed={}ms",
         bytes.len(),
         extension,
         started.elapsed().as_millis()
@@ -3580,6 +3688,7 @@ pub async fn save_image_source_to_directory(
 pub async fn save_video_source_to_path(
     source: String,
     target_path: String,
+    content_addressed: Option<bool>,
 ) -> Result<String, String> {
     let trimmed_source = source.trim();
     if trimmed_source.is_empty() {
@@ -3591,18 +3700,45 @@ pub async fn save_video_source_to_path(
         return Err("Target path is empty".to_string());
     }
 
+    // Before reading a local reference, reject special files (reading a FIFO
+    // can block indefinitely) and bound the copy. Existing save-as stays compatible.
+    if content_addressed == Some(true) && !trimmed_source.starts_with("http://") && !trimmed_source.starts_with("https://") && !trimmed_source.starts_with("data:") {
+        let path = if trimmed_source.starts_with("file://") { PathBuf::from(decode_file_url_path(trimmed_source)) } else { PathBuf::from(trimmed_source) };
+        let metadata = std::fs::symlink_metadata(path).map_err(|_| "Reference video no longer exists")?;
+        if !metadata.file_type().is_file() || metadata.len() == 0 || metadata.len() > 512 * 1024 * 1024 {
+            return Err("Reference must be a nonempty regular video file, at most 512 MiB".into());
+        }
+    }
     let (bytes, extension) =
         resolve_video_source_bytes_with_headers(trimmed_source, None, None).await?;
+    if content_addressed == Some(true) && (bytes.is_empty() || bytes.len() > 512 * 1024 * 1024) {
+        return Err("Reference video exceeds the 512 MiB limit or is empty".into());
+    }
     let raw_path = PathBuf::from(normalize_user_selected_path(trimmed_target));
-    let output_path = ensure_output_path_with_extension(&raw_path, &extension);
+    let output_path = if content_addressed == Some(true) {
+        use sha2::{Digest, Sha256};
+        let hash = format!("{:x}", Sha256::digest(&bytes));
+        raw_path.with_file_name(format!("reference-{hash}.{}", normalize_video_extension(&extension)))
+    } else {
+        ensure_output_path_with_extension(&raw_path, &extension)
+    };
 
     if let Some(parent) = output_path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create output dir: {}", e))?;
     }
 
-    std::fs::write(&output_path, bytes)
-        .map_err(|e| format!("Failed to save video to target path: {}", e))?;
+    // Validate the existing content before reusing it. A changed source gets
+    // another address, so it cannot overwrite a reference used by an older terminal.
+    if content_addressed == Some(true) {
+        if let Ok(metadata) = std::fs::symlink_metadata(&output_path) {
+            if !metadata.file_type().is_file() { return Err("Reference cache contains a non-regular file".into()); }
+        }
+    }
+    if content_addressed != Some(true) || std::fs::read(&output_path).ok().as_deref() != Some(bytes.as_slice()) {
+        std::fs::write(&output_path, bytes)
+            .map_err(|e| format!("Failed to save video to target path: {}", e))?;
+    }
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -3666,7 +3802,7 @@ pub async fn save_audio_source_to_path(
         return Err("Target path is empty".to_string());
     }
 
-    let (bytes, extension) = resolve_audio_source_bytes(trimmed_source).await?;
+    let (bytes, extension) = resolve_audio_source_bytes(trimmed_source, None, None).await?;
     let raw_path = PathBuf::from(normalize_user_selected_path(trimmed_target));
     let output_path = ensure_output_path_with_extension(&raw_path, &extension);
 
@@ -3688,7 +3824,7 @@ pub async fn load_audio_source_data_url(source: String) -> Result<String, String
         return Err("Audio source is empty".to_string());
     }
 
-    let (bytes, extension) = resolve_audio_source_bytes(trimmed_source).await?;
+    let (bytes, extension) = resolve_audio_source_bytes(trimmed_source, None, None).await?;
     let mime = audio_mime_from_extension(&extension);
     Ok(format!("data:{};base64,{}", mime, STANDARD.encode(bytes)))
 }
@@ -3828,9 +3964,10 @@ mod remote_media_tests {
     use super::{
         build_remote_media_client, describe_non_image_remote_body, describe_remote_media_url,
         host_is_local_or_private, ip_is_local_or_private, media_byte_limit, media_download_timeout,
-        parse_remote_media_url, remote_media_content_error, route_allows_direct_fallback,
-        should_forward_headers_to_url, try_remote_media_request_with_limit, try_remote_media_route,
-        url_origin, MediaNetworkRouteDto, RemoteMediaAttemptFailure, REMOTE_AUDIO_DOWNLOAD_TIMEOUT,
+        parse_remote_media_url, remote_media_content_error, resolve_audio_source_bytes,
+        route_allows_direct_fallback, should_forward_headers_to_url,
+        try_remote_media_request_with_limit, try_remote_media_route, url_origin,
+        MediaNetworkRouteDto, RemoteMediaAttemptFailure, REMOTE_AUDIO_DOWNLOAD_TIMEOUT,
         REMOTE_IMAGE_DOWNLOAD_TIMEOUT, REMOTE_IMAGE_MAX_BYTES, REMOTE_VIDEO_DOWNLOAD_TIMEOUT,
         REMOTE_VIDEO_MAX_BYTES,
     };
@@ -4279,5 +4416,114 @@ mod remote_media_tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn audio_source_resolution_accepts_auth_arguments() {
+        // Compile-level guard: the audio path must accept the same auth surface as video.
+        // The future is bound and dropped without being polled, so no network access happens.
+        let headers: Option<HashMap<String, String>> = None;
+        let network: Option<MediaNetworkRouteDto> = None;
+        let _ = resolve_audio_source_bytes("", headers.as_ref(), network.as_ref());
+    }
+}
+
+#[cfg(test)]
+mod persist_audio_tests {
+    use super::*;
+
+    #[test]
+    fn audio_bytes_are_content_addressed_and_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let bytes = b"RIFF\x00\x00\x00\x00WAVEfmt ";
+        let first = persist_audio_bytes_in(dir.path(), bytes, "wav").unwrap();
+        assert!(first.ends_with(".wav"));
+        assert_eq!(std::fs::read(dir.path().join(&first)).unwrap(), bytes);
+        assert_eq!(persist_audio_bytes_in(dir.path(), bytes, "wav").unwrap(), first);
+    }
+
+    #[test]
+    fn unknown_audio_extension_falls_back_to_wav() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = persist_audio_bytes_in(dir.path(), b"abc", "totally-unknown").unwrap();
+        assert!(path.ends_with(".wav"));
+    }
+}
+
+#[cfg(test)]
+mod import_media_path_tests {
+    use super::*;
+
+    #[test]
+    fn classifies_files_directories_and_missing_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("clip.mp4");
+        std::fs::write(&file, b"\x00\x00\x00\x18ftypisom").unwrap();
+
+        let checks = inspect_import_media_paths(vec![
+            file.to_string_lossy().into_owned(),
+            dir.path().to_string_lossy().into_owned(),
+            dir.path().join("nope.mp4").to_string_lossy().into_owned(),
+        ])
+        .unwrap();
+
+        assert!(checks[0].exists && checks[0].is_file && checks[0].bytes == 12);
+        assert!(checks[1].exists && !checks[1].is_file);
+        assert!(!checks[2].exists && !checks[2].is_file);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_symlinks_and_fifos_without_opening_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("real.mp4");
+        std::fs::write(&real, b"data").unwrap();
+        let link = dir.path().join("link.mp4");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let fifo = dir.path().join("pipe.mp4");
+        let fifo_c = std::ffi::CString::new(fifo.to_string_lossy().as_bytes()).unwrap();
+        unsafe { libc::mkfifo(fifo_c.as_ptr(), 0o600) };
+
+        let checks = inspect_import_media_paths(vec![
+            link.to_string_lossy().into_owned(),
+            fifo.to_string_lossy().into_owned(),
+        ])
+        .unwrap();
+
+        assert!(!checks[0].is_file, "symlinks must not be importable");
+        assert!(!checks[1].is_file, "FIFOs must not be importable");
+    }
+}
+
+#[cfg(test)]
+mod video_reference_snapshot_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn reference_copies_are_content_addressed_and_do_not_overwrite_previous_versions() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("source.mp4");
+        let target = root.path().join("imports/clip.mp4");
+        std::fs::write(&source, b"original video bytes").unwrap();
+        let first = save_video_source_to_path(source.to_string_lossy().into(), target.to_string_lossy().into(), Some(true)).await.unwrap();
+        let repeated = save_video_source_to_path(source.to_string_lossy().into(), target.to_string_lossy().into(), Some(true)).await.unwrap();
+        assert_eq!(first, repeated);
+        std::fs::write(&source, b"another video version").unwrap();
+        let second = save_video_source_to_path(source.to_string_lossy().into(), target.to_string_lossy().into(), Some(true)).await.unwrap();
+        assert_ne!(first, second);
+        assert_eq!(std::fs::read(first).unwrap(), b"original video bytes");
+        assert_eq!(std::fs::read(second).unwrap(), b"another video version");
+    }
+
+    #[tokio::test]
+    async fn reference_export_refuses_directories_and_symlinks_before_reading() {
+        let root = tempfile::tempdir().unwrap();
+        let target = root.path().join("imports/clip.mp4").to_string_lossy().to_string();
+        assert!(save_video_source_to_path(root.path().to_string_lossy().into(), target.clone(), Some(true)).await.is_err());
+        #[cfg(unix)] {
+            let source = root.path().join("video.mp4"); std::fs::write(&source, b"video").unwrap();
+            let link = root.path().join("link.mp4"); std::os::unix::fs::symlink(source, &link).unwrap();
+            assert!(save_video_source_to_path(link.to_string_lossy().into(), target, Some(true)).await.is_err());
+        }
     }
 }

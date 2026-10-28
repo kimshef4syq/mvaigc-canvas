@@ -1,3 +1,5 @@
+import { CanvasVideoPlayer } from '@/features/canvas/ui/CanvasVideoPlayer';
+import { GenerationProgressOverlay } from '@/features/canvas/ui/GenerationProgressOverlay';
 import {
   memo,
   useCallback,
@@ -121,13 +123,6 @@ export const VideoNode = memo(({ id, data, selected, type, width, height }: Vide
     const timer = window.setInterval(() => setNow(Date.now()), 100);
     return () => window.clearInterval(timer);
   }, [isGenerating]);
-
-  const progress = useMemo(() => {
-    if (!isGenerating) return 0;
-    const startedAt = generationStartedAt ?? Date.now();
-    const duration = Math.max(1000, generationDurationMs);
-    return Math.min(Math.max(0, now - startedAt) / duration, 0.96);
-  }, [generationDurationMs, generationStartedAt, isGenerating, now]);
 
   const waitedMinutes = useMemo(() => {
     if (!isGenerating || generationStartedAt === null) return 0;
@@ -301,14 +296,10 @@ export const VideoNode = memo(({ id, data, selected, type, width, height }: Vide
       >
         {videoSource ? (
           <>
-            <video
+            <CanvasVideoPlayer
               src={videoSource}
               poster={data.thumbnailUrl ? resolveImageDisplayUrl(data.thumbnailUrl) : undefined}
-              className="nowheel h-full w-full bg-black object-contain"
-              draggable={false}
-              controls
-              playsInline
-              preload="metadata"
+              className="h-full w-full"
             />
             <button
               type="button"
@@ -376,13 +367,7 @@ export const VideoNode = memo(({ id, data, selected, type, width, height }: Vide
         )}
 
         {isGenerating && (
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute inset-0 bg-bg-dark/55" />
-            <div
-              className="absolute left-0 top-0 h-full w-full origin-left bg-gradient-to-r from-[rgba(255,255,255,0.34)] to-[rgba(255,255,255,0.05)] transition-transform duration-100 ease-linear"
-              style={{ transform: `scaleX(${progress})` }}
-            />
-          </div>
+          <GenerationProgressOverlay startedAt={generationStartedAt} durationMs={generationDurationMs} />
         )}
 
         <GenerationJobStatus

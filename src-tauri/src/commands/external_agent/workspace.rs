@@ -333,6 +333,7 @@ mod tests {
             permission_mode: std::sync::atomic::AtomicU8::new(0),
             project_id: None,
             project_name: None,
+            hypit_project_dir: None,
             descriptor_path: None,
             connected_at: AtomicU64::new(0),
             last_activity_at: AtomicU64::new(0),

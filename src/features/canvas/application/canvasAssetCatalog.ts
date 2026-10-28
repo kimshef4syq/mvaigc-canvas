@@ -1,3 +1,4 @@
+import { normalizeVideoHistory, resolveMainVideoEntry } from './generatedVideoHistory';
 import {
   CANVAS_NODE_TYPES,
   type CanvasNode,
@@ -301,7 +302,12 @@ export function buildCanvasAssetCatalog(nodes: CanvasNode[]): CanvasAssetCatalog
       });
     }
 
-    const videoUrl = readString(data.localVideoUrl) ?? readString(data.videoUrl);
+    const selectedVideo = node.type === CANVAS_NODE_TYPES.aiVideo && Array.isArray(data.videos)
+      ? resolveMainVideoEntry(normalizeVideoHistory(data)?.videos, typeof data.mainVideoIndex === 'number' ? data.mainVideoIndex : undefined)
+      : null;
+    const videoUrl = selectedVideo
+      ? readString(selectedVideo.localVideoUrl) ?? readString(selectedVideo.videoUrl)
+      : readString(data.localVideoUrl) ?? readString(data.videoUrl);
     if (videoUrl) {
       addAsset(assets, seenIds, {
         id: `${node.id}:video`,
@@ -315,7 +321,7 @@ export function buildCanvasAssetCatalog(nodes: CanvasNode[]): CanvasAssetCatalog
         order: baseOrder,
         aspectRatio,
         url: videoUrl,
-        previewUrl: readString(data.thumbnailUrl),
+        previewUrl: readString(selectedVideo?.thumbnailUrl) ?? readString(data.thumbnailUrl),
       });
     }
 

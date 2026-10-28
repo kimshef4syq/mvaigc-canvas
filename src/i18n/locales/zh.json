@@ -1,4 +1,23 @@
 {
+  "videoAgentLaunch": {
+    "advanced": "更多选项",
+    "upgrade": "升级此工程的制作环境（保留配置备份）",
+    "fromVideo": "用智能体复刻此视频",
+    "fromProject": "打开工程智能体",
+    "options": "选择智能体与制作方式",
+    "checking": "检查环境…",
+    "connecting": "连接画布…",
+    "reference": "准备参考视频…",
+    "preparing": "准备环境并打开终端…",
+    "title": "打开工程智能体",
+    "description": "在当前画布对应的工程中打开终端，自动准备参考视频、Hypit 和画布连接。",
+    "agent": "默认智能体",
+    "mode": "制作方式",
+    "quick": "快速复刻",
+    "full": "完整制作",
+    "firstRun": "首次准备可能需要几分钟。沿用画布的生成账号，不改变你的模型配置；成品回写仍需确认。",
+    "open": "准备并打开"
+},
   "canvasDefaults": {
   "title": "画布设置",
   "description": "保存后应用到当前画布所有图片、视频生成节点（正在生成的节点除外），之后新建节点也使用这些默认参数。可在节点中单独调整。默认值保存在本机，供各画布使用。",
@@ -60,6 +79,10 @@
     "title": "画布 Agent",
     "panel": "画布 Agent 面板",
     "open": "打开画布 Agent",
+    "hypitProjectDirLabel": "Hypit 视频工程",
+    "hypitProjectMissing": "未创建（重建连接后生成）",
+    "hypitProjectDirHint": "在终端里打开此目录再运行 claude，即可同时使用 hypit 与画布。",
+    "assetsImportNeedsReconnect": "当前连接建立于本次升级之前，需重建连接后才能使用 assets_import。",
     "externalMcp": {
       "title": "接入其他 Agent",
       "description": "从你自己打开的 Codex 或 Claude Code 连接当前画布。读取和修改按连接权限处理，需要确认的请求会显示在画布右侧。",
@@ -1630,6 +1653,7 @@
       "staleResult": "结果可能已过期"
     },
     "aiAudio": {
+      "expandText": "放大编辑",
       "promptPlaceholder": "输入要文生音频的文字；也可以连接文本节点作为输入",
       "textRequired": "请输入要生成音频的文字，或连接一个文本节点",
       "noModel": "请先在设置中配置并启用音频模型",
@@ -1653,6 +1677,12 @@
       "replace": "替换音频"
     },
     "videoNode": {
+      "play": "播放",
+      "pause": "暂停",
+      "mute": "静音",
+      "unmute": "取消静音",
+      "fullscreen": "全屏",
+      "position": "播放进度",
       "waitingResult": "等待视频生成结果",
       "waitingResultDelayed": "已经等待 {{minutes}} 分钟了，还没有视频结果。继续等待中...",
       "generationFailed": "视频生成失败",
@@ -2169,6 +2199,7 @@
         "comfyDescription": "请在 ComfyUI 开启 Dev Mode 后使用“Save (API Format)”导出工作流。可选填写节点绑定；留空时应用会从常见节点自动推断。",
         "comfyOutputImage": "图片输出",
         "comfyOutputVideo": "视频输出",
+        "comfyOutputAudio": "声音输出",
         "comfyTest": "只读测试连接",
         "comfyTestNotice": "连接测试只查询 ComfyUI 状态，不提交生成任务。",
         "comfyReviewDescription": "核对工作流输出类型和请求预览；连接测试只读，确认后保存。",
@@ -2275,7 +2306,7 @@
           "pollingRequestBody": "轮询接口需要 POST 请求体时，可在字符串值中使用 {taskId}。",
           "comfyWorkflow": "只接受 API Format 工作流，不接受画布 nodes/links 文件。不要把图片或模型文件内嵌进 JSON。",
           "comfyBindings": "例如 {\"prompt\":{\"nodeId\":\"6\",\"input\":\"text\"},\"images\":[{\"nodeId\":\"10\",\"input\":\"image\"}]}。",
-          "comfyOutputs": "例如 [\"9\"]；留空数组时会从 SaveImage/SaveVideo 节点推断。"
+          "comfyOutputs": "例如 [\"9\"]；留空数组时会从 SaveImage/SaveVideo/SaveAudio 节点推断。"
         },
         "errors": {
           "comfyOutputs": "ComfyUI 输出节点必须是非空字符串数组。",

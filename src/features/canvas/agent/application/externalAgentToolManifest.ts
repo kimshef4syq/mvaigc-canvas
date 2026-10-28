@@ -10,7 +10,8 @@ export type ExternalAgentSupportedKind =
   | AgentToolKind
   | 'knowledge'
   | 'production'
-  | 'media-postprocess';
+  | 'media-postprocess'
+  | 'media-import';
 
 export interface ExternalCanvasMcpTool {
   name: ExternalAgentToolName;
@@ -275,6 +276,51 @@ const productionTools: ExternalCanvasMcpTool[] = [
   },
 ];
 
+const mediaImportSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['files'],
+  properties: {
+    operationId: { type: 'string', minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9:._-]+$', description: 'Stable ID for this batch, e.g. taskId:final. Repeat with the same files to recover without duplicate nodes.' },
+    files: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 16,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['path'],
+        properties: {
+          path: { type: 'string', description: 'Absolute path of a finished media file on this machine.' },
+          kind: { type: 'string', enum: ['image', 'video', 'audio'] },
+          title: { type: 'string', maxLength: 200 },
+        },
+      },
+    },
+    anchor: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { nodeId: { type: 'string' } },
+    },
+    group: {
+      type: 'object',
+      additionalProperties: false,
+      description: 'Collect this batch into one group, with finished video(s) placed at the lower right.',
+      properties: { name: { type: 'string', maxLength: 200 } },
+    },
+  },
+};
+
+const mediaImportTools: ExternalCanvasMcpTool[] = [
+  {
+    name: 'assets_import',
+    title: 'Import finished media into the canvas',
+    description: 'Import 1-16 finished media files from this machine into the canvas as nodes, so produced work returns to the board. Each file path must be absolute. Files are validated before any node is created.',
+    inputSchema: mediaImportSchema,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+];
+
 const mediaPostprocessTools: ExternalCanvasMcpTool[] = [
   {
     name: 'media_postprocess',
@@ -297,6 +343,7 @@ export function buildExternalCanvasMcpManifest(
     ...(kinds.has('knowledge') ? knowledgeTools : []),
     ...(kinds.has('production') ? productionTools : []),
     ...(kinds.has('media-postprocess') ? mediaPostprocessTools : []),
+    ...(kinds.has('media-import') ? mediaImportTools : []),
   ];
   return {
     version: EXTERNAL_CANVAS_MCP_VERSION,

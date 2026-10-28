@@ -284,7 +284,7 @@ export function CanvasAgentDock({ projectId }: Props) {
     state.currentProjectId === projectId ? state.currentProject?.name ?? null : null
   ));
   const externalConnectionTools = useMemo(() => buildExternalCanvasMcpManifest([
-    'canvas', 'diagnostics', 'config', 'asset-read',
+    'canvas', 'diagnostics', 'config', 'asset-read', 'media-import',
   ]).tools.map((tool) => ({
     name: tool.name,
     description: tool.description,

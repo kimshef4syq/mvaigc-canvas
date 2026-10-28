@@ -182,6 +182,19 @@ pub fn map_video_request(openai: &Value, api_name: &str) -> Value {
         .enumerate()
         .map(|(index, url)| json!({"audioUrl": url, "name": format!("音频{}", index + 1)}))
         .collect();
+    // The node's resolution tier travels as `size` (OSC sends 480p/720p/1080p);
+    // an explicit `resolution` wins. Default 720p only when the request omits
+    // both, so a 480p pick is never silently upgraded.
+    let resolution = str_field(openai, "resolution")
+        .filter(|value| !value.contains(':') && !value.contains('x'))
+        .or_else(|| {
+            str_field(openai, "size")
+                .filter(|value| !value.contains(':') && !value.contains('x'))
+        })
+        .unwrap_or_else(|| "720p".to_string());
+    // Reference audio already flowed through `audios`; this is the separate
+    // "generate audio" toggle, which must follow the request too.
+    let audio = openai.get("audio").and_then(Value::as_bool).unwrap_or(false);
     json!({
         "api": str_field(openai, "model").unwrap_or_default(),
         "apiName": api_name,
@@ -341,5 +354,69 @@ mod tests {
             out["images"].as_array().unwrap()[0]["imageUrl"],
             "data:image/png;base64,BBB"
         );
+    }
+    #[test]
+    fn video_request_passes_the_requested_resolution_through() {
+        // The canvas sends the node's resolution tier as `size`; it must reach
+        // mvaigc instead of a hardcoded 1080p, so a 480p pick is not silently
+        // upgraded.
+        for tier in ["480p", "720p", "1080p"] {
+            let openai = serde_json::json!({
+                "model": "botsmart_seedance_2", "prompt": "一只猫",
+                "size": tier, "aspect_ratio": "16:9", "seconds": 5
+            });
+            let out = map_video_request(&openai, "Seedance-2.0");
+            assert_eq!(out["resolution"], tier, "resolution tier must pass through");
+        }
+    }
+
+    #[test]
+    fn video_request_prefers_an_explicit_resolution_field_over_size() {
+        let openai = serde_json::json!({
+            "model": "botsmart_seedance_2", "prompt": "一只猫",
+            "size": "16:9", "resolution": "720p", "seconds": 5
+        });
+        let out = map_video_request(&openai, "Seedance-2.0");
+        assert_eq!(out["resolution"], "720p");
+    }
+
+    #[test]
+    fn video_request_defaults_resolution_when_the_request_omits_it() {
+        let openai = serde_json::json!({
+            "model": "botsmart_seedance_2", "prompt": "一只猫",
+            "aspect_ratio": "16:9", "seconds": 5
+        });
+        let out = map_video_request(&openai, "Seedance-2.0");
+        assert_eq!(out["resolution"], "720p");
+    }
+
+    #[test]
+    fn video_request_passes_the_audio_toggle_through() {
+        // Reference audio already flowed; the generate-audio toggle was
+        // hardcoded false, so a request that asked for audio got silence.
+        let openai = serde_json::json!({
+            "model": "minimax_h3", "prompt": "说话", "size": "16:9",
+            "seconds": 5, "audio": true
+        });
+        let out = map_video_request(&openai, "MiniMax-H3-2K");
+        assert_eq!(out["audio"], true);
+
+        let silent = serde_json::json!({
+            "model": "minimax_h3", "prompt": "说话", "size": "16:9", "seconds": 5
+        });
+        assert_eq!(map_video_request(&silent, "MiniMax-H3-2K")["audio"], false);
+    }
+    #[test]
+    fn video_request_does_not_mistake_a_ratio_or_pixel_size_for_a_resolution() {
+        // `size` carries a ratio or a pixel size in some OSC requests; neither
+        // is a resolution tier, so the default must stand rather than sending
+        // "16:9" or "1920x1080" as mvaigc's resolution.
+        for size in ["16:9", "1920x1080", "1024x1024"] {
+            let openai = serde_json::json!({
+                "model": "botsmart_seedance_2", "prompt": "一只猫", "size": size, "seconds": 5
+            });
+            let out = map_video_request(&openai, "Seedance-2.0");
+            assert_eq!(out["resolution"], "720p", "size {size} is not a resolution tier");
+        }
     }
 }

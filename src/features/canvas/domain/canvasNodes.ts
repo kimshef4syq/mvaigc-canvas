@@ -59,6 +59,9 @@ export type CanvasGenerationJobState =
 
 export interface NodeDisplayData {
   displayName?: string;
+  /** Persisted receipt for an external media import batch. */
+  canvasImportOperationId?: string;
+  canvasImportFingerprint?: string;
   /** Stable reference into the project's SQLite assets table when media is indexed. */
   assetId?: string;
   [key: string]: unknown;
@@ -327,6 +330,10 @@ export interface AiAudioNodeData extends NodeDisplayData {
   usePromptText?: boolean | null;
   promptTextValue?: string | null;
   audioGenerationParams?: Record<string, unknown>;
+  /** ComfyUI text-slot values, keyed by `textSlotKey` (`${nodeId}.${input}`). */
+  audioSlotValues?: Record<string, string>;
+  /** ComfyUI boolean controls, keyed by nodeId.input. */
+  audioBooleanValues?: Record<string, boolean>;
   resultNodeId?: string | null;
   lastRunInputHash?: string | null;
   lastError?: string | null;

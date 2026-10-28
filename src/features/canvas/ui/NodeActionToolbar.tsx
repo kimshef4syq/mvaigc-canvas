@@ -1,3 +1,5 @@
+import { VideoAgentLaunchButton } from '@/features/canvas/agent/ui/VideoAgentLaunchButton';
+import { CanvasVideoPlayer } from './CanvasVideoPlayer';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { SingleNodeToolbar as ReactFlowNodeToolbar } from './SingleNodeToolbar';
@@ -788,12 +790,10 @@ export const NodeActionToolbar = memo(({ node, offset = NODE_TOOLBAR_OFFSET }: N
             >
               <X className="h-4 w-4" />
             </button>
-            <video
+            <CanvasVideoPlayer
               src={videoPreviewSource}
-              className="max-h-[88vh] w-full bg-black object-contain"
-              controls
+              className="h-[75vh] max-h-[88vh] w-full"
               autoPlay
-              playsInline
             />
           </div>
         </div>,
@@ -812,6 +812,7 @@ export const NodeActionToolbar = memo(({ node, offset = NODE_TOOLBAR_OFFSET }: N
       className={NODE_TOOLBAR_CLASS}
     >
       <UiPanel className="flex items-center gap-1 rounded-full p-1 border border-[var(--canvas-node-border)] bg-[rgba(20,14,10,0.92)] shadow-[0_16px_36px_rgba(0,0,0,0.55),0_0_24px_rgba(245,158,11,0.12)] backdrop-blur-xl">
+        {canHandleVideo && <VideoAgentLaunchButton nodeId={node.id} />}
         {/* Case B: empty AI node — render multi-function chips only. Clicking
             a chip selects the module (blue highlight); clicking again
             clears. One at a time. The chip's prompt template is composed in

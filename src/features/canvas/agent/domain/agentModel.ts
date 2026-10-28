@@ -31,6 +31,7 @@ export type ExternalAgentToolName =
   | 'diagnostics'
   | 'config_patch'
   | 'asset_read'
+  | 'assets_import'
   | 'profile_search'
   | 'profile_read'
   | 'source_read'

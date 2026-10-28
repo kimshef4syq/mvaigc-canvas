@@ -5,6 +5,7 @@ import {
   type ImageSize,
   type CanvasNode,
   type CanvasNodeData,
+  type CanvasNodeType,
   isEligibleTagGroupMember,
   isTagGroupNode,
   isTagNode,
@@ -55,6 +56,7 @@ export const CANVAS_GRAPH_COMMAND_TYPES = new Set<CanvasCommand['type']>([
   'edge.disconnect',
   'group.create',
   'group.ungroup',
+  'asset.import',
 ]);
 
 export function resolveAgentNodeCreationPosition(
@@ -982,6 +984,132 @@ function applyDisconnectEdges(
   );
 }
 
+// 导入的节点类型不在 `canCreateCanvasNodeDirectly` 白名单内（videoNode/audioNode
+// 的 directCreate 是 false），所以这里用显式白名单而不是查能力表。
+const IMPORTABLE_NODE_TYPES: readonly CanvasNodeType[] = [
+  CANVAS_NODE_TYPES.upload,
+  CANVAS_NODE_TYPES.video,
+  CANVAS_NODE_TYPES.audio,
+];
+
+function applyImportAssets(
+  command: Extract<CanvasCommand, { type: 'asset.import' }>,
+  draft: CanvasGraphDraft,
+  nodeFactory: NodeFactory,
+): CanvasGraphCommandPreparation {
+  const inputs = command.input.nodes;
+  const unsupported = inputs.find((input) => !IMPORTABLE_NODE_TYPES.includes(input.nodeType));
+  if (unsupported) {
+    return reject(
+      `Node type ${unsupported.nodeType} cannot receive imported media.`,
+      'unsupported_command',
+    );
+  }
+  const created = inputs.map((input) => nodeFactory.createNode(
+    input.nodeType,
+    { ...input.position },
+    input.data as Partial<CanvasNodeData>,
+  ));
+  const group = command.input.group;
+  if (group === undefined || created.length === 0) {
+    return success(
+      { ...draft, nodes: [...draft.nodes, ...created] },
+      impact(`Import ${created.length} generated media node(s) into the canvas.`, {
+        affectedNodeIds: created.map((node) => node.id),
+        creates: { nodes: created.length, edges: 0, groups: 0 },
+      }),
+      { references: { nodeIds: created.map((node) => node.id) } },
+    );
+  }
+  return groupImportedNodes(created, draft, nodeFactory, group);
+}
+
+/**
+ * Collect one import batch into a group, with the finished video(s) at the
+ * lower right and every other product along the top row.
+ *
+ * The batch arrives with positions the caller chose for a loose layout, so they
+ * are re-laid out relative to the batch's own corner: a video is a finished
+ * result and belongs after the material it was made from, which reading order
+ * puts last.
+ */
+function groupImportedNodes(
+  created: CanvasNode[],
+  draft: CanvasGraphDraft,
+  nodeFactory: NodeFactory,
+  group: { name?: string },
+): CanvasGraphCommandPreparation {
+  const GAP = 40;
+  const videos = created.filter((node) => node.type === CANVAS_NODE_TYPES.video);
+  const others = created.filter((node) => node.type !== CANVAS_NODE_TYPES.video);
+  const size = (node: CanvasNode) => getNodeSize({ type: node.type, style: node.style });
+  const rowWidth = others.reduce((sum, node, index) => sum + size(node).width + (index === 0 ? 0 : GAP), 0);
+
+  const placed = new Map<string, { x: number; y: number }>();
+  let cursorX = 0;
+  let topRowHeight = 0;
+  for (const node of others) {
+    placed.set(node.id, { x: cursorX, y: 0 });
+    cursorX += size(node).width + GAP;
+    topRowHeight = Math.max(topRowHeight, size(node).height);
+  }
+  // Videos sit below the top row and flush to the widest column, so the last
+  // product reads as the result of everything above it.
+  const videoTop = topRowHeight + (others.length === 0 ? 0 : GAP);
+  let videoY = videoTop;
+  for (const node of videos) {
+    const box = size(node);
+    placed.set(node.id, { x: Math.max(0, rowWidth - box.width), y: videoY });
+    videoY += box.height + GAP;
+  }
+
+  const maxX = Math.max(...created.map((node) => {
+    const box = size(node);
+    const at = placed.get(node.id)!;
+    return at.x + box.width;
+  }));
+  const maxY = Math.max(...created.map((node) => {
+    const box = size(node);
+    const at = placed.get(node.id)!;
+    return at.y + box.height;
+  }));
+
+  const groupCount = draft.nodes.filter((node) => node.type === CANVAS_NODE_TYPES.group).length;
+  const groupName = group.name?.trim() || `hypit复刻 ${groupCount + 1}`;
+  const groupNode = nodeFactory.createNode(CANVAS_NODE_TYPES.group, { x: 0, y: 0 }, {
+    displayName: groupName,
+    label: groupName,
+  } as Partial<CanvasNodeData>);
+  groupNode.style = {
+    width: Math.max(220, Math.round(maxX + 40)),
+    height: Math.max(140, Math.round(maxY + 54)),
+  };
+
+  // The group is pushed first so it paints behind its members; the created
+  // nodes do not exist in the draft yet, so they are appended here rather than
+  // found in a draft pass.
+  const nodes: CanvasNode[] = [...draft.nodes, groupNode];
+  for (const node of created) {
+    const at = placed.get(node.id)!;
+    nodes.push({
+      ...node,
+      parentId: groupNode.id,
+      extent: 'parent' as const,
+      position: { x: Math.round(at.x + 20), y: Math.round(at.y + 34) },
+      selected: false,
+    });
+  }
+
+  return success(
+    { ...draft, nodes, selectedNodeId: groupNode.id },
+    impact(`Import ${created.length} generated media node(s) into a new group.`, {
+      affectedNodeIds: created.map((node) => node.id),
+      creates: { nodes: created.length, edges: 0, groups: 1 },
+    }),
+    { references: { nodeIds: created.map((node) => node.id) } },
+  );
+}
+
 function applyCreateGroup(
   command: Extract<CanvasCommand, { type: 'group.create' }>,
   draft: CanvasGraphDraft,
@@ -1168,6 +1296,8 @@ export function applyCanvasGraphCommand(
       return applyCreateGroup(command, draft, nodeFactory);
     case 'group.ungroup':
       return applyUngroup(command, draft);
+    case 'asset.import':
+      return applyImportAssets(command, draft, nodeFactory);
     default:
       return reject(`Command ${command.type} is not atomic graph work.`, 'not_atomic');
   }

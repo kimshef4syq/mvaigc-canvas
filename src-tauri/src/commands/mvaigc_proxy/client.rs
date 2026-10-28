@@ -241,6 +241,7 @@ pub struct SubmitResult {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TaskState {
+    Missing,
     Running,
     Succeeded(Vec<String>),
     Failed(String),
@@ -381,29 +382,38 @@ impl MvaigcClient {
         oper_type: &str,
         oper_id: &str,
     ) -> Result<TaskState, AIError> {
-        let response = self
-            .http
-            .get(format!(
-                "{}/ma/v1/fileTransfer/getHistoryFilesByPage/{}",
-                self.base, oper_type
-            ))
-            .query(&[("pageNum", "1"), ("pageSize", "50")])
-            .header("X-User-Token", token)
-            .send()
-            .await?;
-        let body: Value = response.json().await?;
-        let data = parse_envelope(body).map_err(AIError::Provider)?;
-        let list = data
-            .get("list")
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default();
-        for item in &list {
-            if item.get("operId").and_then(id_to_string).as_deref() == Some(oper_id) {
-                return Ok(judge_item(item));
+        // Bound lookup to 500 recent records; absence is not a running task.
+        for page in 1..=10 {
+            let response = self
+                .http
+                .get(format!(
+                    "{}/ma/v1/fileTransfer/getHistoryFilesByPage/{}",
+                    self.base, oper_type
+                ))
+                .query(&[
+                    ("pageNum", page.to_string()),
+                    ("pageSize", "50".to_string()),
+                ])
+                .header("X-User-Token", &token)
+                .send()
+                .await?;
+            let body: Value = response.json().await?;
+            let data = parse_envelope(body).map_err(AIError::Provider)?;
+            let list = data
+                .get("list")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            for item in &list {
+                if item.get("operId").and_then(id_to_string).as_deref() == Some(oper_id) {
+                    return Ok(judge_item(item));
+                }
+            }
+            if list.len() < 50 {
+                break;
             }
         }
-        Ok(TaskState::Running)
+        Ok(TaskState::Missing)
     }
 }
 
@@ -510,5 +520,52 @@ mod tests {
     fn non_data_url_is_not_decoded() {
         assert!(parse_data_url("https://static.mvaigc.cn/a/b.png").is_none());
         assert!(parse_data_url("data:image/png,notbase64").is_none());
+    }
+    #[tokio::test]
+    async fn poll_reads_second_history_page_and_reports_missing_separately() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            for index in 0..3 {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut bytes = vec![0; 8192];
+                let count = socket.read(&mut bytes).await.unwrap();
+                let request = String::from_utf8_lossy(&bytes[..count]);
+                let list = if index == 0 {
+                    assert!(request.contains("pageNum=1"));
+                    (0..50)
+                        .map(|i| serde_json::json!({"operId":format!("other-{i}")}))
+                        .collect::<Vec<_>>()
+                } else if index == 1 {
+                    assert!(request.contains("pageNum=2"));
+                    vec![
+                        serde_json::json!({"operId":"target", "isComplete":true,"fileUrl":"https://example.com/result.mp4"}),
+                    ]
+                } else {
+                    vec![]
+                };
+                let body = serde_json::json!({"code":200,"data":{"list":list}}).to_string();
+                let response = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body);
+                socket.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+        let mut client = MvaigcClient::new();
+        client.base = format!("http://{addr}");
+        assert!(matches!(
+            client
+                .poll_task("token".into(), "video", "target")
+                .await
+                .unwrap(),
+            TaskState::Succeeded(_)
+        ));
+        assert!(matches!(
+            client
+                .poll_task("token".into(), "video", "absent")
+                .await
+                .unwrap(),
+            TaskState::Missing
+        ));
+        server.await.unwrap();
     }
 }

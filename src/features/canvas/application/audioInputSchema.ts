@@ -311,6 +311,33 @@ export function normalizeAudioInputSchema(
 
 export function defaultAudioInputSchemaForProviderKind(providerKind: unknown): AudioInputSchema {
   const kind = typeof providerKind === 'string' ? providerKind.trim().toLowerCase() : '';
+  if (kind === 'comfyui') {
+    return normalizeAudioInputSchema({
+      text: {
+        enabled: true,
+        required: false,
+        field: 'text',
+        label: '生成文本',
+        placeholder: '输入要生成的音频文本，也可以连接文本节点作为输入',
+      },
+      voice: {
+        enabled: false,
+      },
+      referenceAudio: {
+        enabled: false,
+        min: 0,
+        max: 0,
+        field: '',
+      },
+      controlInstruction: {
+        enabled: false,
+      },
+      promptText: {
+        enabled: false,
+      },
+      parameters: [],
+    });
+  }
   if (kind === 'gradio-voxcpm') {
     return normalizeAudioInputSchema({
       text: {

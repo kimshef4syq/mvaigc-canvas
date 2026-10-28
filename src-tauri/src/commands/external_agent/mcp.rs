@@ -181,6 +181,37 @@ fn normalize_tool_input(name: &str, mut input: Value) -> Value {
     input
 }
 
+/// `assets_import`'s whole job is to hand a finished local file to the canvas, so
+/// its `files[].path` values must survive input redaction — which rewrites every
+/// absolute path to `[local path omitted]`. The paths are captured from the RAW
+/// input, the whole input is redacted, then only the paths are put back. Every
+/// other field stays redacted. The paths are validated on the canvas side
+/// (absolute, exists, regular file, size limit) before any file or node is produced.
+fn sanitize_tool_input(name: &str, raw: &Value) -> Result<Value, ExternalAgentCommandError> {
+    let paths = if name == "assets_import" {
+        raw.get("files")
+            .and_then(Value::as_array)
+            .map(|files| {
+                files
+                    .iter()
+                    .map(|file| file.get("path").cloned().unwrap_or(Value::Null))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let mut input = normalize_tool_input(name, sanitize_json(raw)?);
+    if let Some(files) = input.get_mut("files").and_then(Value::as_array_mut) {
+        for (file, path) in files.iter_mut().zip(paths) {
+            if let Some(target) = file.get_mut("path") {
+                *target = path;
+            }
+        }
+    }
+    Ok(input)
+}
+
 async fn write_broker_response<W: AsyncWrite + Unpin>(
     writer: &mut W,
     response: Value,
@@ -283,8 +314,8 @@ pub(crate) async fn handle_broker_connection(
                 session
                     .call_count
                     .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                let input = match sanitize_json(request.get("input").unwrap_or(&Value::Null)) {
-                    Ok(input) => normalize_tool_input(name, input),
+                let input = match sanitize_tool_input(name, request.get("input").unwrap_or(&Value::Null)) {
+                    Ok(input) => input,
                     Err(_) => return write_broker_response(reader.get_mut(), json!({"ok": false,
                         "error": {"code": "invalid_arguments", "message": "Canvas tool arguments exceed the supported depth or collection size."}})).await,
                 };
@@ -589,6 +620,7 @@ mod tests {
             permission_mode: std::sync::atomic::AtomicU8::new(0),
             project_id: Some("project-a".to_string()),
             project_name: Some("Project A".to_string()),
+            hypit_project_dir: None,
             descriptor_path: None,
             connected_at: std::sync::atomic::AtomicU64::new(0),
             last_activity_at: std::sync::atomic::AtomicU64::new(0),
@@ -732,5 +764,29 @@ mod tests {
         let (listener, address) = bind_broker_listener().expect("bind broker");
         let converted = into_async_listener(listener).expect("convert broker listener");
         assert_eq!(converted.local_addr().expect("listener address"), address);
+    }
+    #[test]
+    fn assets_import_file_paths_survive_input_sanitising() {
+        let input = json!({
+            "files": [
+                {"path": "/Users/me/renders/scene-01.mp4", "kind": "video"},
+                {"path": "/Users/me/renders/still.png", "kind": "image", "title": "第一场"},
+            ],
+            "anchor": {"nodeId": "node-1"},
+        });
+        let sanitized = sanitize_tool_input("assets_import", &input).unwrap();
+        assert_eq!(
+            sanitized["files"][0]["path"], "/Users/me/renders/scene-01.mp4",
+            "assets_import must receive the real path, not a redacted placeholder"
+        );
+        assert_eq!(sanitized["files"][1]["path"], "/Users/me/renders/still.png");
+        assert_eq!(sanitized["files"][1]["title"], "第一场");
+    }
+
+    #[test]
+    fn other_tools_still_have_paths_redacted() {
+        let input = json!({"operation": "health", "note": "/Users/me/secret/report.json"});
+        let sanitized = sanitize_tool_input("diagnostics", &input).unwrap();
+        assert_eq!(sanitized["note"], "[local path omitted]");
     }
 }

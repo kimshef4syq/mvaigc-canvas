@@ -109,6 +109,7 @@ function approvalId(item: RunToolApprovalItem): string {
 function approvalEffect(toolName: string, command?: CanvasCommand): AgentEffect {
   if (toolName.startsWith('mcp_')) return 'external-submit';
   if (toolName === 'config_patch') return 'config-write';
+  if (toolName === 'assets_import') return 'canvas-write';
   if (toolName !== 'canvas_command' || !command) return 'read';
   if (command.type === 'node.tool.run' || command.type === 'generation.recover') return 'canvas-write';
   const effect = canvasCommandRegistry.getDefinition(command.type).effect;
@@ -195,6 +196,23 @@ function buildApprovalImpact(toolName: string, args: unknown): {
   baseConfigRevision?: string;
 } {
   const command = toolName === 'canvas_command' ? canvasCommandFromArguments(args) : undefined;
+  if (toolName === 'assets_import') {
+    const files = args && typeof args === 'object' && !Array.isArray(args)
+      && Array.isArray((args as Record<string, unknown>).files)
+      ? (args as Record<string, unknown>).files as unknown[]
+      : [];
+    return {
+      baseRevision: canvasCommandRegistry.getRevision(),
+      impact: {
+        effect: 'canvas-write',
+        title: 'assets_import',
+        summary: `把 ${files.length} 个本机成品媒体导入画布成为节点。文件会先校验，再落成画布节点。`,
+        affectedNodeCount: files.length,
+        affectedEdgeCount: 0,
+        externalSideEffect: false,
+      },
+    };
+  }
   if (command) {
     const preview = canvasCommandRegistry.inspect(command, 'agent');
     const effect = approvalEffect(toolName, command);

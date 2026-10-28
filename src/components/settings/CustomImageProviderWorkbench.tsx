@@ -33,7 +33,6 @@ import {
   getComfyUIVideoCapabilities,
   isLocalH3Workflow,
   parseComfyUIConfig,
-  suggestComfyUIBindings,
   suggestComfyUIOutputNodes,
   validateComfyUIRequest,
   withComfyUITemplateCheckpoint,
@@ -54,6 +53,7 @@ import {
 } from '@/features/canvas/infrastructure/customProviderGateway';
 import {
   isImageCustomProvider,
+  customProviderMediaType,
   useCustomProvidersStore,
 } from '@/stores/customProvidersStore';
 import { CustomImageProviderCreationChoice } from './CustomImageProviderCreationChoice';
@@ -63,6 +63,7 @@ import {
   createCustomImageProviderWorkbenchDraft,
   createComfyUIProviderWorkbenchDraft,
   createWorkbenchPreviewRequest,
+  createWorkbenchImportedBindings,
   getImageToImageVariant,
   getTextToImageVariant,
   splitWorkbenchValues,
@@ -287,7 +288,7 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
     const provider = providers.find((item) => item.id === pendingEditId);
     if (!provider || (!isImageCustomProvider(provider) && provider.apiStyle !== 'comfyui') || isPresetImageProvider(provider)) return;
     const editDraft = customImageProviderConfigToDraft(provider);
-    if (provider.apiStyle === 'comfyui') editDraft.mediaType = provider.mediaType;
+    if (provider.apiStyle === 'comfyui') editDraft.mediaType = customProviderMediaType(provider);
     hydrateDraft(editDraft, provider.apiStyle === 'comfyui' ? 'comfyui' : 'manual');
     setPendingEditId(null);
   }, [pendingEditId, providers, setPendingEditId]);
@@ -507,13 +508,16 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
           throw new Error(t('settings.comfyui.h3WorkflowRequired'));
         }
         const referenceRequirements = getComfyUIReferenceRequirements(comfyConfig);
-        validateComfyUIRequest(comfyConfig, {
-          prompt: 'preview prompt',
-          model: `custom:${result.value.id}:${result.value.models[0] ?? 'workflow'}`,
-          size: isLocalH3Workflow(comfyConfig.workflow) ? '768P' : normalizedDraft.mediaType === 'video' ? 'workflow' : '1024x1024',
-          aspect_ratio: 'auto',
-          reference_images: Array.from({ length: referenceRequirements.min }, () => 'data:image/png;base64,AAAA'),
-        });
+        const preview = comfyConfig.mediaType === 'audio'
+          ? createWorkbenchPreviewRequest(result.value, result.value.models[0] ?? 'workflow')
+          : {
+            prompt: 'preview prompt',
+            model: `custom:${result.value.id}:${result.value.models[0] ?? 'workflow'}`,
+            size: isLocalH3Workflow(comfyConfig.workflow) ? '768P' : normalizedDraft.mediaType === 'video' ? 'workflow' : '1024x1024',
+            aspect_ratio: 'auto',
+            reference_images: Array.from({ length: referenceRequirements.min }, () => 'data:image/png;base64,AAAA'),
+          };
+        validateComfyUIRequest(comfyConfig, preview);
         result.value.extraParams = {
           ...result.value.extraParams,
           videoInputSchema: normalizedDraft.mediaType === 'video' ? getComfyUIVideoCapabilities(comfyConfig).inputSchema : undefined,
@@ -629,11 +633,12 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
             {t('settings.customProviders.workbench.fields.comfyOutputType')}
             <UiSelect
               className="mt-1.5 h-9"
-              value={draft.mediaType === 'video' ? 'video' : 'image'}
-              onChange={(event) => updateDraft((current) => ({ ...current, mediaType: event.target.value === 'video' ? 'video' : 'image' }))}
+              value={draft.mediaType === 'audio' ? 'audio' : draft.mediaType === 'video' ? 'video' : 'image'}
+              onChange={(event) => updateDraft((current) => ({ ...current, mediaType: event.target.value === 'audio' ? 'audio' : event.target.value === 'video' ? 'video' : 'image' }))}
             >
               <option value="image">{t('settings.customProviders.workbench.comfyOutputImage')}</option>
               <option value="video">{t('settings.customProviders.workbench.comfyOutputVideo')}</option>
+              <option value="audio">{t('settings.customProviders.workbench.comfyOutputAudio')}</option>
             </UiSelect>
           </label> : (
             <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -664,7 +669,7 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
                 }
                 void file.text().then((source) => {
                   const parsed = JSON.parse(source) as unknown;
-                  const bindings = suggestComfyUIBindings(parsed);
+                  const bindings = createWorkbenchImportedBindings(parsed);
                   const outputs = suggestComfyUIOutputNodes(parsed);
                   setComfyWorkflowText(JSON.stringify(parsed, null, 2));
                   setComfyBindingsText(JSON.stringify(bindings, null, 2));
@@ -883,10 +888,10 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
           {t('settings.comfyui.canvasName')}
           <UiInput className="mt-1.5" value={draft.models[0] ?? ''} onChange={(event) => updateDraft((current) => ({ ...current, models: [event.target.value] }))} />
         </label>
-        <label className="block text-xs font-medium text-text-muted">
+        {draft.mediaType !== 'audio' && <label className="block text-xs font-medium text-text-muted">
           {t('settings.customProviders.workbench.fields.supportedResolutions')}
           <UiInput className="mt-1.5" value={(draft.supportedResolutions ?? []).join(', ')} onChange={(event) => updateDraft((current) => ({ ...current, supportedResolutions: splitWorkbenchValues(event.target.value) }))} placeholder="1024x1024, 1024x768" />
-        </label>
+        </label>}
         {draft.mediaType === 'video' && <>
           <label className="block text-xs font-medium text-text-muted">
             {t('settings.comfyui.durations')}
@@ -932,7 +937,7 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
           ['label', draft.label || '—'],
           ['baseUrl', draft.baseUrl || '—'],
           ['models', String(draft.models.length)],
-          ['requestVariants', isComfyRoute ? `ComfyUI ${draft.mediaType === 'video' ? 'Video' : 'Image'}` : imageEnabled ? 'T2I + I2I' : 'T2I'],
+          ['requestVariants', isComfyRoute ? `ComfyUI ${draft.mediaType === 'audio' ? 'Audio' : draft.mediaType === 'video' ? 'Video' : 'Image'}` : imageEnabled ? 'T2I + I2I' : 'T2I'],
         ] as const).map(([key, value]) => (
           <div key={key} className="rounded-lg border border-border-dark bg-surface-dark px-3 py-2">
             <div className="text-[10px] text-text-muted">{t(`settings.customProviders.workbench.review.${key}`)}</div>

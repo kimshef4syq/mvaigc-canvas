@@ -46,7 +46,7 @@ export type CanvasMouseBindingSlot =
 export type CanvasMouseBindings = Record<CanvasMouseBindingSlot, CanvasMouseAction>;
 export type ImageHostProvider = 'pixhost' | 'seedvault';
 export type AudioOutputMode = 'server' | 'segmented';
-export type AudioProviderKind = 'local-doubao-tts' | 'gradio-voxcpm';
+export type AudioProviderKind = 'local-doubao-tts' | 'gradio-voxcpm' | 'comfyui';
 export type ProviderApiKeys = Record<string, string>;
 export type GenerationNetworkRoute = 'system' | 'direct' | 'custom-proxy';
 export interface GenerationNetworkSettings {
@@ -402,7 +402,9 @@ function normalizeAudioOutputMode(input: unknown, fallback: AudioOutputMode): Au
 }
 
 function normalizeAudioProviderKind(input: unknown, fallback: AudioProviderKind): AudioProviderKind {
-  return input === 'gradio-voxcpm' || input === 'local-doubao-tts' ? input : fallback;
+  return input === 'gradio-voxcpm' || input === 'local-doubao-tts' || input === 'comfyui'
+    ? input
+    : fallback;
 }
 
 function normalizeAudioTimeoutMs(input: unknown, fallback: number): number {
