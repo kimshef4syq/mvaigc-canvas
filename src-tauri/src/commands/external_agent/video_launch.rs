@@ -203,7 +203,8 @@ pub async fn launch_video_agent(
         .ok_or_else(|| process_error("未找到所选智能体 CLI，请先安装或检查 PATH"))?;
     let mut help_command = target.command();
     help_command.arg("--help").kill_on_drop(true);
-    let help = tokio::time::timeout(Duration::from_secs(8), help_command.output()).await
+    let help = tokio::time::timeout(Duration::from_secs(8), help_command.output())
+        .await
         .map_err(|_| process_error("智能体 CLI 检查超时，请在终端确认它能正常启动"))?
         .map_err(|_| process_error("无法执行所选智能体 CLI"))?;
     let help_text = String::from_utf8_lossy(&help.stdout);
@@ -212,7 +213,9 @@ pub async fn launch_video_agent(
         ExternalAgentRuntime::Claude => vec!["--mcp-config"],
     };
     if !help.status.success() || required.iter().any(|flag| !help_text.contains(flag)) {
-        return Err(process_error("当前 CLI 版本不支持所需的会话配置，请先更新所选 CLI；画布不会自动更改你的全局安装。"));
+        return Err(process_error(
+            "当前 CLI 版本不支持所需的会话配置，请先更新所选 CLI；画布不会自动更改你的全局安装。",
+        ));
     }
     let target_command = target.command();
     let target_program = PathBuf::from(target_command.as_std().get_program());
@@ -267,8 +270,12 @@ pub async fn launch_video_agent(
         use std::io::Write;
         let mut temporary = tempfile::NamedTempFile::new_in(grant_file.parent().unwrap())
             .map_err(|_| process_error("Cannot prepare local service grant"))?;
-        temporary.write_all(grant.as_bytes()).map_err(|_| process_error("Cannot write local service grant"))?;
-        temporary.persist(&grant_file).map_err(|_| process_error("Cannot renew local service grant"))?;
+        temporary
+            .write_all(grant.as_bytes())
+            .map_err(|_| process_error("Cannot write local service grant"))?;
+        temporary
+            .persist(&grant_file)
+            .map_err(|_| process_error("Cannot renew local service grant"))?;
     }
     let credential = format!("osc-grant-file:{}", grant_file.display());
     let cache = app

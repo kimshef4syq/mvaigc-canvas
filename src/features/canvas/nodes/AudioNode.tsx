@@ -273,7 +273,6 @@ export const AudioNode = memo(({ id, data, selected, type, width, height }: Audi
     setCurrentTime(0);
     setPlaybackDuration(data.durationSeconds ?? null);
     setTrimNotice('');
-    audioRef.current?.load();
   }, [audioSource, data.durationSeconds]);
 
   useEffect(() => {
@@ -745,7 +744,7 @@ export const AudioNode = memo(({ id, data, selected, type, width, height }: Audi
               ref={audioRef}
               src={audioSource}
               className="hidden"
-              preload="metadata"
+              preload="none"
               onLoadedMetadata={(event) => {
                 const duration = event.currentTarget.duration;
                 if (Number.isFinite(duration) && duration > 0) {

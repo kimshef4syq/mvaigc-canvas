@@ -100,10 +100,24 @@ mod tests {
     fn creates_file_with_entry_when_absent() {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path().join(".claude.json");
-        write_local_mcp_server(&path, &["/proj".to_string()], "storyboard_canvas", "/bin/osc", &["a".into()]).unwrap();
-        let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"]["command"], "/bin/osc");
-        assert_eq!(v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"]["args"][0], "a");
+        write_local_mcp_server(
+            &path,
+            &["/proj".to_string()],
+            "storyboard_canvas",
+            "/bin/osc",
+            &["a".into()],
+        )
+        .unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(
+            v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"]["command"],
+            "/bin/osc"
+        );
+        assert_eq!(
+            v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"]["args"][0],
+            "a"
+        );
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -119,12 +133,26 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path().join(".claude.json");
         std::fs::write(&path, r#"{"numStartups":7,"projects":{"/other":{"mcpServers":{"x":{"type":"stdio"}}},"/proj":{"mcpServers":{"keep":{"type":"stdio"}}}}}"#).unwrap();
-        write_local_mcp_server(&path, &["/proj".to_string()], "storyboard_canvas", "/bin/osc", &[]).unwrap();
-        let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        write_local_mcp_server(
+            &path,
+            &["/proj".to_string()],
+            "storyboard_canvas",
+            "/bin/osc",
+            &[],
+        )
+        .unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(v["numStartups"], 7);
         assert_eq!(v["projects"]["/other"]["mcpServers"]["x"]["type"], "stdio");
-        assert_eq!(v["projects"]["/proj"]["mcpServers"]["keep"]["type"], "stdio");
-        assert_eq!(v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"]["command"], "/bin/osc");
+        assert_eq!(
+            v["projects"]["/proj"]["mcpServers"]["keep"]["type"],
+            "stdio"
+        );
+        assert_eq!(
+            v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"]["command"],
+            "/bin/osc"
+        );
     }
 
     #[test]
@@ -136,11 +164,27 @@ mod tests {
             r#"{"projects":{"/other":{"mcpServers":{"storyboard_canvas":{"type":"stdio","command":"x","args":["--external-agent-mcp","/old.json"]},"keep":{"type":"stdio","args":["nope"]}}}}}"#,
         )
         .unwrap();
-        write_local_mcp_server(&path, &["/target".to_string()], "storyboard_canvas", "/bin/osc", &["a".into()]).unwrap();
-        let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert!(v["projects"]["/other"]["mcpServers"].get("storyboard_canvas").is_none());
-        assert_eq!(v["projects"]["/other"]["mcpServers"]["keep"]["type"], "stdio");
-        assert_eq!(v["projects"]["/target"]["mcpServers"]["storyboard_canvas"]["command"], "/bin/osc");
+        write_local_mcp_server(
+            &path,
+            &["/target".to_string()],
+            "storyboard_canvas",
+            "/bin/osc",
+            &["a".into()],
+        )
+        .unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(v["projects"]["/other"]["mcpServers"]
+            .get("storyboard_canvas")
+            .is_none());
+        assert_eq!(
+            v["projects"]["/other"]["mcpServers"]["keep"]["type"],
+            "stdio"
+        );
+        assert_eq!(
+            v["projects"]["/target"]["mcpServers"]["storyboard_canvas"]["command"],
+            "/bin/osc"
+        );
     }
 
     #[test]
@@ -152,10 +196,24 @@ mod tests {
             r#"{"projects":{"/other":{"mcpServers":{"storyboard_canvas":{"type":"stdio","command":"x","args":["nope"]}}}}}"#,
         )
         .unwrap();
-        write_local_mcp_server(&path, &["/target".to_string()], "storyboard_canvas", "/bin/osc", &[]).unwrap();
-        let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(v["projects"]["/other"]["mcpServers"]["storyboard_canvas"]["command"], "x");
-        assert_eq!(v["projects"]["/target"]["mcpServers"]["storyboard_canvas"]["command"], "/bin/osc");
+        write_local_mcp_server(
+            &path,
+            &["/target".to_string()],
+            "storyboard_canvas",
+            "/bin/osc",
+            &[],
+        )
+        .unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(
+            v["projects"]["/other"]["mcpServers"]["storyboard_canvas"]["command"],
+            "x"
+        );
+        assert_eq!(
+            v["projects"]["/target"]["mcpServers"]["storyboard_canvas"]["command"],
+            "/bin/osc"
+        );
     }
 
     #[test]
@@ -163,9 +221,18 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path().join(".claude.json");
         std::fs::write(&path, "{ this is not json").unwrap();
-        let err = write_local_mcp_server(&path, &["/proj".to_string()], "storyboard_canvas", "/bin/osc", &[]);
+        let err = write_local_mcp_server(
+            &path,
+            &["/proj".to_string()],
+            "storyboard_canvas",
+            "/bin/osc",
+            &[],
+        );
         assert!(err.is_err());
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{ this is not json");
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "{ this is not json"
+        );
     }
 
     #[test]
@@ -174,7 +241,13 @@ mod tests {
         let path = tmp.path().join(".claude.json");
         let original = r#"{"projects":"oops"}"#;
         std::fs::write(&path, original).unwrap();
-        let err = write_local_mcp_server(&path, &["/proj".to_string()], "storyboard_canvas", "/bin/osc", &[]);
+        let err = write_local_mcp_server(
+            &path,
+            &["/proj".to_string()],
+            "storyboard_canvas",
+            "/bin/osc",
+            &[],
+        );
         assert!(err.is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
     }
@@ -193,8 +266,14 @@ mod tests {
         .unwrap();
         let v: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"]["command"], "/bin/osc");
-        assert_eq!(v["projects"]["/hypit/工程 名"]["mcpServers"]["storyboard_canvas"]["command"], "/bin/osc");
+        assert_eq!(
+            v["projects"]["/proj"]["mcpServers"]["storyboard_canvas"]["command"],
+            "/bin/osc"
+        );
+        assert_eq!(
+            v["projects"]["/hypit/工程 名"]["mcpServers"]["storyboard_canvas"]["command"],
+            "/bin/osc"
+        );
     }
 
     #[test]
@@ -209,6 +288,8 @@ mod tests {
         write_local_mcp_server(&path, &[], "storyboard_canvas", "/bin/osc", &[]).unwrap();
         let v: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert!(v["projects"]["/other"]["mcpServers"].get("storyboard_canvas").is_none());
+        assert!(v["projects"]["/other"]["mcpServers"]
+            .get("storyboard_canvas")
+            .is_none());
     }
 }

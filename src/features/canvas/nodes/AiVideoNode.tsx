@@ -19,11 +19,15 @@ import { useTranslation } from 'react-i18next';
 import {
   type CameraControlOptions,
   CANVAS_NODE_TYPES,
+  DEFAULT_ASPECT_RATIO,
   EXPORT_RESULT_NODE_DEFAULT_WIDTH,
   EXPORT_RESULT_NODE_LAYOUT_HEIGHT,
+  EXPORT_RESULT_NODE_MIN_HEIGHT,
+  EXPORT_RESULT_NODE_MIN_WIDTH,
   isAiVideoNode,
   type AiVideoNodeData,
 } from '@/features/canvas/domain/canvasNodes';
+import { resolveDefaultImageNodeSize } from '@/features/canvas/application/imageNodeSizing';
 import { resolveNodeDisplayName } from '@/features/canvas/domain/nodeDisplay';
 import {
   parseInputImageSignature,
@@ -93,6 +97,10 @@ import {
   videoModeInputSchema,
   type VideoNodeModeKind,
 } from '@/features/canvas/application/videoModes';
+import { groupModelsByBrand } from '@/features/canvas/application/modelGroups';
+import { isVideoEntryAvailableInMode } from '@/features/canvas/application/videoModelCatalog';
+import { ModelBrandMenu } from '@/features/canvas/ui/ModelBrandMenu';
+import { isPointerInsideNodeUi } from '@/features/canvas/ui/nodePopoverGuard';
 import {
   buildVideoGenerationDebugPreview,
   canvasEventBus,
@@ -113,11 +121,7 @@ import { buildCameraPrompt } from '@/features/canvas/application/cameraPromptLib
 import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
-import {
-  NODE_CONTROL_CHIP_CLASS,
-  NODE_CONTROL_ICON_CLASS,
-  NODE_CONTROL_PRIMARY_BUTTON_CLASS,
-} from '@/features/canvas/ui/nodeControlStyles';
+import { NODE_CONTROL_ICON_CLASS } from '@/features/canvas/ui/nodeControlStyles';
 import { UiButton, UiModal } from '@/components/ui';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useCustomProvidersStore } from '@/stores/customProvidersStore';
@@ -131,10 +135,11 @@ type AiVideoNodeProps = NodeProps & {
   selected?: boolean;
 };
 
-const AI_VIDEO_NODE_MIN_WIDTH = 560;
-const AI_VIDEO_NODE_MIN_HEIGHT = 260;
-const AI_VIDEO_NODE_DEFAULT_WIDTH = 680;
-const AI_VIDEO_NODE_DEFAULT_HEIGHT = 360;
+// The node body is just the video frame; its control strip lives outside the
+// node (NodeToolbar), so it does not force a wider node. A fresh node therefore
+// takes the same footprint the 生成图片 node takes for the same aspect ratio.
+const AI_VIDEO_NODE_MIN_WIDTH = EXPORT_RESULT_NODE_MIN_WIDTH;
+const AI_VIDEO_NODE_MIN_HEIGHT = EXPORT_RESULT_NODE_MIN_HEIGHT;
 const AI_VIDEO_NODE_MAX_WIDTH = 1400;
 const AI_VIDEO_NODE_MAX_HEIGHT = 1000;
 const PROMPT_COMMIT_DELAY_MS = 650;
@@ -144,6 +149,11 @@ const PICKER_Y_OFFSET_PX = 20;
 const REFERENCE_PICKER_WIDTH_PX = 150;
 const FUNCTION_PICKER_WIDTH_PX = 280;
 const PROMPT_PRESET_GROUP_ID = '__prompt_presets__';
+// The video node's own control strip, one step larger than the shared
+// node-control chips so the whole panel stays legible at 100% zoom.
+const AI_VIDEO_CONTROL_CHIP_CLASS = '!h-7 !rounded-md !px-2.5 !text-[12px] !gap-1.5';
+const AI_VIDEO_PRIMARY_BUTTON_CLASS =
+  '!h-7 !rounded-md !px-2.5 !text-[12px] !gap-1.5 border border-transparent';
 const AI_VIDEO_SELECTOR_CHIP_CLASS =
   'border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] text-text-dark shadow-sm hover:border-[var(--canvas-node-border-hover)] hover:bg-[var(--canvas-node-menu-hover)]';
 const AI_VIDEO_COMPACT_ICON_CHIP_CLASS =
@@ -339,6 +349,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
   const [error, setError] = useState<string | null>(null);
   const [providerOpen, setProviderOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
+  const [openBrand, setOpenBrand] = useState<string | null>(null);
   const [paramsOpen, setParamsOpen] = useState(false);
   const [referencePickerOpen, setReferencePickerOpen] = useState(false);
   const [referencePickerAnchor, setReferencePickerAnchor] = useState(PICKER_FALLBACK_ANCHOR);
@@ -591,12 +602,42 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
     () => selectedEntry ? (entriesByProvider.get(selectedEntry.providerLabel) ?? []) : [],
     [entriesByProvider, selectedEntry]
   );
+  // Providers that declare a vendor per model (mvaigc) get a two-level menu;
+  // everyone else keeps the flat list.
+  const brandGroups = useMemo(
+    () => groupModelsByBrand(modelsForSelectedProvider),
+    [modelsForSelectedProvider]
+  );
+  const openBrandForMenu = brandGroups?.some((group) => group.brand === openBrand) ? openBrand : null;
+  const modelDisabledReason = useCallback((entry: VideoCatalogEntry) => {
+    if (!isVideoEntryAvailableInMode(entry, videoMode)) {
+      return entry.supportedScenes?.includes('reference2video')
+        ? '仅全能参考'
+        : '仅文生/首尾帧';
+    }
+    return entry.notReadyReason;
+  }, [videoMode]);
   const resolvedTitle = useMemo(
     () => resolveNodeDisplayName(CANVAS_NODE_TYPES.aiVideo, data),
     [data]
   );
-  const resolvedWidth = Math.max(AI_VIDEO_NODE_MIN_WIDTH, Math.round(width ?? AI_VIDEO_NODE_DEFAULT_WIDTH));
-  const resolvedHeight = Math.max(AI_VIDEO_NODE_MIN_HEIGHT, Math.round(height ?? AI_VIDEO_NODE_DEFAULT_HEIGHT));
+  // A node that was never resized takes the same footprint the 生成图片 node
+  // takes for the model's aspect ratio (16:9 → 384×216, 9:16 → 260×462 …).
+  // Once the user drags the resize handle, `width`/`height` are set and win.
+  const defaultFittedSize = useMemo(
+    () => resolveDefaultImageNodeSize(
+      resolvedModelConfig?.aspectRatio ?? data.aspectRatio ?? DEFAULT_ASPECT_RATIO
+    ),
+    [data.aspectRatio, resolvedModelConfig?.aspectRatio]
+  );
+  const resolvedWidth = Math.max(
+    AI_VIDEO_NODE_MIN_WIDTH,
+    Math.round(width ?? defaultFittedSize.width)
+  );
+  const resolvedHeight = Math.max(
+    AI_VIDEO_NODE_MIN_HEIGHT,
+    Math.round(height ?? defaultFittedSize.height)
+  );
 
   useEffect(() => {
     updateNodeInternals(id);
@@ -784,6 +825,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
     setReferencePickerOpen(false);
     setReferencePickerCursor(null);
     setShowFunctionPicker(false);
+    setOpenBrand(null);
   }, []);
 
   useEffect(() => {
@@ -791,14 +833,17 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       return;
     }
     const handleOutside = (event: MouseEvent) => {
-      if (rootRef.current?.contains(event.target as globalThis.Node)) {
+      // The control panel lives in <NodeToolbar>, which portals outside
+      // rootRef; the guard has to accept that subtree too or every click in
+      // the popover closes it before the button can fire.
+      if (isPointerInsideNodeUi(event.target, rootRef.current, id)) {
         return;
       }
       closeOpenPopovers();
     };
     document.addEventListener('mousedown', handleOutside, true);
     return () => document.removeEventListener('mousedown', handleOutside, true);
-  }, [closeOpenPopovers, modelOpen, paramsOpen, providerOpen, referencePickerOpen, showFunctionPicker]);
+  }, [closeOpenPopovers, id, modelOpen, paramsOpen, providerOpen, referencePickerOpen, showFunctionPicker]);
 
   const assembleVideoGenerationRequest = useCallback((): VideoGenerationRequestAssembly | null => {
     const latestPromptDraft = promptDraftRef.current;
@@ -1480,7 +1525,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
             <div className="nodrag absolute left-2 top-2 z-20">
               <button
                 type="button"
-                className="flex h-6 items-center gap-1 rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)]/80 px-2 text-[11px] text-text-dark backdrop-blur-sm transition-colors hover:bg-[var(--canvas-node-menu-hover)]"
+                className="flex h-7 items-center gap-1.5 rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)]/80 px-2.5 text-[12px] text-text-dark backdrop-blur-sm transition-colors hover:bg-[var(--canvas-node-menu-hover)]"
                 onClick={(event) => {
                   event.stopPropagation();
                   setHistoryOpen((open) => !open);
@@ -1555,7 +1600,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
       <NodeToolbar nodeId={id} isVisible position={Position.Bottom} align="center" offset={8} data-canvas-no-marquee="true">
       <div className="nodrag nowheel flex w-full max-w-[563px] min-w-[280px] shrink-0 flex-col rounded-[var(--node-radius)] border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-bg)] p-2">
       <div className="mb-2 flex shrink-0 flex-wrap items-center gap-1">
-        <span className="mr-1 text-[10px] text-text-muted">{t('videoModeTabs.label')}</span>
+        <span className="mr-1 text-[12px] text-text-muted">{t('videoModeTabs.label')}</span>
         {VIDEO_NODE_MODES.map((mode) => {
           const active = videoMode === mode.kind;
           return (
@@ -1563,7 +1608,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
               key={mode.kind}
               type="button"
               data-testid={`video-mode-${mode.kind}`}
-              className={`nodrag rounded-md border px-2 py-1 text-[11px] transition-colors ${
+              className={`nodrag rounded-md border px-2 py-1 text-[12px] transition-colors ${
                 active
                   ? 'border-accent/60 bg-accent/15 text-accent'
                   : 'border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] text-[var(--canvas-node-button-text)] hover:border-[var(--canvas-node-border-hover)] hover:bg-[var(--canvas-node-menu-hover)]'
@@ -1921,7 +1966,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                 setShowFunctionPicker(false);
               }}
               variant="muted"
-              className={`w-full justify-start ${NODE_CONTROL_CHIP_CLASS} ${AI_VIDEO_SELECTOR_CHIP_CLASS}`}
+              className={`w-full justify-start ${AI_VIDEO_CONTROL_CHIP_CLASS} ${AI_VIDEO_SELECTOR_CHIP_CLASS}`}
               title={selectedEntry?.providerLabel ?? t('node.aiVideo.noModel')}
             >
               <Video className={NODE_CONTROL_ICON_CLASS} />
@@ -1979,13 +2024,32 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
               setShowFunctionPicker(false);
             }}
             variant="muted"
-            className={`w-full justify-start ${NODE_CONTROL_CHIP_CLASS} ${AI_VIDEO_SELECTOR_CHIP_CLASS}`}
+            className={`w-full justify-start ${AI_VIDEO_CONTROL_CHIP_CLASS} ${AI_VIDEO_SELECTOR_CHIP_CLASS}`}
             title={selectedEntry?.modelLabel ?? t('node.aiVideo.noModel')}
           >
             <span className="min-w-0 truncate">{selectedEntry?.modelLabel ?? t('node.aiVideo.noModel')}</span>
             <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
           </UiButton>
-          {modelOpen && (
+          {modelOpen && brandGroups && (
+            <div
+              className="nowheel absolute bottom-full left-0 z-50 mb-1 rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] p-1.5 shadow-xl"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <ModelBrandMenu
+                groups={brandGroups}
+                activeId={resolvedModelConfig?.entryId ?? null}
+                openBrand={openBrandForMenu}
+                onOpenBrandChange={setOpenBrand}
+                onPick={(entry) => {
+                  handlePickModel(entry);
+                  setOpenBrand(null);
+                }}
+                isDisabled={(entry) => !isVideoEntryAvailableInMode(entry, videoMode)}
+                disabledReason={modelDisabledReason}
+              />
+            </div>
+          )}
+          {modelOpen && !brandGroups && (
             <div
               className="nowheel absolute bottom-full left-0 z-50 mb-1 w-[280px] overflow-hidden rounded-xl border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] p-1.5 shadow-xl"
               onMouseDown={(event) => event.stopPropagation()}
@@ -2038,7 +2102,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                 setShowFunctionPicker(false);
               }}
               variant="muted"
-              className={`w-full justify-start ${NODE_CONTROL_CHIP_CLASS}`}
+              className={`w-full justify-start ${AI_VIDEO_CONTROL_CHIP_CLASS}`}
               title={`${t('node.aiVideo.duration')} / ${t('node.aiVideo.resolution')} / ${t('node.aiVideo.aspectRatio')}`}
             >
               <span className="min-w-0 truncate">
@@ -2058,7 +2122,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                 onWheelCapture={(event) => event.stopPropagation()}
               >
                 {(!isDreaminaMultiframe || dreaminaMultiframeImageCount < 3) && <div>
-                  <div className="mb-1 text-[10px] text-text-muted">{t('node.aiVideo.duration')}</div>
+                  <div className="mb-1 text-[12px] text-text-muted">{t('node.aiVideo.duration')}</div>
                   {isAgnesVideoModel ? (
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -2071,18 +2135,18 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                           onChange={(event) => handleConfigChange({ duration: event.target.value })}
                           className="nodrag nowheel h-5 min-w-0 flex-1 accent-accent"
                         />
-                        <span className="w-10 text-right text-[11px] font-medium text-text-dark">
+                        <span className="w-10 text-right text-[12px] font-medium text-text-dark">
                           {resolvedModelConfig.duration}s
                         </span>
                       </div>
-                      <div className="text-[10px] leading-4 text-text-muted">
+                      <div className="text-[12px] leading-4 text-text-muted">
                         {t('node.aiVideo.agnesDurationHint')}
                       </div>
                     </div>
                   ) : (
                     <select
                       data-testid="video-duration-select"
-                      className="nodrag nowheel w-full rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] px-2 py-1 text-[11px] text-[var(--canvas-node-button-text)] outline-none"
+                      className="nodrag nowheel w-full rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] px-2 py-1 text-[12px] text-[var(--canvas-node-button-text)] outline-none"
                       value={resolvedModelConfig.duration}
                       onChange={(event) => handleConfigChange({ duration: event.target.value })}
                       onMouseDown={(event) => event.stopPropagation()}
@@ -2097,7 +2161,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                 </div>}
                 {isAgnesVideoModel && schemaIncomingImageItems.length > 1 && (
                   <div>
-                    <div className="mb-1 text-[10px] text-text-muted">{t('node.aiVideo.agnesMode')}</div>
+                    <div className="mb-1 text-[12px] text-text-muted">{t('node.aiVideo.agnesMode')}</div>
                     <div className="grid grid-cols-2 gap-1">
                       {([
                         ['multi', t('node.aiVideo.agnesModeMulti')],
@@ -2109,7 +2173,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                             key={mode}
                             type="button"
                             onClick={() => handleAgnesVideoModeChange(mode)}
-                            className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${
+                            className={`rounded-md border px-2 py-1 text-[12px] transition-colors ${
                               active
                                 ? 'border-accent/60 bg-accent/15 text-accent'
                                 : 'border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] text-[var(--canvas-node-button-text)] hover:border-[var(--canvas-node-border-hover)] hover:bg-[var(--canvas-node-menu-hover)]'
@@ -2123,7 +2187,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                   </div>
                 )}
                 <div>
-                  <div className="mb-1 text-[10px] text-text-muted">{t('node.aiVideo.aspectRatio')}</div>
+                  <div className="mb-1 text-[12px] text-text-muted">{t('node.aiVideo.aspectRatio')}</div>
                   <div className="flex flex-wrap gap-1">
                     {selectedEntry.supportedAspectRatios.map((aspectRatio) => {
                       const active = resolvedModelConfig.aspectRatio === aspectRatio;
@@ -2132,7 +2196,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                           key={aspectRatio}
                           type="button"
                           onClick={() => handleConfigChange({ aspectRatio })}
-                          className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${
+                          className={`rounded-md border px-2 py-1 text-[12px] transition-colors ${
                             active
                               ? 'border-accent/60 bg-accent/15 text-accent'
                               : 'border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] text-[var(--canvas-node-button-text)] hover:border-[var(--canvas-node-border-hover)] hover:bg-[var(--canvas-node-menu-hover)]'
@@ -2145,7 +2209,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                   </div>
                 </div>
                 <div>
-                  <div className="mb-1 text-[10px] text-text-muted">{t('node.aiVideo.resolution')}</div>
+                  <div className="mb-1 text-[12px] text-text-muted">{t('node.aiVideo.resolution')}</div>
                   <div className="flex flex-wrap gap-1">
                     {selectedEntry.supportedResolutions.map((resolution) => {
                       const active = resolvedModelConfig.resolution === resolution;
@@ -2154,7 +2218,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                           key={resolution}
                           type="button"
                           onClick={() => handleConfigChange({ resolution })}
-                          className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${
+                          className={`rounded-md border px-2 py-1 text-[12px] transition-colors ${
                             active
                               ? 'border-accent/60 bg-accent/15 text-accent'
                               : 'border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-button-bg)] text-[var(--canvas-node-button-text)] hover:border-[var(--canvas-node-border-hover)] hover:bg-[var(--canvas-node-menu-hover)]'
@@ -2181,7 +2245,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
         {selectedEntry && (
           <UiButton
             variant="muted"
-            className={`min-w-[92px] max-w-[132px] shrink-0 justify-start ${NODE_CONTROL_CHIP_CLASS}`}
+            className={`min-w-[92px] max-w-[132px] shrink-0 justify-start ${AI_VIDEO_CONTROL_CHIP_CLASS}`}
             title={describeVideoInputSchema(currentInputSchema)}
           >
             <span className="min-w-0 truncate">{describeCompactVideoInputSchema(currentInputSchema)}</span>
@@ -2196,7 +2260,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
               setShowCameraControl(true);
             }}
             variant={data.cameraControl?.enabled === true ? 'primary' : 'muted'}
-            className={`shrink-0 ${NODE_CONTROL_CHIP_CLASS} ${data.cameraControl?.enabled === true ? '' : AI_VIDEO_COMPACT_ICON_CHIP_CLASS}`}
+            className={`shrink-0 ${AI_VIDEO_CONTROL_CHIP_CLASS} ${data.cameraControl?.enabled === true ? '' : AI_VIDEO_COMPACT_ICON_CHIP_CLASS}`}
             title={t('cameraControl.title') as string}
             aria-label={t('cameraControl.title') as string}
           >
@@ -2217,7 +2281,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
               setShowFunctionPicker(false);
             }}
             variant="muted"
-            className={`shrink-0 ${NODE_CONTROL_CHIP_CLASS}`}
+            className={`shrink-0 ${AI_VIDEO_CONTROL_CHIP_CLASS}`}
           >
             <span>{t('node.aiVideo.referenceCount', { count: schemaReferencePickerItems.length })}</span>
           </UiButton>
@@ -2229,7 +2293,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
               void handleGenerate();
             }}
             variant="primary"
-            className={`shrink-0 ${NODE_CONTROL_PRIMARY_BUTTON_CLASS}`}
+            className={`shrink-0 ${AI_VIDEO_PRIMARY_BUTTON_CLASS}`}
           >
             <Sparkles className={NODE_CONTROL_ICON_CLASS} strokeWidth={2.8} />
             {t('canvas.generate')}
@@ -2241,7 +2305,7 @@ export const AiVideoNode = memo(({ id, data, selected, width, height }: AiVideoN
                 setModeMenuOpen((open) => !open);
               }}
               variant="muted"
-              className={`${NODE_CONTROL_CHIP_CLASS} ${AI_VIDEO_COMPACT_ICON_CHIP_CLASS}`}
+              className={`${AI_VIDEO_CONTROL_CHIP_CLASS} ${AI_VIDEO_COMPACT_ICON_CHIP_CLASS}`}
               title={t('node.imageNode.modeOverwrite')}
               aria-label={t('node.imageNode.modeOverwrite')}
             >

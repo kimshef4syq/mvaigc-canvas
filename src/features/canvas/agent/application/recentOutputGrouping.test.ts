@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CANVAS_NODE_TYPES, type CanvasNode } from '@/features/canvas/domain/canvasNodes';
 import { useCanvasStore } from '@/stores/canvasStore';
+import { getCanvasNodeSize } from '@/features/canvas/application/canvasNodePlacement';
 import { useProjectStore } from '@/stores/projectStore';
 import {
   clearRecentOutputGrouping,
@@ -114,7 +115,9 @@ describe('current-turn generated output grouping', () => {
       const shot = nodes.find((node) => node.id === sourceId)!;
       const result = nodes.find((node) => node.id === resultId)!;
       expect(result.position.y).toBe(shot.position.y);
-      expect(result.position.x - shot.position.x).toBe(728);
+      // 结果节点贴在源节点右侧：间距随源节点实际宽度变化（生成视频节点现为
+      // 384×288，与「生成图片」同尺寸），所以按真实尺寸推导而不是写死。
+      expect(result.position.x - shot.position.x).toBe(getCanvasNodeSize(shot).width + 48);
     }
     const width = Number(group.style?.width);
     const height = Number(group.style?.height);

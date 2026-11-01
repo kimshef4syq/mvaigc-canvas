@@ -233,15 +233,15 @@ pub(crate) fn validate_tools(
 /// `<hypitProjectDir>/imports/<assetId>.<ext>`, so this admits its output and
 /// rejects anything else an agent could try to smuggle through the envelope.
 fn validate_import_export_path(path: &str) -> Result<(), ExternalAgentCommandError> {
-    let invalid = || {
-        ExternalAgentCommandError::invalid_request(
-            "Invalid canvas asset export path.",
-        )
-    };
+    let invalid =
+        || ExternalAgentCommandError::invalid_request("Invalid canvas asset export path.");
     if !path.starts_with('/') || path.len() > 4096 {
         return Err(invalid());
     }
-    let parent = path.rsplit_once('/').map(|(head, _)| head).unwrap_or_default();
+    let parent = path
+        .rsplit_once('/')
+        .map(|(head, _)| head)
+        .unwrap_or_default();
     if parent.rsplit('/').next() != Some("imports") {
         return Err(invalid());
     }
@@ -528,7 +528,8 @@ mod tests {
     }
     #[test]
     fn only_imports_paths_bypass_result_redaction() {
-        let good = "/Users/me/Library/Application Support/app/hypit-projects/p-abcdef01/imports/a.png";
+        let good =
+            "/Users/me/Library/Application Support/app/hypit-projects/p-abcdef01/imports/a.png";
         assert!(validate_import_export_path(good).is_ok());
 
         for bad in [
@@ -539,13 +540,17 @@ mod tests {
             "/Users/me/imports/nested/deep.png",
             "",
         ] {
-            assert!(validate_import_export_path(bad).is_err(), "must reject {bad}");
+            assert!(
+                validate_import_export_path(bad).is_err(),
+                "must reject {bad}"
+            );
         }
     }
 
     #[test]
     fn an_asset_export_result_keeps_its_path_but_redacts_other_paths() {
-        let path = "/Users/me/Library/Application Support/app/hypit-projects/p-abcdef01/imports/a.png";
+        let path =
+            "/Users/me/Library/Application Support/app/hypit-projects/p-abcdef01/imports/a.png";
         let resolution = ExternalAgentToolResolution {
             outcome: "approved".to_string(),
             result: Some(json!({"assetId": "a", "kind": "image", "path": path,

@@ -51,6 +51,13 @@ export interface CatalogEntry {
   /** Dreamina model_version choices (3.0 / 4.0 / 5.0). For custom
    *  providers this is populated from the user-configured list. */
   supportedModelVersions?: string[];
+  /** Vendor the model belongs to, when the provider declares one. The picker
+   *  groups models by this instead of listing them flat. */
+  brand?: string;
+  /** Sort key for the vendor group; lower comes first. */
+  brandOrder?: number;
+  /** Badge shown next to the vendor (荐 / New / 限免). */
+  brandTag?: string;
 }
 
 interface DreaminaProviderStatus {
@@ -61,6 +68,60 @@ interface ImageModelCatalogSnapshot {
   customProviders: readonly CustomProviderConfig[];
   dreaminaStatus?: DreaminaProviderStatus | null;
   agnesApiKey?: string;
+}
+
+interface ModelBrandMeta {
+  brand: string;
+  order: number;
+  tag?: string;
+}
+
+interface ModelPerModelCaps {
+  resolutions?: string[];
+  aspectRatios?: string[];
+}
+
+function recordOf(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function stringList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const list = value.map((item) => String(item ?? '').trim()).filter(Boolean);
+  return list.length > 0 ? list : undefined;
+}
+
+/** Read `extraParams.modelBrands[modelId]` — the vendor grouping a provider
+ *  declares for each of its models. */
+function resolveModelBrand(extraParams: unknown, modelId: string): ModelBrandMeta | undefined {
+  const raw = recordOf(recordOf(extraParams)?.modelBrands)?.[modelId];
+  const meta = recordOf(raw);
+  const brand = typeof meta?.brand === 'string' ? meta.brand.trim() : '';
+  if (!meta || !brand) return undefined;
+  return {
+    brand,
+    order: typeof meta.order === 'number' && Number.isFinite(meta.order) ? meta.order : 0,
+    ...(typeof meta.tag === 'string' && meta.tag.trim() ? { tag: meta.tag.trim() } : {}),
+  };
+}
+
+/** Read `extraParams.perModel[modelId]` overrides for the image picker. */
+function resolveModelCaps(extraParams: unknown, modelId: string): ModelPerModelCaps {
+  const raw = recordOf(recordOf(extraParams)?.perModel)?.[modelId];
+  const caps = recordOf(raw);
+  return {
+    resolutions: stringList(caps?.resolutions),
+    aspectRatios: stringList(caps?.aspectRatios),
+  };
+}
+
+/** `extraParams.modelDescriptions[modelId]` — the display name a provider
+ *  wants the picker to show instead of the raw model id. */
+function resolveModelDescription(extraParams: unknown, modelId: string): string | undefined {
+  const value = recordOf(recordOf(extraParams)?.modelDescriptions)?.[modelId];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 function normalizeSupportedRatios(rawRatios: unknown, fallback: string[] = ['auto', '16:9']): string[] {
@@ -101,21 +162,26 @@ export function buildImageModelCatalog({
     const resolutions = cfg.supportedResolutions;
     const modelVersions = cfg.supportedModelVersions;
     for (const modelId of (cfg.models.length > 0 ? cfg.models : ['default'])) {
+      const brand = resolveModelBrand(cfg.extraParams, modelId);
+      const caps = resolveModelCaps(cfg.extraParams, modelId);
       entries.push({
         id: `custom:${cfg.id}:${modelId}`,
         kind: 'custom',
         providerId: cfg.id,
         providerLabel: cfg.label,
         modelId,
-        modelLabel: modelId,
-        supportedRatios: ratios,
+        modelLabel: resolveModelDescription(cfg.extraParams, modelId) ?? modelId,
+        supportedRatios: normalizeSupportedRatios(caps.aspectRatios ?? ratios),
         usable: hasReadyConfig,
         notReadyReason: hasReadyConfig
           ? undefined
           : (hasBaseUrl ? '请在「我的配置」里填入 API Key' : '请在「我的配置」里填入 API 根地址'),
         supportsWebSearch: Boolean(cfg.supportsWebSearch),
-        supportedResolutions: (resolutions && resolutions.length > 0) ? resolutions : undefined,
+        supportedResolutions: caps.resolutions
+          ?? ((resolutions && resolutions.length > 0) ? resolutions : undefined),
         supportedModelVersions: (modelVersions && modelVersions.length > 0) ? modelVersions : undefined,
+        ...(brand ? { brand: brand.brand, brandOrder: brand.order } : {}),
+        ...(brand?.tag ? { brandTag: brand.tag } : {}),
       });
     }
   }

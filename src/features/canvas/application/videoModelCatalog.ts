@@ -19,6 +19,7 @@ import {
   listDreaminaVideoModels,
   type DreaminaVideoModelCapability,
 } from './dreaminaCapabilities';
+import type { VideoNodeModeKind } from './videoModes';
 
 export interface VideoCatalogEntry {
   id: string;
@@ -37,6 +38,16 @@ export interface VideoCatalogEntry {
   inputSchema: VideoInputSchema;
   usable: boolean;
   notReadyReason?: string;
+  /** Vendor the model belongs to, when the provider declares one. The picker
+   *  groups models by this instead of listing them flat. */
+  brand?: string;
+  /** Sort key for the vendor group; lower comes first. */
+  brandOrder?: number;
+  /** Badge shown next to the vendor (荐 / New / 限免). */
+  brandTag?: string;
+  /** mvaigc generation scenes the model supports (`reference2video` etc.).
+   *  Absent means the provider declares no scene restriction. */
+  supportedScenes?: string[];
 }
 
 export interface VideoModelConfigValue {
@@ -137,6 +148,52 @@ function resolveModelDescription(
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
+interface ModelBrandMeta {
+  brand: string;
+  order: number;
+  tag?: string;
+}
+
+/** Read `extraParams.modelBrands[modelId]` — the vendor grouping a provider
+ *  declares for each of its models. */
+function resolveModelBrand(
+  provider: CustomProviderConfig,
+  modelId: string
+): ModelBrandMeta | undefined {
+  const brands = provider.extraParams?.modelBrands;
+  if (!brands || typeof brands !== 'object' || Array.isArray(brands)) {
+    return undefined;
+  }
+  const raw = (brands as Record<string, unknown>)[modelId];
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return undefined;
+  }
+  const meta = raw as Record<string, unknown>;
+  const brand = typeof meta.brand === 'string' ? meta.brand.trim() : '';
+  if (!brand) return undefined;
+  return {
+    brand,
+    order: typeof meta.order === 'number' && Number.isFinite(meta.order) ? meta.order : 0,
+    ...(typeof meta.tag === 'string' && meta.tag.trim() ? { tag: meta.tag.trim() } : {}),
+  };
+}
+
+/** Read `extraParams.modelScenes[modelId]` — the generation scenes a model
+ *  actually supports on mvaigc. */
+function resolveModelScenes(
+  provider: CustomProviderConfig,
+  modelId: string
+): string[] | undefined {
+  const scenes = provider.extraParams?.modelScenes;
+  if (!scenes || typeof scenes !== 'object' || Array.isArray(scenes)) {
+    return undefined;
+  }
+  const raw = (scenes as Record<string, unknown>)[modelId];
+  if (!Array.isArray(raw)) return undefined;
+  const list = raw.map((item) => String(item ?? '').trim()).filter(Boolean);
+  return list.length > 0 ? list : undefined;
+}
+
 export function buildVideoModelCatalog(
   customProviders: readonly CustomProviderConfig[],
   agnesApiKey = '',
@@ -189,6 +246,8 @@ export function buildVideoModelCatalog(
       const defaultExtraParams = typeof imageMode === 'string' && inputSchema.imageModes?.some((mode) => mode === imageMode)
         ? { imageMode }
         : undefined;
+      const brand = resolveModelBrand(provider, modelId);
+      const supportedScenes = resolveModelScenes(provider, modelId);
       entries.push({
         id: `custom:${provider.id}:${modelId}`,
         providerId: provider.id,
@@ -208,6 +267,9 @@ export function buildVideoModelCatalog(
         notReadyReason: usable
           ? undefined
           : comfyError || (hasBaseUrl ? '请在「我的配置」里填入 API Key' : '请在「我的配置」里填入 API 根地址'),
+        ...(brand ? { brand: brand.brand, brandOrder: brand.order } : {}),
+        ...(brand?.tag ? { brandTag: brand.tag } : {}),
+        ...(supportedScenes ? { supportedScenes } : {}),
       });
     }
   }
@@ -281,6 +343,27 @@ export function useVideoModelCatalog(): VideoCatalogEntry[] {
     () => buildVideoModelCatalog(customProviders, agnesApiKey, dreaminaStatus),
     [agnesApiKey, customProviders, dreaminaStatus]
   );
+}
+
+/** mvaigc scene key each of the video node's four generation modes submits to. */
+const MODE_SCENE: Record<VideoNodeModeKind, string> = {
+  text: 'start2video',
+  image: 'start2video',
+  frames: 'start-end2video',
+  reference: 'reference2video',
+};
+
+/**
+ * Whether a model can run the node's current generation mode. A model that
+ * declares no scenes (every non-mvaigc provider) stays selectable everywhere;
+ * a model that declares scenes is greyed out in modes it cannot run.
+ */
+export function isVideoEntryAvailableInMode(
+  entry: Pick<VideoCatalogEntry, 'supportedScenes'>,
+  mode: VideoNodeModeKind,
+): boolean {
+  if (!entry.supportedScenes) return true;
+  return entry.supportedScenes.includes(MODE_SCENE[mode]);
 }
 
 export function resolveVideoModelConfig(
