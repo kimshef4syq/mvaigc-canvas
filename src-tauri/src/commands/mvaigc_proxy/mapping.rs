@@ -29,16 +29,26 @@ fn str_field(value: &Value, key: &str) -> Option<String> {
 }
 
 /// Resolve `(resolution, aspect_ratio)` from an OSC image request. OSC sends
-/// `size` (pixels) plus `aspect_ratio` (the user's pick); the explicit ratio
-/// wins. mvaigc's `resolution` field expects a tier like `2K`, not a pixel
-/// size, so we always send `2K`.
+/// `size` (pixels or a tier) plus `aspect_ratio` (the user's pick); the explicit
+/// ratio wins. mvaigc's `resolution` field expects a tier like `2K`, not a
+/// pixel size, so a pixel `size` falls back to 2K — but a real tier the user
+/// picked (1K / 2K / 4K) is passed through untouched.
 fn resolve_image_resolution_ratio(openai: &Value) -> (String, String) {
     let size = str_field(openai, "size").unwrap_or_default();
     let ratio = str_field(openai, "aspect_ratio")
         .filter(|value| value.contains(':'))
-        .or_else(|| if size.contains(':') { Some(size) } else { None })
+        .or_else(|| if size.contains(':') { Some(size.clone()) } else { None })
         .unwrap_or_else(|| "1:1".to_string());
-    ("2K".to_string(), ratio)
+    let resolution = str_field(openai, "resolution")
+        .filter(|value| is_image_resolution_tier(value))
+        .or_else(|| Some(size).filter(|value| is_image_resolution_tier(value)))
+        .unwrap_or_else(|| "2K".to_string());
+    (resolution, ratio)
+}
+
+/// True for the tier strings mvaigc accepts (`1K`, `2K`, `4K`, case-insensitive).
+fn is_image_resolution_tier(value: &str) -> bool {
+    matches!(value.trim().to_ascii_uppercase().as_str(), "1K" | "2K" | "4K")
 }
 
 /// Reference-image URLs from an OSC request. OSC sends `reference_images`
@@ -213,6 +223,38 @@ mod tests {
             decode_task_id(&id),
             Some(("imgToImage".into(), "67890".into()))
         );
+    }
+
+    #[test]
+    fn image_request_passes_the_requested_resolution_tier_through() {
+        // The node sends the user's pick as `size` (1K / 2K / 4K); mvaigc takes
+        // that tier verbatim, so a 1K or 4K pick must not be flattened to 2K.
+        for tier in ["1K", "2K", "4K"] {
+            let openai = serde_json::json!({
+                "model": "gpt_image2", "prompt": "猫",
+                "size": tier, "aspect_ratio": "16:9", "n": 1
+            });
+            let out = map_image_request(&openai, "GPT-Image-2");
+            assert_eq!(out["resolution"], tier, "resolution tier must pass through");
+        }
+    }
+
+    #[test]
+    fn image_request_defaults_resolution_to_2k_when_the_request_omits_it() {
+        // No tier, no pixel size: mvaigc's own default for every image model.
+        let openai = serde_json::json!({
+            "model": "gpt_image2", "prompt": "猫", "aspect_ratio": "16:9"
+        });
+        assert_eq!(map_image_request(&openai, "GPT-Image-2")["resolution"], "2K");
+    }
+
+    #[test]
+    fn image_request_does_not_mistake_a_pixel_size_for_a_resolution_tier() {
+        let openai = serde_json::json!({
+            "model": "gpt_image2", "prompt": "猫",
+            "size": "1024x1024", "aspect_ratio": "16:9", "n": 1
+        });
+        assert_eq!(map_image_request(&openai, "GPT-Image-2")["resolution"], "2K");
     }
 
     #[test]

@@ -37,13 +37,12 @@ export function getCanvasNodeSize(node: Pick<CanvasNode, 'type' | 'measured' | '
   const style = node.style as { width?: unknown; height?: unknown } | undefined;
   const fallback = canvasNodeDefinitions[node.type]?.defaultSize
     ?? (node.type === CANVAS_NODE_TYPES.imageEdit ? { width: 680, height: 380 }
-      : node.type === CANVAS_NODE_TYPES.aiVideo ? { width: 680, height: 360 }
-        : node.type === CANVAS_NODE_TYPES.exportImage
+        : node.type === CANVAS_NODE_TYPES.exportImage || node.type === CANVAS_NODE_TYPES.aiVideo
           ? { width: EXPORT_RESULT_NODE_DEFAULT_WIDTH, height: EXPORT_RESULT_NODE_LAYOUT_HEIGHT }
           : { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
   const valid = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0;
   const first = (values: unknown[], defaultValue: number) => (values.find(valid) as number | undefined) ?? defaultValue;
-  const minWidth = node.type === CANVAS_NODE_TYPES.imageEdit ? 520 : node.type === CANVAS_NODE_TYPES.aiVideo ? 560 : 0;
+  const minWidth = node.type === CANVAS_NODE_TYPES.imageEdit ? 520 : 0;
   const minHeight = minWidth ? 260 : 0;
   return {
     width: valid(node.measured?.width) ? node.measured.width : Math.max(minWidth, first([node.width, style?.width], fallback.width)),

@@ -99,10 +99,12 @@ type AudioGenerationRequestAssembly =
     comfyPayload: GenerateRequest;
   });
 
-const AI_AUDIO_NODE_MIN_WIDTH = 500;
-const AI_AUDIO_NODE_MIN_HEIGHT = 320;
-const AI_AUDIO_NODE_DEFAULT_WIDTH = 640;
-const AI_AUDIO_NODE_DEFAULT_HEIGHT = 390;
+// Audio has no aspect ratio of its own, so a fresh node takes the 1:1 footprint
+// the 生成图片 node uses, keeping every new node the same size on the canvas.
+const AI_AUDIO_NODE_MIN_WIDTH = 260;
+const AI_AUDIO_NODE_MIN_HEIGHT = 168;
+const AI_AUDIO_NODE_DEFAULT_WIDTH = 288;
+const AI_AUDIO_NODE_DEFAULT_HEIGHT = 288;
 const AI_AUDIO_NODE_MAX_WIDTH = 1200;
 const AI_AUDIO_NODE_MAX_HEIGHT = 900;
 const PROMPT_COMMIT_DELAY_MS = 450;

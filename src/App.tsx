@@ -10,6 +10,8 @@ import { LaunchIntro } from './features/app/LaunchIntro';
 import { useThemeStore } from './stores/themeStore';
 import { useProjectStore } from './stores/projectStore';
 import { useSettingsStore } from './stores/settingsStore';
+import { useCustomProvidersStore } from './stores/customProvidersStore';
+import { syncMvaigcProvidersFromSettings } from './features/canvas/application/mvaigcProviderAutoConfig';
 import {
   checkForUpdate,
   isUpdateVersionSuppressed,
@@ -115,6 +117,22 @@ function App() {
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+
+  // Refresh the mvaigc providers from the stored credentials on launch, so a
+  // catalogue update reaches users who configured mvaigc once and never reopen
+  // the settings panel.
+  useEffect(() => {
+    const settings = useSettingsStore.getState();
+    const providers = useCustomProvidersStore.getState();
+    syncMvaigcProvidersFromSettings(
+      { account: settings.mvaigcAccount, password: settings.mvaigcPassword, port: settings.mvaigcPort },
+      {
+        addProvider: providers.addProvider,
+        updateProvider: providers.updateProvider,
+        hasProvider: (id) => useCustomProvidersStore.getState().providers.some((p) => p.id === id),
+      },
+    );
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeOpenGlobalErrorDialog((detail) => {

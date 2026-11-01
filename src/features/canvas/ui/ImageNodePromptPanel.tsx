@@ -209,7 +209,9 @@ export const ImageNodePromptPanel = memo(({ nodeId, data, onOpenCameraControl }:
     setSubmitting(true);
     try {
       const geometry = normalizeImageRequestGeometry({
-        selectedResolution: '2K',
+        // The 参数 popover writes the user's 1K/2K/4K pick to
+        // `extraParams.resolutionType`; 2K is only the untouched default.
+        selectedResolution: resolved.extraParams.resolutionType ?? '2K',
         selectedAspectRatio: resolved.ratio ?? data.aspectRatio ?? '1:1',
         referenceAspectRatio: data.aspectRatio,
         supportedAspectRatios: resolved.supportedRatios,

@@ -1,3 +1,9 @@
+import {
+  EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+  EXPORT_RESULT_NODE_LAYOUT_HEIGHT,
+  EXPORT_RESULT_NODE_MIN_HEIGHT,
+  EXPORT_RESULT_NODE_MIN_WIDTH,
+} from '../domain/canvasNodes';
 import { parseAspectRatio } from './imageData';
 
 export interface ImageNodeSize {
@@ -80,6 +86,29 @@ export function resolveSizeInsideTargetBox(
   return {
     width: roundPositive(targetHeight * ratio),
     height: targetHeight,
+  };
+}
+
+/**
+ * Default footprint for a freshly created image-shaped node, shared by the
+ * 生成图片 node and every other node that shows a single frame of media
+ * (生成视频, AI 音频). Mirrors what `ImageNode` computes for an unmeasured
+ * exportImage node: fit the ratio inside the 384×288 box, then make sure at
+ * least one edge reaches the 260×168 min-edge box.
+ */
+export function resolveDefaultImageNodeSize(aspectRatio: string): ImageNodeSize {
+  const ratio = resolveAspectRatioValue(aspectRatio);
+  const fitted = resolveSizeInsideTargetBox(aspectRatio, {
+    width: EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+    height: EXPORT_RESULT_NODE_LAYOUT_HEIGHT,
+  });
+  const compact = resolveMinSizeByRatio(ratio, {
+    minWidth: EXPORT_RESULT_NODE_MIN_WIDTH,
+    minHeight: EXPORT_RESULT_NODE_MIN_HEIGHT,
+  });
+  return {
+    width: Math.max(compact.width, fitted.width),
+    height: Math.max(compact.height, fitted.height),
   };
 }
 

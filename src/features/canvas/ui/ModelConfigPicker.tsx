@@ -7,7 +7,9 @@ import {
   useImageModelCatalog,
   type CatalogEntry,
 } from '@/features/canvas/application/modelCatalog';
+import { groupModelsByBrand } from '@/features/canvas/application/modelGroups';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { ModelBrandMenu } from './ModelBrandMenu';
 
 export interface ModelConfigValue {
   entryId: string;
@@ -108,10 +110,20 @@ export const ModelConfigPicker = memo(({
     [byProvider, currentEntry]
   );
 
+  // Providers that declare a vendor per model (mvaigc) get a two-level menu;
+  // everyone else keeps the flat list.
+  const brandGroups = useMemo(
+    () => groupModelsByBrand(modelsForCurrentProvider),
+    [modelsForCurrentProvider]
+  );
+  const [openBrand, setOpenBrand] = useState<string | null>(null);
+  const openBrandForMenu = brandGroups?.some((group) => group.brand === openBrand) ? openBrand : null;
+
   const closeAll = useCallback(() => {
     setProviderOpen(false);
     setModelOpen(false);
     setParamsOpen(false);
+    setOpenBrand(null);
   }, []);
 
   const commitConfig = useCallback((next: ModelConfigValue) => {
@@ -266,7 +278,25 @@ export const ModelConfigPicker = memo(({
           <span className="min-w-0 truncate">{currentEntry?.modelLabel ?? '选择模型'}</span>
           <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
         </button>
-        {modelOpen && (
+        {modelOpen && brandGroups && (
+          <div
+            // No scroll/clip here: the vendor flyout hangs outside this box.
+            className="nowheel absolute bottom-full left-0 z-[1200] mb-1 min-w-[160px] rounded-md border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-menu-bg)] p-1 shadow-2xl"
+            onWheelCapture={stopPickerWheel}
+          >
+            <ModelBrandMenu
+              groups={brandGroups}
+              activeId={current.entryId}
+              openBrand={openBrandForMenu}
+              onOpenBrandChange={setOpenBrand}
+              onPick={(entry) => {
+                handlePickModel(entry);
+                setOpenBrand(null);
+              }}
+            />
+          </div>
+        )}
+        {modelOpen && !brandGroups && (
           <div className={`${menuCls} left-0 max-h-[260px] min-w-[220px] max-w-[280px]`} onWheelCapture={stopPickerWheel}>
             {modelsForCurrentProvider.map((entry) => (
               <button
