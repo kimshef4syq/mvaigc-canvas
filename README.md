@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/brand/open-storyboard-canvas-icon.png" width="112" alt="mvaigc 桌面画布" />
+<img src="docs/brand/mvaigc-canvas-icon.png" width="112" alt="mvaigc 桌面画布" />
 
 # mvaigc 桌面画布
 
@@ -61,19 +61,6 @@ mvaigc 桌面画布把参考素材、提示词、AI 生图 / 生视频、分镜�
 - 画布左侧提供人类可读的日志入口，可搜索、筛选、查看脱敏原文并重新获取安全结果。
 - 项目文件导入 / 导出与应用设置备份 / 恢复分开处理，凭据默认不导出。
 - 画布节点、边、视口、历史记录和媒体引用自动保存到本机项目；支持浅色 / 深色主题、中英文界面，以及适配 macOS 与 Windows 的桌面交互。
-
-## 界面预览
-
-| 功能 | 预览 |
-| --- | --- |
-| AI 图片节点：模型、参数、摄像机控制、张数与提示词集中配置 | <img src="docs/imgs/readme/ai-image-node.png" alt="AI 图片节点" width="520" /> |
-| 摄像机控制：相机、镜头、焦距和光圈描述 | <img src="docs/imgs/readme/camera-control.png" alt="摄像机控制" width="520" /> |
-| 图片节点工具栏：多角度、打光、编辑、切分、预览与下载 | <img src="docs/imgs/readme/image-node-toolbar.png" alt="图片节点工具栏" width="520" /> |
-| 导演台：人物、道具、全景环境、摄影机与灯光调度 | <img src="docs/imgs/readme/director-studio.png" alt="导演台" width="520" /> |
-| 导演台全景背景导入 | <img src="docs/imgs/readme/director-panorama-import.png" alt="导演台导入全景图" width="520" /> |
-| 自定义供应商设置 | <img src="docs/imgs/readme/provider-settings.png" alt="自定义供应商设置" width="520" /> |
-| 提示词管理：编辑内置提示词、切换语言和恢复默认内容 | <img src="docs/imgs/readme/prompt-management.gif" alt="提示词管理" width="520" /> |
-| 提示词预设：保存并复用常用正向提示词 | <img src="docs/imgs/readme/prompt-presets.png" alt="提示词预设" width="520" /> |
 
 ## 首次使用
 
