@@ -37,7 +37,13 @@ fn resolve_image_resolution_ratio(openai: &Value) -> (String, String) {
     let size = str_field(openai, "size").unwrap_or_default();
     let ratio = str_field(openai, "aspect_ratio")
         .filter(|value| value.contains(':'))
-        .or_else(|| if size.contains(':') { Some(size.clone()) } else { None })
+        .or_else(|| {
+            if size.contains(':') {
+                Some(size.clone())
+            } else {
+                None
+            }
+        })
         .unwrap_or_else(|| "1:1".to_string());
     let resolution = str_field(openai, "resolution")
         .filter(|value| is_image_resolution_tier(value))
@@ -48,7 +54,10 @@ fn resolve_image_resolution_ratio(openai: &Value) -> (String, String) {
 
 /// True for the tier strings mvaigc accepts (`1K`, `2K`, `4K`, case-insensitive).
 fn is_image_resolution_tier(value: &str) -> bool {
-    matches!(value.trim().to_ascii_uppercase().as_str(), "1K" | "2K" | "4K")
+    matches!(
+        value.trim().to_ascii_uppercase().as_str(),
+        "1K" | "2K" | "4K"
+    )
 }
 
 /// Reference-image URLs from an OSC request. OSC sends `reference_images`
@@ -186,8 +195,7 @@ pub fn map_video_request(openai: &Value, api_name: &str) -> Value {
     let resolution = str_field(openai, "resolution")
         .filter(|value| !value.contains(':') && !value.contains('x'))
         .or_else(|| {
-            str_field(openai, "size")
-                .filter(|value| !value.contains(':') && !value.contains('x'))
+            str_field(openai, "size").filter(|value| !value.contains(':') && !value.contains('x'))
         })
         .unwrap_or_else(|| "720p".to_string());
     // Reference audio already flowed through `audios`; this is the separate
@@ -245,7 +253,10 @@ mod tests {
         let openai = serde_json::json!({
             "model": "gpt_image2", "prompt": "猫", "aspect_ratio": "16:9"
         });
-        assert_eq!(map_image_request(&openai, "GPT-Image-2")["resolution"], "2K");
+        assert_eq!(
+            map_image_request(&openai, "GPT-Image-2")["resolution"],
+            "2K"
+        );
     }
 
     #[test]
@@ -254,7 +265,10 @@ mod tests {
             "model": "gpt_image2", "prompt": "猫",
             "size": "1024x1024", "aspect_ratio": "16:9", "n": 1
         });
-        assert_eq!(map_image_request(&openai, "GPT-Image-2")["resolution"], "2K");
+        assert_eq!(
+            map_image_request(&openai, "GPT-Image-2")["resolution"],
+            "2K"
+        );
     }
 
     #[test]
@@ -449,7 +463,10 @@ mod tests {
                 "model": "botsmart_seedance_2", "prompt": "一只猫", "size": size, "seconds": 5
             });
             let out = map_video_request(&openai, "Seedance-2.0");
-            assert_eq!(out["resolution"], "720p", "size {size} is not a resolution tier");
+            assert_eq!(
+                out["resolution"], "720p",
+                "size {size} is not a resolution tier"
+            );
         }
     }
 }

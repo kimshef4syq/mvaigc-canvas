@@ -140,7 +140,7 @@ describe('external Agent Canvas approval bridge', () => {
       status: 'error',
       // project-1 has no such asset, so the read fails with a comprehensible
       // sentence rather than a crash.
-      error: expect.stringMatching(/The requested canvas image no longer exists|temporary resource/i),
+      error: expect.stringMatching(/The requested canvas (?:image|asset) no longer exists|temporary resource/i),
     });
     expect(commandMocks.resolve).toHaveBeenLastCalledWith(expect.objectContaining({
       sessionId: 'session-1',

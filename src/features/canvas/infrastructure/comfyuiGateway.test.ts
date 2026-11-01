@@ -715,7 +715,7 @@ describe('YuE2 max duration', () => {
       prompt: 'pop', model: 'workflow', size: 'workflow', aspect_ratio: 'auto',
       reference_images: [], reference_audios: [], extra_params: { seconds: 360 },
     });
-    expect(patched['33:25'].inputs.max_duration).toBe(360);
+    expect(patched['33:25'].inputs).toMatchObject({ max_duration: 360 });
   });
 
   it('leaves max_duration untouched when no seconds are supplied', () => {
@@ -723,7 +723,7 @@ describe('YuE2 max duration', () => {
       prompt: 'pop', model: 'workflow', size: 'workflow', aspect_ratio: 'auto',
       reference_images: [], reference_audios: [],
     });
-    expect(patched['33:25'].inputs.max_duration).toBe(300);
+    expect(patched['33:25'].inputs).toMatchObject({ max_duration: 300 });
   });
 });
 

@@ -3702,10 +3702,22 @@ pub async fn save_video_source_to_path(
 
     // Before reading a local reference, reject special files (reading a FIFO
     // can block indefinitely) and bound the copy. Existing save-as stays compatible.
-    if content_addressed == Some(true) && !trimmed_source.starts_with("http://") && !trimmed_source.starts_with("https://") && !trimmed_source.starts_with("data:") {
-        let path = if trimmed_source.starts_with("file://") { PathBuf::from(decode_file_url_path(trimmed_source)) } else { PathBuf::from(trimmed_source) };
-        let metadata = std::fs::symlink_metadata(path).map_err(|_| "Reference video no longer exists")?;
-        if !metadata.file_type().is_file() || metadata.len() == 0 || metadata.len() > 512 * 1024 * 1024 {
+    if content_addressed == Some(true)
+        && !trimmed_source.starts_with("http://")
+        && !trimmed_source.starts_with("https://")
+        && !trimmed_source.starts_with("data:")
+    {
+        let path = if trimmed_source.starts_with("file://") {
+            PathBuf::from(decode_file_url_path(trimmed_source))
+        } else {
+            PathBuf::from(trimmed_source)
+        };
+        let metadata =
+            std::fs::symlink_metadata(path).map_err(|_| "Reference video no longer exists")?;
+        if !metadata.file_type().is_file()
+            || metadata.len() == 0
+            || metadata.len() > 512 * 1024 * 1024
+        {
             return Err("Reference must be a nonempty regular video file, at most 512 MiB".into());
         }
     }
@@ -3718,7 +3730,10 @@ pub async fn save_video_source_to_path(
     let output_path = if content_addressed == Some(true) {
         use sha2::{Digest, Sha256};
         let hash = format!("{:x}", Sha256::digest(&bytes));
-        raw_path.with_file_name(format!("reference-{hash}.{}", normalize_video_extension(&extension)))
+        raw_path.with_file_name(format!(
+            "reference-{hash}.{}",
+            normalize_video_extension(&extension)
+        ))
     } else {
         ensure_output_path_with_extension(&raw_path, &extension)
     };
@@ -3732,10 +3747,14 @@ pub async fn save_video_source_to_path(
     // another address, so it cannot overwrite a reference used by an older terminal.
     if content_addressed == Some(true) {
         if let Ok(metadata) = std::fs::symlink_metadata(&output_path) {
-            if !metadata.file_type().is_file() { return Err("Reference cache contains a non-regular file".into()); }
+            if !metadata.file_type().is_file() {
+                return Err("Reference cache contains a non-regular file".into());
+            }
         }
     }
-    if content_addressed != Some(true) || std::fs::read(&output_path).ok().as_deref() != Some(bytes.as_slice()) {
+    if content_addressed != Some(true)
+        || std::fs::read(&output_path).ok().as_deref() != Some(bytes.as_slice())
+    {
         std::fs::write(&output_path, bytes)
             .map_err(|e| format!("Failed to save video to target path: {}", e))?;
     }
@@ -4439,7 +4458,10 @@ mod persist_audio_tests {
         let first = persist_audio_bytes_in(dir.path(), bytes, "wav").unwrap();
         assert!(first.ends_with(".wav"));
         assert_eq!(std::fs::read(dir.path().join(&first)).unwrap(), bytes);
-        assert_eq!(persist_audio_bytes_in(dir.path(), bytes, "wav").unwrap(), first);
+        assert_eq!(
+            persist_audio_bytes_in(dir.path(), bytes, "wav").unwrap(),
+            first
+        );
     }
 
     #[test]
@@ -4505,11 +4527,29 @@ mod video_reference_snapshot_tests {
         let source = root.path().join("source.mp4");
         let target = root.path().join("imports/clip.mp4");
         std::fs::write(&source, b"original video bytes").unwrap();
-        let first = save_video_source_to_path(source.to_string_lossy().into(), target.to_string_lossy().into(), Some(true)).await.unwrap();
-        let repeated = save_video_source_to_path(source.to_string_lossy().into(), target.to_string_lossy().into(), Some(true)).await.unwrap();
+        let first = save_video_source_to_path(
+            source.to_string_lossy().into(),
+            target.to_string_lossy().into(),
+            Some(true),
+        )
+        .await
+        .unwrap();
+        let repeated = save_video_source_to_path(
+            source.to_string_lossy().into(),
+            target.to_string_lossy().into(),
+            Some(true),
+        )
+        .await
+        .unwrap();
         assert_eq!(first, repeated);
         std::fs::write(&source, b"another video version").unwrap();
-        let second = save_video_source_to_path(source.to_string_lossy().into(), target.to_string_lossy().into(), Some(true)).await.unwrap();
+        let second = save_video_source_to_path(
+            source.to_string_lossy().into(),
+            target.to_string_lossy().into(),
+            Some(true),
+        )
+        .await
+        .unwrap();
         assert_ne!(first, second);
         assert_eq!(std::fs::read(first).unwrap(), b"original video bytes");
         assert_eq!(std::fs::read(second).unwrap(), b"another video version");
@@ -4518,12 +4558,29 @@ mod video_reference_snapshot_tests {
     #[tokio::test]
     async fn reference_export_refuses_directories_and_symlinks_before_reading() {
         let root = tempfile::tempdir().unwrap();
-        let target = root.path().join("imports/clip.mp4").to_string_lossy().to_string();
-        assert!(save_video_source_to_path(root.path().to_string_lossy().into(), target.clone(), Some(true)).await.is_err());
-        #[cfg(unix)] {
-            let source = root.path().join("video.mp4"); std::fs::write(&source, b"video").unwrap();
-            let link = root.path().join("link.mp4"); std::os::unix::fs::symlink(source, &link).unwrap();
-            assert!(save_video_source_to_path(link.to_string_lossy().into(), target, Some(true)).await.is_err());
+        let target = root
+            .path()
+            .join("imports/clip.mp4")
+            .to_string_lossy()
+            .to_string();
+        assert!(save_video_source_to_path(
+            root.path().to_string_lossy().into(),
+            target.clone(),
+            Some(true)
+        )
+        .await
+        .is_err());
+        #[cfg(unix)]
+        {
+            let source = root.path().join("video.mp4");
+            std::fs::write(&source, b"video").unwrap();
+            let link = root.path().join("link.mp4");
+            std::os::unix::fs::symlink(source, &link).unwrap();
+            assert!(
+                save_video_source_to_path(link.to_string_lossy().into(), target, Some(true))
+                    .await
+                    .is_err()
+            );
         }
     }
 }
