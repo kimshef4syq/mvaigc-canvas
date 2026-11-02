@@ -1,0 +1,379 @@
+{
+  "2": {
+    "inputs": {
+      "image": "fennec-figure.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "3": {
+    "inputs": {
+      "bg_removal_name": "birefnet.safetensors"
+    },
+    "class_type": "LoadBackgroundRemovalModel",
+    "_meta": {
+      "title": "加载背景移除模型"
+    }
+  },
+  "4": {
+    "inputs": {
+      "bg_removal_model": [
+        "3",
+        0
+      ],
+      "image": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "RemoveBackground",
+    "_meta": {
+      "title": "移除背景"
+    }
+  },
+  "5": {
+    "inputs": {
+      "mode": "synthetic",
+      "image": [
+        "2",
+        0
+      ],
+      "mask": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "IdolPreprocessImage",
+    "_meta": {
+      "title": "Idol Preprocess Image"
+    }
+  },
+  "6": {
+    "inputs": {
+      "images": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "What the model sees"
+    }
+  },
+  "7": {
+    "inputs": {
+      "clip_name": "dino_v3_vit_h.safetensors"
+    },
+    "class_type": "CLIPVisionLoader",
+    "_meta": {
+      "title": "加载CLIP视觉"
+    }
+  },
+  "8": {
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE (FLUX.2)"
+    }
+  },
+  "9": {
+    "inputs": {
+      "clip_vision": [
+        "7",
+        0
+      ],
+      "vae": [
+        "8",
+        0
+      ],
+      "image": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "TripoSplatConditioning",
+    "_meta": {
+      "title": "TripoSplat 条件编码"
+    }
+  },
+  "10": {
+    "inputs": {
+      "unet_name": "idol_fp32.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Idol"
+    }
+  },
+  "11": {
+    "inputs": {
+      "precision": "default",
+      "model": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "IdolPrecision",
+    "_meta": {
+      "title": "Idol Precision"
+    }
+  },
+  "12": {
+    "inputs": {
+      "seed": 115307206670670,
+      "steps": 50,
+      "cfg": 4,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "11",
+        0
+      ],
+      "positive": [
+        "9",
+        0
+      ],
+      "negative": [
+        "9",
+        1
+      ],
+      "latent_image": [
+        "9",
+        2
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "13": {
+    "inputs": {
+      "vae_name": "idol_vae_decoder_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE (Idol decoder)"
+    }
+  },
+  "14": {
+    "inputs": {
+      "num_gaussians": 262144,
+      "seed": 42,
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeTripoSplat",
+    "_meta": {
+      "title": "TripoSplat 解码"
+    }
+  },
+  "15": {
+    "inputs": {
+      "format": "ply",
+      "splat": [
+        "14",
+        0
+      ]
+    },
+    "class_type": "SplatToFile3D",
+    "_meta": {
+      "title": "创建 3D 文件（由 Splat）"
+    }
+  },
+  "16": {
+    "inputs": {
+      "filename_prefix": "3d/idol",
+      "viewport_state": {
+        "image": "",
+        "mask": "",
+        "normal": "",
+        "camera_info": {
+          "position": {
+            "x": 10,
+            "y": 10,
+            "z": 10.000000000000002
+          },
+          "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "zoom": 1,
+          "cameraType": "perspective",
+          "quaternion": {
+            "x": -0.2798481423331213,
+            "y": 0.3647051996310008,
+            "z": 0.11591689595929511,
+            "w": 0.8804762392171493
+          },
+          "fov": 35,
+          "aspect": 1,
+          "near": 0.01,
+          "far": 10000,
+          "frustum": {
+            "left": -5,
+            "right": 5,
+            "top": 5,
+            "bottom": -5
+          }
+        },
+        "recording": "",
+        "model_3d_info": [
+          {
+            "position": {
+              "x": 0,
+              "y": 0,
+              "z": 0
+            },
+            "quaternion": {
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "w": 1
+            },
+            "scale": {
+              "x": 1,
+              "y": 1,
+              "z": 1
+            }
+          }
+        ]
+      },
+      "width": 1024,
+      "height": 1024,
+      "model_3d": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "SaveGaussianSplat",
+    "_meta": {
+      "title": "保存 Splat"
+    }
+  },
+  "17": {
+    "inputs": {
+      "mode": "synthetic",
+      "samples": [
+        "12",
+        0
+      ],
+      "splat": [
+        "14",
+        0
+      ]
+    },
+    "class_type": "IdolInputCamera",
+    "_meta": {
+      "title": "Idol Input Camera"
+    }
+  },
+  "18": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "frames": 1,
+      "splat_scale": 1,
+      "sharpen": 2,
+      "headlight_shading": 0,
+      "opacity_threshold": 0,
+      "render_style": "color",
+      "background": "#000000",
+      "splat": [
+        "14",
+        0
+      ],
+      "camera_info": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "RenderSplat",
+    "_meta": {
+      "title": "Render Splat (input view)"
+    }
+  },
+  "19": {
+    "inputs": {
+      "images": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Input view"
+    }
+  },
+  "20": {
+    "inputs": {
+      "width": 768,
+      "height": 768,
+      "frames": 72,
+      "splat_scale": 1,
+      "sharpen": 2,
+      "headlight_shading": 0,
+      "opacity_threshold": 0,
+      "render_style": "color",
+      "background": "#ffffff",
+      "splat": [
+        "14",
+        0
+      ],
+      "camera_info": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "RenderSplat",
+    "_meta": {
+      "title": "Render Splat (turntable)"
+    }
+  },
+  "21": {
+    "inputs": {
+      "fps": 24,
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "codec": "none",
+      "images": [
+        "20",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "创建视频"
+    }
+  },
+  "22": {
+    "inputs": {
+      "filename_prefix": "video/idol",
+      "format": "auto",
+      "format.codec": "auto",
+      "codec": "auto",
+      "video-preview": "",
+      "video": [
+        "21",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "保存视频"
+    }
+  }
+}

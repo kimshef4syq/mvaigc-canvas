@@ -50,7 +50,8 @@
       "../resources/agent-profiles/": "resources/agent-profiles/",
       "../resources/hypit-provider-mvaigc/dist/": "resources/hypit-provider-mvaigc/dist/",
       "../resources/hypit-provider-mvaigc/package.json": "resources/hypit-provider-mvaigc/package.json",
-      "../resources/hypit-provider-mvaigc/prepare-project.mjs": "resources/hypit-provider-mvaigc/prepare-project.mjs"
+      "../resources/hypit-provider-mvaigc/prepare-project.mjs": "resources/hypit-provider-mvaigc/prepare-project.mjs",
+      "../public/supersplat/": "supersplat/"
     },
     "windows": {
       "wix": {

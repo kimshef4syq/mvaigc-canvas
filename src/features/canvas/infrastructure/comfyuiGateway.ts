@@ -35,7 +35,7 @@ export interface ComfyUIBindings {
   audios: ComfyUIInputBinding[];
 }
 
-export type ComfyUIMediaType = 'image' | 'video' | 'audio';
+export type ComfyUIMediaType = 'image' | 'video' | 'audio' | 'gaussian';
 
 export interface ComfyUIConfig {
   workflow: Record<string, JsonRecord>;
@@ -270,7 +270,7 @@ export function parseComfyUIConfig(cfg: CustomProviderConfig): ComfyUIConfig {
   const unbound = !textBindingsExplicit;
   return {
     workflow,
-    mediaType: customProviderMediaType(cfg) === 'audio' ? 'audio' : customProviderMediaType(cfg) === 'video' ? 'video' : 'image',
+    mediaType: customProviderMediaType(cfg) === 'gaussian' ? 'gaussian' : customProviderMediaType(cfg) === 'audio' ? 'audio' : customProviderMediaType(cfg) === 'video' ? 'video' : 'image',
     textBindingsExplicit,
     bindings: {
       ...bindings,
@@ -564,7 +564,7 @@ export function getComfyUIVideoCapabilities(config: ComfyUIConfig): {
 export function suggestComfyUIOutputNodes(workflowInput: unknown): string[] {
   const workflow = cloneWorkflow(workflowInput);
   return Object.entries(workflow)
-    .filter(([, node]) => /(?:SaveImage|SaveVideo|SaveAnimated|VideoCombine|VHS_|SaveAudio|SaveAudioMP3|SaveAudioOpus|SaveAudioAdvanced|PreviewAudio)/i.test(nonemptyString(node.class_type)))
+    .filter(([, node]) => /(?:SaveGaussianSplat|SaveImage|SaveVideo|SaveAnimated|VideoCombine|VHS_|SaveAudio|SaveAudioMP3|SaveAudioOpus|SaveAudioAdvanced|PreviewAudio)/i.test(nonemptyString(node.class_type)))
     .map(([nodeId]) => nodeId);
 }
 
@@ -583,7 +583,7 @@ export function prepareComfyUIWorkflow(
   }
   const textSlots = effectiveTextSlots(bindings);
   // Audio workflows may legitimately have no text input at all; image/video ones still require a slot.
-  if (textSlots.length === 0 && config.mediaType !== 'audio') {
+  if (textSlots.length === 0 && config.mediaType !== 'audio' && config.mediaType !== 'gaussian') {
     throw new Error('请选择 ComfyUI 提示词节点及其输入字段。');
   }
   const writeText = (slot: ComfyUITextBinding, value: string) => {
@@ -634,7 +634,7 @@ export function prepareComfyUIWorkflow(
     }
     setInput(workflow, bindings.width, width);
     setInput(workflow, bindings.height, height);
-  } else if (config.mediaType !== 'audio' && (bindings.width || bindings.height)) {
+  } else if (config.mediaType !== 'audio' && config.mediaType !== 'gaussian' && (bindings.width || bindings.height)) {
     if (nonImage) {
       const pixels = /^(\d+)x(\d+)$/i.exec(request.size ?? '');
       if (pixels) {
@@ -768,6 +768,7 @@ interface ComfyOutputFile {
 }
 
 function extensionsFor(mediaType: ComfyUIMediaType): Set<string> {
+  if (mediaType === 'gaussian') return new Set(['ply']);
   if (mediaType === 'audio') return AUDIO_EXTENSIONS;
   return mediaType === 'video' ? VIDEO_EXTENSIONS : IMAGE_EXTENSIONS;
 }
@@ -794,7 +795,7 @@ function findOutputFile(
   for (const nodeId of nodeIds) {
     const nodeOutput = asRecord(outputs[nodeId]);
     if (!nodeOutput) continue;
-    const preferredKeys = mediaType === 'audio' ? ['audio', 'files']
+    const preferredKeys = mediaType === 'gaussian' ? ['3d', 'files'] : mediaType === 'audio' ? ['audio', 'files']
       : mediaType === 'video' ? ['videos', 'gifs', 'files'] : ['images', 'gifs', 'files'];
     const keys = [
       ...preferredKeys,
@@ -843,7 +844,7 @@ export function inspectComfyUIHistory(
   if (file) return { state: 'ready', file };
   const status = asRecord(entry.status);
   if (status?.completed === true || nonemptyString(status?.status_str).toLowerCase() === 'success') {
-    const label = mediaType === 'image' ? '图片' : mediaType === 'audio' ? '音频' : '视频';
+    const label = mediaType === 'gaussian' ? '3DGS' : mediaType === 'image' ? '图片' : mediaType === 'audio' ? '音频' : '视频';
     return { state: 'failed', error: `ComfyUI 已完成，但所选输出节点没有 ${label}文件。` };
   }
   return { state: 'pending' };

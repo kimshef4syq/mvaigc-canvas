@@ -1,0 +1,24 @@
+import { ScaleGizmo } from 'playcanvas';
+
+import type { Events } from '../events';
+import type { Scene } from '../scene';
+
+import { TransformTool } from './transform-tool';
+
+class ScaleTool extends TransformTool {
+    constructor(events: Events, scene: Scene) {
+        const gizmo = new ScaleGizmo(scene.camera.camera, scene.gizmoLayer);
+
+        // disable everything except uniform scale
+        ['x', 'y', 'z', 'yz', 'xz', 'xy'].forEach((axis) => {
+            gizmo.enableShape(axis as 'x' | 'y' | 'z' | 'yz' | 'xz' | 'xy', false);
+        });
+
+        // set lower bound on scale
+        gizmo.lowerBoundScale.set(1e-6, 1e-6, 1e-6);
+
+        super(gizmo, events, scene);
+    }
+}
+
+export { ScaleTool };

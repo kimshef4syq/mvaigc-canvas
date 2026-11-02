@@ -66,11 +66,12 @@ function uniqueStrings(value: unknown, fallback: string[] = []): string[] {
   return result;
 }
 
-/** ComfyUI workflows can emit images, videos or audio. Every other api style
+/** ComfyUI workflows can emit images, videos, audio or Gaussian PLY. Every other api style
  *  keeps the old image-only flattening this editor was built around. */
-export function comfyMediaType(value: unknown): 'image' | 'video' | 'audio' {
+export function comfyMediaType(value: unknown): 'image' | 'video' | 'audio' | 'gaussian' {
   if (!isPlainRecord(value) || value.apiStyle !== 'comfyui') return 'image';
   if (value.mediaType === 'audio') return 'audio';
+  if (value.mediaType === 'gaussian') return 'gaussian';
   if (value.mediaType === 'video') return 'video';
   return 'image';
 }

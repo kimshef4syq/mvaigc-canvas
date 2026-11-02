@@ -794,3 +794,32 @@ describe('YuE2 ABC controls', () => {
     expect(prepareComfyUIWorkflow(explicit, request)['33:31']).toMatchObject({ inputs: { value: ['42', 0] } });
   });
 });
+
+describe('Gaussian ComfyUI output', () => {
+  const splatWorkflow = {
+    '2': { class_type: 'LoadImage', inputs: { image: '' } },
+    '16': { class_type: 'SaveGaussianSplat', inputs: { width: 1024, height: 1024, filename_prefix: '3d/idol' } },
+    '22': { class_type: 'SaveVideo', inputs: { filename_prefix: 'video/idol' } },
+  };
+  const config = () => parseComfyUIConfig(provider({ mediaType: 'gaussian', extraParams: { comfyui: {
+    workflow: splatWorkflow, outputNodeIds: ['16'], bindings: { images: [{ nodeId: '2', input: 'image' }] },
+  } } }));
+  it('accepts an image-only workflow without requiring a prompt or changing preview dimensions', () => {
+    const prepared = prepareComfyUIWorkflow(config(), { ...request, prompt: '' }, ['uploaded.png']);
+    expect(prepared['2'].inputs).toEqual({ image: 'uploaded.png' });
+    expect(prepared['16'].inputs).toMatchObject({ width: 1024, height: 1024 });
+    expect(suggestComfyUIOutputNodes(splatWorkflow)).toContain('16');
+  });
+  it('reads the server 3d output and ignores video and preview images', () => {
+    const result = inspectComfyUIHistory({ p: { status: { completed: true }, outputs: {
+      '16': { '3d': [{ filename: 'idol_00001.ply', subfolder: '3d', type: 'output' }], images: [{ filename: 'preview.png', type: 'temp' }] },
+      '22': { images: [{ filename: 'idol.mp4', type: 'output' }] },
+    } } }, 'p', config(), 'gaussian');
+    expect(result).toMatchObject({ state: 'ready', file: { filename: 'idol_00001.ply', subfolder: '3d' } });
+  });
+  it('fails completed tasks without PLY and rejects traversal paths', () => {
+    for (const filename of ['preview.png', '../idol.ply']) {
+      expect(inspectComfyUIHistory({ p: { status: { completed: true }, outputs: { '16': { '3d': [{ filename, type: 'output' }] } } } }, 'p', config(), 'gaussian').state).toBe('failed');
+    }
+  });
+});

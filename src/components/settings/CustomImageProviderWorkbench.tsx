@@ -633,11 +633,12 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
             {t('settings.customProviders.workbench.fields.comfyOutputType')}
             <UiSelect
               className="mt-1.5 h-9"
-              value={draft.mediaType === 'audio' ? 'audio' : draft.mediaType === 'video' ? 'video' : 'image'}
-              onChange={(event) => updateDraft((current) => ({ ...current, mediaType: event.target.value === 'audio' ? 'audio' : event.target.value === 'video' ? 'video' : 'image' }))}
+              value={draft.mediaType === 'gaussian' ? 'gaussian' : draft.mediaType === 'audio' ? 'audio' : draft.mediaType === 'video' ? 'video' : 'image'}
+              onChange={(event) => updateDraft((current) => ({ ...current, mediaType: event.target.value === 'gaussian' ? 'gaussian' : event.target.value === 'audio' ? 'audio' : event.target.value === 'video' ? 'video' : 'image' }))}
             >
               <option value="image">{t('settings.customProviders.workbench.comfyOutputImage')}</option>
               <option value="video">{t('settings.customProviders.workbench.comfyOutputVideo')}</option>
+              <option value="gaussian">3DGS</option>
               <option value="audio">{t('settings.customProviders.workbench.comfyOutputAudio')}</option>
             </UiSelect>
           </label> : (
@@ -670,7 +671,11 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
                 void file.text().then((source) => {
                   const parsed = JSON.parse(source) as unknown;
                   const bindings = createWorkbenchImportedBindings(parsed);
-                  const outputs = suggestComfyUIOutputNodes(parsed);
+                  const gaussianOutputs = parsed && typeof parsed === 'object'
+                    ? Object.entries(parsed).filter(([, node]) => node && typeof node === 'object' && 'class_type' in node && node.class_type === 'SaveGaussianSplat').map(([id]) => id)
+                    : [];
+                  const outputs = gaussianOutputs.length ? gaussianOutputs : suggestComfyUIOutputNodes(parsed);
+                  if (gaussianOutputs.length) updateDraft(current => ({ ...current, mediaType: 'gaussian' }));
                   setComfyWorkflowText(JSON.stringify(parsed, null, 2));
                   setComfyBindingsText(JSON.stringify(bindings, null, 2));
                   setComfyOutputsText(JSON.stringify(outputs, null, 2));

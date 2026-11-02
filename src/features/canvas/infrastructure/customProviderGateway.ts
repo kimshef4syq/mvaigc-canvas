@@ -1916,7 +1916,14 @@ function buildRequestHeaders(
   return headers;
 }
 
-function createComfyUITransport(
+export function comfyUIModelDownloadRequest(cfg: CustomProviderConfig, source: string) {
+  const url = new URL(source);
+  if (url.origin !== new URL(cfg.baseUrl).origin) throw new Error('ComfyUI 模型下载地址与服务器不匹配');
+  for (const [key, value] of Object.entries(appendConfiguredAuthQuery(cfg, cfg.queryParams ?? {}))) url.searchParams.set(key, value);
+  return { url: url.toString(), headers: buildRequestHeaders(cfg, 'json', 'GET') };
+}
+
+export function createComfyUITransport(
   cfg: CustomProviderConfig,
   network?: Readonly<GenerationNetworkSettings>,
 ): ComfyUITransport {
