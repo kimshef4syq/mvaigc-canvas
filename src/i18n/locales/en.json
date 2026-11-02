@@ -481,6 +481,9 @@
     "generate": "Generate",
     "emptyHintTitle": "Double-click to add a node",
     "emptyHintSubtitle": "Double-click to add a node",
+    "frameConnect": {
+      "title": "Connect all {{count}} selected media nodes to a target node"
+    },
     "batchToolbar": {
       "selectedCount": "{{count}} selected",
       "copy": "Copy Nodes",

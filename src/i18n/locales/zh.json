@@ -481,6 +481,9 @@
     "generate": "生成",
     "emptyHintTitle": "双击鼠标添加节点",
     "emptyHintSubtitle": "Double-click to add a node",
+    "frameConnect": {
+      "title": "把框选中的 {{count}} 个素材连到目标节点"
+    },
     "batchToolbar": {
       "selectedCount": "已选 {{count}} 个",
       "copy": "复制节点",

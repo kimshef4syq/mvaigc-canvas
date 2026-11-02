@@ -163,6 +163,20 @@
 - ⚠️ 版权：提示词文本与视频/图片均取自 melies.co；直链依赖其 CDN，改动路径即失效。
 - 验证：`npm test`（全量 810/810，含 `cinematicTechniquesData.test.ts` 7 条）、`npx tsc --noEmit`；真机 `npm run tauri dev` → 首页点「电影技法」看视频/静图与复制。
 
+### M. 框选节点全部连线 + 多文件拖入自动排布
+
+drag-and-drop 从"一次只建一个节点"扩成"一批文件建一批节点"，并让**框选**成为一条连线的起点。
+
+- 多文件拖入：`imageDragDrop.ts` 新增 `resolveDroppedMaterialFiles()` / `resolveDroppedMaterialSources()`（返回数组，原单值函数保留）；`Canvas.tsx` 走 `importMaterialFilesAtFlowPosition` / `importMaterialSourcesAtFlowPosition`，并行 prepare 后**一次 `addNodesBatch` 落盘**（一条撤销记录），并整体选中。
+- 网格排布：`application/canvasDropArrangement.ts` 的 `arrangeDropGrid()`——列数 ≈ √N，列宽/行高取该列该行最大值，混合图片/视频/音频尺寸也不重叠。
+- 框选连线：`application/selectionConnectRules.ts`
+  - `resolveFrameConnectAcceptedKinds()`：目标「生成图片」(`exportImage`) /「AI 图片」(`imageEdit`) 只收图片；「生成视频」(`aiVideo`) 收图片+视频+音频；其它目标不过滤。
+  - `resolveFrameConnectSourceIds()`：框选中取有 source handle 且有素材类型的节点；导演台等无素材类型的节点**跳过不连**；已连过的按 `validateCanvasConnection` 判重跳过。
+- 交互：选框外框（`selectionBoundsRect`）右侧新增圆圈十字连接点 `.canvas-frame-connect-point`（`Canvas.tsx` 的 `handleFrameConnectPointerDown` → 拖动画预览线 → 松手 `elementFromPoint` 找落点 → 一次 `executeTransaction` 提交全部 `edge.connect`）。**可用素材节点 ≥ 2 才显示**；单节点自带连接点行为不变。
+- 清理：删除因本次改动成为孤儿的 `create*FromSourceAtFlowPosition` 四个函数（`Canvas.tsx`）。
+- 验证：`npx tsc --noEmit`、`npm test`（1381/1381，新增 10 条用例：`canvasDropArrangement.test.ts`、`selectionConnectRules.test.ts`）、`npm run build`。
+- ⚠️ **真机界面未验证**：多选拖入网格、框选连接点连「生成视频」/「生成图片」的类型过滤，均待手动确认。
+
 ---
 
 ## 3. 关键文件落点
@@ -173,6 +187,7 @@
 | 反代 CLI 工具 | `mvaigc-proxy/mvaigc-cli.py`、`mvaigc-proxy/README.md` |
 | 电影技法（内容抓取+视图） | `scripts/scrape-cinematic-techniques.mjs`、`src/features/cinematicTechniques/` |
 | 画布 / 节点 / 生成流程 | `src/features/canvas/`（`nodes/`、`ui/`、`application/`） |
+| 框选连线规则 / 拖入网格排布 | `application/selectionConnectRules.ts`、`application/canvasDropArrangement.ts` |
 | 共享组件与设置页 | `src/components/`（`TitleBar.tsx`、`SettingsDialog.tsx`、`settings/`） |
 | i18n | `src/i18n/locales/zh.json`、`en.json` |
 | 本项目设计/计划文档 | `docs/superpowers/specs/`、`docs/superpowers/plans/` |
@@ -187,11 +202,11 @@
 cd mvaigc-canvas
 
 npx tsc --noEmit     # 类型检查
-npm test             # 全量测试（当前 810 通过 / 114 测试文件）
+npm test             # 全量测试（当前 1381 通过 / 180 测试文件）
 npm run tauri dev    # 桌面应用，手动看界面
 ```
 
-最近一次全量测试：**810/810 通过**（`npx tsc --noEmit` 亦通过）。
+最近一次全量测试：**1381/1381 通过、180 个测试文件**（`npx tsc --noEmit` 与 `npm run build` 亦通过）。
 
 ---
 

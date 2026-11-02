@@ -23,7 +23,7 @@ import {
   type OnConnectStartParams,
   type Viewport,
 } from '@xyflow/react';
-import { Boxes, ClipboardPaste, Copy, Group, ImagePlus, Play, Tags, Trash2, Ungroup } from 'lucide-react';
+import { Boxes, ClipboardPaste, Copy, Group, ImagePlus, Play, Plus, Tags, Trash2, Ungroup } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '@xyflow/react/dist/style.css';
 
@@ -74,10 +74,22 @@ import {
   isAudioFile,
   isImageFile,
   isVideoFile,
-  resolveDroppedMaterialFile,
-  resolveDroppedMaterialSource,
+  resolveDroppedMaterialFiles,
+  resolveDroppedMaterialSources,
   type DroppedMaterialSource,
 } from '@/features/canvas/application/imageDragDrop';
+import { arrangeDropGrid } from '@/features/canvas/application/canvasDropArrangement';
+import {
+  resolveFrameConnectSourceIds,
+} from '@/features/canvas/application/selectionConnectRules';
+import { referenceMediaKind } from '@/features/canvas/application/videoReferenceCandidates';
+import { findRelatedCanvasNodePositions } from '@/features/canvas/application/canvasNodePlacement';
+import { resolveMinEdgeFittedSize } from '@/features/canvas/application/imageNodeSizing';
+import {
+  EXPORT_RESULT_NODE_MIN_WIDTH,
+  EXPORT_RESULT_NODE_MIN_HEIGHT,
+} from '@/features/canvas/domain/canvasNodes';
+import { canvasNodeDefinitions } from '@/features/canvas/domain/nodeRegistry';
 import { prepareVideoNodeDataFromFile, prepareVideoNodeDataFromSource } from '@/features/canvas/application/videoUpload';
 import { prepareAudioNodeDataFromFile, prepareAudioNodeDataFromSource } from '@/features/canvas/application/audioUpload';
 import {
@@ -962,6 +974,11 @@ export function Canvas() {
   const [pendingConnectStart, setPendingConnectStart] = useState<PendingConnectStart | null>(
     null
   );
+  // Frame-selection connect: same shape as a node handle drag, but the source
+  // is the selection bounds instead of one node.
+  const [pendingFrameConnect, setPendingFrameConnect] = useState<{ start: { x: number; y: number } } | null>(
+    null
+  );
   const [previewConnectionVisual, setPreviewConnectionVisual] =
     useState<PreviewConnectionVisual | null>(null);
   const [marqueeRect, setMarqueeRect] = useState<CanvasMarqueeRect | null>(null);
@@ -1012,6 +1029,7 @@ export function Canvas() {
   const applyEdgesChange = useCanvasStore((state) => state.onEdgesChange);
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
   const addNode = useCanvasStore((state) => state.addNode);
+  const addNodesBatch = useCanvasStore((state) => state.addNodesBatch);
   const addEdge = useCanvasStore((state) => state.addEdge);
   const setSelectedNode = useCanvasStore((state) => state.setSelectedNode);
   const selectedNodeId = useCanvasStore((state) => state.selectedNodeId);
@@ -1720,6 +1738,14 @@ export function Canvas() {
     [selectedNodes]
   );
   const excludedTagGroupSelectionCount = selectedNodeIds.length - selectedTagGroupMemberNodeIds.length;
+  // Only selected nodes that can act as a connection source make the frame
+  // connect point useful; e.g. a director-studio-only selection shows none.
+  const selectedFrameSourceNodeIds = useMemo(
+    () => selectedNodes
+      .filter((node) => nodeHasSourceHandle(node.type) && Boolean(referenceMediaKind(node)))
+      .map((node) => node.id),
+    [selectedNodes]
+  );
   const batchToolbarSelectedCount = isSingleSelectedGroup
     ? Math.max(1, selectedGroupChildNodes.length)
     : selectedNodeIds.length;
@@ -2118,99 +2144,6 @@ export function Canvas() {
     [addNode, scheduleCanvasPersist, setSelectedNode, useUploadFilenameAsNodeTitle]
   );
 
-  const createUploadImageNodeFromSourceAtFlowPosition = useCallback(
-    async (
-      source: string,
-      flowPosition: { x: number; y: number },
-      sourceFileName?: string | null
-    ) => {
-      try {
-        const prepared = await prepareNodeImage(source);
-        const nodeData: Partial<CanvasNodeData> = {
-          imageUrl: prepared.imageUrl,
-          previewImageUrl: prepared.previewImageUrl,
-          aspectRatio: prepared.aspectRatio || '1:1',
-          sourceFileName: sourceFileName ?? null,
-        };
-        if (useUploadFilenameAsNodeTitle && sourceFileName) {
-          nodeData.displayName = sourceFileName;
-        }
-        const newNodeId = addNode(
-          CANVAS_NODE_TYPES.upload,
-          flowPosition,
-          nodeData
-        );
-        setSelectedNode(newNodeId);
-        scheduleCanvasPersist(0);
-        return newNodeId;
-      } catch (error) {
-        console.error('Failed to import image source onto canvas', error);
-        return null;
-      }
-    },
-    [addNode, scheduleCanvasPersist, setSelectedNode, useUploadFilenameAsNodeTitle]
-  );
-
-  const createVideoNodeFromSourceAtFlowPosition = useCallback(
-    async (
-      source: string,
-      flowPosition: { x: number; y: number },
-      sourceFileName?: string | null
-    ) => {
-      try {
-        const prepared = await prepareVideoNodeDataFromSource(source, sourceFileName);
-        const nodeData: Partial<VideoNodeData> = {
-          ...prepared,
-        };
-        if (useUploadFilenameAsNodeTitle && sourceFileName) {
-          nodeData.displayName = sourceFileName;
-        }
-        const newNodeId = addNode(
-          CANVAS_NODE_TYPES.video,
-          flowPosition,
-          nodeData
-        );
-        setSelectedNode(newNodeId);
-        scheduleCanvasPersist(0);
-        return newNodeId;
-      } catch (error) {
-        console.error('Failed to import video source onto canvas', error);
-        return null;
-      }
-    },
-    [addNode, scheduleCanvasPersist, setSelectedNode, useUploadFilenameAsNodeTitle]
-  );
-
-  const createAudioNodeFromSourceAtFlowPosition = useCallback(
-    async (
-      source: string,
-      flowPosition: { x: number; y: number },
-      sourceFileName?: string | null
-    ) => {
-      try {
-        const prepared = await prepareAudioNodeDataFromSource(source, sourceFileName);
-        const nodeData: Partial<AudioNodeData> = {
-          ...prepared,
-        };
-        if (useUploadFilenameAsNodeTitle && sourceFileName) {
-          nodeData.displayName = sourceFileName;
-        }
-        const newNodeId = addNode(
-          CANVAS_NODE_TYPES.audio,
-          flowPosition,
-          nodeData
-        );
-        setSelectedNode(newNodeId);
-        scheduleCanvasPersist(0);
-        return newNodeId;
-      } catch (error) {
-        console.error('Failed to import audio source onto canvas', error);
-        return null;
-      }
-    },
-    [addNode, scheduleCanvasPersist, setSelectedNode, useUploadFilenameAsNodeTitle]
-  );
-
   const createMaterialNodeFromFileAtFlowPosition = useCallback(
     async (
       file: File,
@@ -2241,41 +2174,6 @@ export function Canvas() {
     ]
   );
 
-  const createMaterialNodeFromSourceAtFlowPosition = useCallback(
-    async (
-      material: DroppedMaterialSource,
-      flowPosition: { x: number; y: number }
-    ): Promise<{ nodeId: string; type: CanvasNodeType } | null> => {
-      if (material.kind === 'image') {
-        const nodeId = await createUploadImageNodeFromSourceAtFlowPosition(
-          material.source,
-          flowPosition,
-          material.fileName
-        );
-        return nodeId ? { nodeId, type: CANVAS_NODE_TYPES.upload } : null;
-      }
-      if (material.kind === 'video') {
-        const nodeId = await createVideoNodeFromSourceAtFlowPosition(
-          material.source,
-          flowPosition,
-          material.fileName
-        );
-        return nodeId ? { nodeId, type: CANVAS_NODE_TYPES.video } : null;
-      }
-      const nodeId = await createAudioNodeFromSourceAtFlowPosition(
-        material.source,
-        flowPosition,
-        material.fileName
-      );
-      return nodeId ? { nodeId, type: CANVAS_NODE_TYPES.audio } : null;
-    },
-    [
-      createAudioNodeFromSourceAtFlowPosition,
-      createUploadImageNodeFromSourceAtFlowPosition,
-      createVideoNodeFromSourceAtFlowPosition,
-    ]
-  );
-
   const createMaterialNodeFromFileAtClientPosition = useCallback(
     async (file: File, clientPosition: { x: number; y: number }) => (
       await createMaterialNodeFromFileAtFlowPosition(
@@ -2284,6 +2182,197 @@ export function Canvas() {
       )
     ),
     [createMaterialNodeFromFileAtFlowPosition, reactFlowInstance]
+  );
+
+  const placePreparedMaterialEntriesAtFlowPosition = useCallback(
+    (
+      entries: Array<{
+        type: CanvasNodeType;
+        data: Partial<CanvasNodeData>;
+        size: { width: number; height: number };
+      }>,
+      flowPosition: { x: number; y: number }
+    ): string[] => {
+      if (entries.length === 0) {
+        return [];
+      }
+      const offsets = arrangeDropGrid(entries.map((entry) => entry.size));
+      const gridSize = entries.reduce(
+        (box, entry, index) => ({
+          width: Math.max(box.width, offsets[index].x + entry.size.width),
+          height: Math.max(box.height, offsets[index].y + entry.size.height),
+        }),
+        { width: 0, height: 0 }
+      );
+      const [origin] = findRelatedCanvasNodePositions({
+        nodes: useCanvasStore.getState().nodes,
+        desired: flowPosition,
+        size: gridSize,
+        count: 1,
+      });
+      const nodeIds = addNodesBatch(entries.map((entry, index) => ({
+        type: entry.type,
+        position: {
+          x: origin.x + offsets[index].x,
+          y: origin.y + offsets[index].y,
+        },
+        data: entry.data,
+      })));
+      if (nodeIds.length > 0) {
+        void canvasCommandRegistry.execute({
+          type: 'selection.set',
+          version: CANVAS_COMMAND_VERSION,
+          input: { nodeIds },
+        }, 'ui');
+        scheduleCanvasPersist(0);
+      }
+      return nodeIds;
+    },
+    [addNodesBatch, scheduleCanvasPersist]
+  );
+
+  const importMaterialFilesAtFlowPosition = useCallback(
+    async (files: File[], flowPosition: { x: number; y: number }): Promise<string[]> => {
+      const prepared = await Promise.all(files.map(async (file): Promise<{
+        type: CanvasNodeType;
+        data: Partial<CanvasNodeData>;
+        size: { width: number; height: number };
+      } | null> => {
+        const fileName = file.name;
+        try {
+          if (isImageFile(file)) {
+            const image = await prepareNodeImageFromFile(file);
+            const aspectRatio = image.aspectRatio || '1:1';
+            return {
+              type: CANVAS_NODE_TYPES.upload,
+              data: {
+                imageUrl: image.imageUrl,
+                previewImageUrl: image.previewImageUrl,
+                aspectRatio,
+                sourceFileName: file.name,
+              } as Partial<CanvasNodeData>,
+              size: resolveMinEdgeFittedSize(aspectRatio, {
+                minWidth: EXPORT_RESULT_NODE_MIN_WIDTH,
+                minHeight: EXPORT_RESULT_NODE_MIN_HEIGHT,
+              }),
+            };
+          }
+          if (isVideoFile(file)) {
+            const videoData: Partial<VideoNodeData> = await prepareVideoNodeDataFromFile(file);
+            if (useUploadFilenameAsNodeTitle) {
+              videoData.displayName = fileName;
+            }
+            return {
+              type: CANVAS_NODE_TYPES.video,
+              data: videoData as Partial<CanvasNodeData>,
+              size: {
+                width: canvasNodeDefinitions[CANVAS_NODE_TYPES.video].defaultSize?.width ?? 384,
+                height: canvasNodeDefinitions[CANVAS_NODE_TYPES.video].defaultSize?.height ?? 288,
+              },
+            };
+          }
+          if (isAudioFile(file)) {
+            const audioData: Partial<AudioNodeData> = await prepareAudioNodeDataFromFile(file);
+            if (useUploadFilenameAsNodeTitle) {
+              audioData.displayName = fileName;
+            }
+            return {
+              type: CANVAS_NODE_TYPES.audio,
+              data: audioData as Partial<CanvasNodeData>,
+              size: {
+                width: canvasNodeDefinitions[CANVAS_NODE_TYPES.audio].defaultSize?.width ?? 360,
+                height: canvasNodeDefinitions[CANVAS_NODE_TYPES.audio].defaultSize?.height ?? 170,
+              },
+            };
+          }
+          return null;
+        } catch (error) {
+          console.error('Failed to import material onto canvas', fileName, error);
+          return null;
+        }
+      }));
+      return placePreparedMaterialEntriesAtFlowPosition(
+        prepared.filter((entry): entry is NonNullable<typeof entry> => entry !== null),
+        flowPosition
+      );
+    },
+    [placePreparedMaterialEntriesAtFlowPosition, useUploadFilenameAsNodeTitle]
+  );
+
+  const importMaterialSourcesAtFlowPosition = useCallback(
+    async (
+      sources: DroppedMaterialSource[],
+      flowPosition: { x: number; y: number },
+    ): Promise<string[]> => {
+      const prepared = await Promise.all(sources.map(async (
+        source,
+      ): Promise<{
+        type: CanvasNodeType;
+        data: Partial<CanvasNodeData>;
+        size: { width: number; height: number };
+      } | null> => {
+        const fileName = source.fileName;
+        try {
+          if (source.kind === 'image') {
+            const image = await prepareNodeImage(source.source);
+            const aspectRatio = image.aspectRatio || '1:1';
+            return {
+              type: CANVAS_NODE_TYPES.upload,
+              data: {
+                imageUrl: image.imageUrl,
+                previewImageUrl: image.previewImageUrl,
+                aspectRatio,
+                sourceFileName: fileName,
+              } as Partial<CanvasNodeData>,
+              size: resolveMinEdgeFittedSize(aspectRatio, {
+                minWidth: EXPORT_RESULT_NODE_MIN_WIDTH,
+                minHeight: EXPORT_RESULT_NODE_MIN_HEIGHT,
+              }),
+            };
+          }
+          if (source.kind === 'video') {
+            const videoData: Partial<VideoNodeData> = await prepareVideoNodeDataFromSource(
+              source.source,
+              fileName,
+            );
+            if (useUploadFilenameAsNodeTitle && fileName) {
+              videoData.displayName = fileName;
+            }
+            return {
+              type: CANVAS_NODE_TYPES.video,
+              data: videoData as Partial<CanvasNodeData>,
+              size: {
+                width: canvasNodeDefinitions[CANVAS_NODE_TYPES.video].defaultSize?.width ?? 384,
+                height: canvasNodeDefinitions[CANVAS_NODE_TYPES.video].defaultSize?.height ?? 288,
+              },
+            };
+          }
+          const audioData: Partial<AudioNodeData> = await prepareAudioNodeDataFromSource(
+            source.source,
+            fileName,
+          );
+          if (useUploadFilenameAsNodeTitle && fileName) {
+            audioData.displayName = fileName;
+          }
+          return {
+            type: CANVAS_NODE_TYPES.audio,
+            data: audioData as Partial<CanvasNodeData>,
+            size: {
+              width: canvasNodeDefinitions[CANVAS_NODE_TYPES.audio].defaultSize?.width ?? 360,
+              height: canvasNodeDefinitions[CANVAS_NODE_TYPES.audio].defaultSize?.height ?? 170,
+            },
+          };
+        } catch (error) {
+          console.error('Failed to import material source onto canvas', source.source, error);
+          return null;
+        }
+      }));
+      return placePreparedMaterialEntriesAtFlowPosition(
+        prepared.filter((entry): entry is NonNullable<typeof entry> => entry !== null),
+        flowPosition
+      );
+    },
+    [placePreparedMaterialEntriesAtFlowPosition, useUploadFilenameAsNodeTitle]
   );
 
   const pasteImageAtCanvasPosition = useCallback(
@@ -2401,28 +2490,27 @@ export function Canvas() {
 
       event.preventDefault();
       event.stopPropagation();
-      const materialFile = resolveDroppedMaterialFile(event.dataTransfer);
-      if (!materialFile) {
-        const materialSource = resolveDroppedMaterialSource(event.dataTransfer);
-        if (!materialSource) {
-          return;
-        }
-        void createMaterialNodeFromSourceAtFlowPosition(
-          materialSource,
-          reactFlowInstance.screenToFlowPosition({
-            x: event.clientX,
-            y: event.clientY,
-          })
-        );
-        return;
-      }
-
-      void createMaterialNodeFromFileAtClientPosition(materialFile, {
+      const flowPosition = reactFlowInstance.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
+      const materialFiles = resolveDroppedMaterialFiles(event.dataTransfer);
+      if (materialFiles.length > 0) {
+        void importMaterialFilesAtFlowPosition(materialFiles, flowPosition);
+        return;
+      }
+
+      const materialSources = resolveDroppedMaterialSources(event.dataTransfer);
+      if (materialSources.length === 0) {
+        return;
+      }
+      void importMaterialSourcesAtFlowPosition(materialSources, flowPosition);
     },
-    [createMaterialNodeFromFileAtClientPosition, createMaterialNodeFromSourceAtFlowPosition, reactFlowInstance]
+    [
+      importMaterialFilesAtFlowPosition,
+      importMaterialSourcesAtFlowPosition,
+      reactFlowInstance,
+    ]
   );
 
   const handleCanvasPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -2448,6 +2536,108 @@ export function Canvas() {
     }
     wrapperRef.current?.focus({ preventScroll: true });
   }, []);
+
+  const handleFrameConnectPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const containerRect = wrapperRef.current?.getBoundingClientRect();
+      if (!containerRect) {
+        return;
+      }
+      setShowNodeMenu(false);
+      setNodeContextMenu(null);
+      setMenuAllowedTypes(undefined);
+      setPendingConnectStart(null);
+      setPendingFrameConnect({
+        start: {
+          x: event.clientX - containerRect.left,
+          y: event.clientY - containerRect.top,
+        },
+      });
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!pendingFrameConnect) {
+      return;
+    }
+
+    const resolveDropNodeId = (clientPosition: { x: number; y: number }): string | null => {
+      const element = document.elementFromPoint(clientPosition.x, clientPosition.y);
+      const nodeElement = element?.closest?.('.react-flow__node[data-id]') as HTMLElement | null;
+      return nodeElement?.dataset?.id ?? null;
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const containerRect = wrapperRef.current?.getBoundingClientRect();
+      if (!containerRect) {
+        return;
+      }
+      setPreviewConnectionVisual({
+        d: createPreviewPath({
+          start: pendingFrameConnect.start,
+          end: {
+            x: event.clientX - containerRect.left,
+            y: event.clientY - containerRect.top,
+          },
+          handleType: 'source',
+        }),
+        stroke: 'rgba(255,255,255,0.9)',
+        strokeWidth: 1,
+        strokeLinecap: 'round',
+        left: 0,
+        top: 0,
+        width: containerRect.width,
+        height: containerRect.height,
+      });
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      setPendingFrameConnect(null);
+      setPreviewConnectionVisual(null);
+      const targetNodeId = resolveDropNodeId({ x: event.clientX, y: event.clientY });
+      if (!targetNodeId) {
+        return;
+      }
+      const canvasState = useCanvasStore.getState();
+      const selectedIds = canvasState.nodes
+        .filter((node) => Boolean(node.selected))
+        .map((node) => node.id);
+      const sourceNodeIds = resolveFrameConnectSourceIds(
+        selectedIds,
+        targetNodeId,
+        canvasState.nodes,
+        canvasState.edges,
+      );
+      if (sourceNodeIds.length === 0) {
+        return;
+      }
+      const commands: CanvasCommand[] = sourceNodeIds.map((sourceNodeId) => ({
+        type: 'edge.connect',
+        version: CANVAS_COMMAND_VERSION,
+        input: { sourceNodeId, targetNodeId },
+      }));
+      canvasCommandRegistry.executeTransaction({
+        id: `ui-frame-connect-${targetNodeId}`,
+        origin: 'ui',
+        expectedRevision: canvasCommandRegistry.getRevision(),
+        commands,
+      });
+      scheduleCanvasPersist(0);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, true);
+    window.addEventListener('pointerup', handlePointerUp, true);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove, true);
+      window.removeEventListener('pointerup', handlePointerUp, true);
+    };
+  }, [pendingFrameConnect, scheduleCanvasPersist]);
 
   useEffect(() => {
     if (pendingConnectStart) {
@@ -4232,7 +4422,24 @@ export function Canvas() {
             width: selectionBoundsRect.width,
             height: selectionBoundsRect.height,
           }}
-        />
+        >
+          {selectedFrameSourceNodeIds.length >= 2 && (
+            <button
+              type="button"
+              data-canvas-no-marquee="true"
+              title={t('canvas.frameConnect.title', {
+                count: selectedFrameSourceNodeIds.length,
+              })}
+              aria-label={t('canvas.frameConnect.title', {
+                count: selectedFrameSourceNodeIds.length,
+              })}
+              className="canvas-frame-connect-point pointer-events-auto"
+              onPointerDown={handleFrameConnectPointerDown}
+            >
+              <Plus aria-hidden="true" />
+            </button>
+          )}
+        </div>
       )}
 
       {batchToolbarPosition && (selectedNodeIds.length > 1 || isSingleSelectedGroup) && (

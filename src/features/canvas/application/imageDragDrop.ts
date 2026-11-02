@@ -262,6 +262,53 @@ export function resolveDroppedMaterialFile(dataTransfer: DataTransfer | null | u
   );
 }
 
+/** Every supported media file in the drop payload, in payload order. */
+export function resolveDroppedMaterialFiles(dataTransfer: DataTransfer | null | undefined): File[] {
+  if (!dataTransfer) {
+    return [];
+  }
+  const files = Array.from(dataTransfer.files || []).filter(isMaterialFile);
+  if (files.length > 0) {
+    return files;
+  }
+  return Array.from(dataTransfer.items || [])
+    .filter((item) => item.kind === 'file')
+    .map((item) => item.getAsFile())
+    .filter(isMaterialFile);
+}
+
+/** Every local media source in the drop payload, in payload order. */
+export function resolveDroppedMaterialSources(
+  dataTransfer: DataTransfer | null | undefined,
+): DroppedMaterialSource[] {
+  if (!dataTransfer) {
+    return [];
+  }
+  const uriList = dataTransfer.getData('text/uri-list');
+  const plainText = dataTransfer.getData('text/plain');
+  const candidates = [uriList, plainText]
+    .flatMap((value) => value.split(/\r?\n/))
+    .map((value) => value.trim())
+    .filter((value) => value && !value.startsWith('#'));
+
+  const sources: DroppedMaterialSource[] = [];
+  for (const source of candidates) {
+    if (!source.startsWith('file://') && !source.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(source)) {
+      continue;
+    }
+    const kind = inferMaterialKindFromSource(source);
+    if (!kind) {
+      continue;
+    }
+    sources.push({
+      source,
+      kind,
+      fileName: fileNameFromSource(source),
+    });
+  }
+  return sources;
+}
+
 export function resolveDroppedMaterialSource(dataTransfer: DataTransfer | null | undefined): DroppedMaterialSource | null {
   if (!dataTransfer) {
     return null;

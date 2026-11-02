@@ -562,6 +562,39 @@ html[data-platform='macos'] #root {
   stroke-width: 2;
 }
 
+/* Connect point on the selection frame. Same look as a node handle's
+   indicator, but it is a real button and stays visible. */
+.canvas-frame-connect-point {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 10px;
+  transform: translateY(-50%);
+  border: 2px solid var(--text-muted, #aaa);
+  border-radius: 50%;
+  background: var(--canvas-node-bg);
+  color: var(--text-muted, #aaa);
+  cursor: crosshair;
+  transition: color 100ms ease, border-color 100ms ease, box-shadow 100ms ease;
+}
+
+.canvas-frame-connect-point:hover {
+  border-color: #818cf8;
+  color: #818cf8;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.55);
+}
+
+.canvas-frame-connect-point svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 2;
+}
+
 .canvas-connection-handle.connectable:hover > .canvas-connection-indicator,
 .canvas-connection-handle.connectingfrom > .canvas-connection-indicator,
 .canvas-connection-handle.connectingto > .canvas-connection-indicator {
