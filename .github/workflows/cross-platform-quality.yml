@@ -60,6 +60,10 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
+      - name: Install supersplat dependencies
+        working-directory: vendor/supersplat
+        run: npm ci
+
       - name: Verify tracked line endings
         run: npm run check:line-endings
 

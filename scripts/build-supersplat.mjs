@@ -1,8 +1,16 @@
 import { cp, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
 const root = resolve('vendor/supersplat');
+if (!existsSync(resolve(root, 'node_modules', '@rollup', 'plugin-alias'))) {
+  const installResult = spawnSync('npm', ['ci'], { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' });
+  if (installResult.status !== 0) {
+    const fallback = spawnSync('npm', ['install'], { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' });
+    if (fallback.status !== 0) process.exit(fallback.status ?? 1);
+  }
+}
 const result = spawnSync('npm', ['run', 'build'], { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' });
 if (result.status !== 0) process.exit(result.status ?? 1);
 await mkdir('public/supersplat', { recursive: true });

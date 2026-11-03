@@ -64,6 +64,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install supersplat dependencies
+        working-directory: vendor/supersplat
+        run: npm ci
+
       - name: Verify line endings
         run: npm run check:line-endings
 
@@ -161,6 +165,10 @@ jobs:
         run: git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json
 
       - name: Install dependencies
+        run: npm ci
+
+      - name: Install supersplat dependencies
+        working-directory: vendor/supersplat
         run: npm ci
 
       - name: Verify line endings
