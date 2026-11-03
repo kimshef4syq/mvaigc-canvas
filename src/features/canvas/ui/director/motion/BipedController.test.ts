@@ -32,5 +32,6 @@ describe('continuous upstream biped controller',()=>{
       maxPosition=Math.max(maxPosition,distance);maxBasis=Math.max(maxBasis,basis);
     }
     expect(maxPosition).toBeLessThan(0.002);expect(maxBasis).toBeLessThan(0.002);
-  });
+  // The compressed 600-frame reference replay needs headroom on shared CI runners.
+  }, 30_000);
 });
