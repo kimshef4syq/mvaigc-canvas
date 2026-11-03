@@ -1,0 +1,19 @@
+# CREDITS
+
+本片所有画面由代码绘制，不使用截图、不生成视频。
+
+## 字体
+- **Inter** — SIL Open Font License 1.1（`fonts/Inter.ttf`，`fonts/OFL-inter.txt`）
+- **JetBrains Mono** — SIL Open Font License 1.1（`fonts/JetBrainsMono-var.ttf`，`fonts/OFL-jetbrainsmono.txt`）
+- 中文：系统字体 PingFang SC（macOS 自带，不随片分发）
+
+## 品牌素材
+- **融媒视界 MEDIA VISION 标识** — 取自官网 https://www.mvaigc.cn （`assets/logo.svg`）。使用需产品方授权。
+- 产品名称、功能名、Slogan「让创意被看见 让价值被连接」均引自官网。
+
+## 工具
+- 渲染与音频工具链：Lemo-Opuscar 库（MIT），`core/render`、`core/audio`。
+- 分镜图：Playwright 无头 Chromium 逐帧截图。
+
+## 参考
+- 用户提供的参考片（47.5 s）只用于学习语法（逐词排版、光线揭示、UI 按拍飞入、词级高亮）；片中不含其画面、文案、音乐或角色。

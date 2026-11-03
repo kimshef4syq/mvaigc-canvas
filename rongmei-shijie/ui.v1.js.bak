@@ -1,0 +1,387 @@
+// 融媒视界 — UI kit（真实产品界面重绘：标签、模式名、按钮文案以产品为准）
+// 所有界面元素都由代码绘制，不使用截图。
+
+const THUMBS = [
+  'linear-gradient(170deg,#1B2A4A 0%,#3E5C8C 45%,#C98A5A 100%)',
+  'linear-gradient(160deg,#2A2038 0%,#6B4A8C 50%,#E0B27A 100%)',
+  'linear-gradient(150deg,#0E2A2E 0%,#2C6B66 55%,#BFD9A6 100%)',
+  'linear-gradient(165deg,#301E2A 0%,#8C4A55 55%,#E8C08A 100%)',
+  'linear-gradient(175deg,#121A2E 0%,#2E4A78 50%,#9FB6D9 100%)',
+  'linear-gradient(160deg,#241B14 0%,#6E4A2C 55%,#D9B27A 100%)',
+  'linear-gradient(150deg,#1A1030 0%,#4A2A80 55%,#B98AE8 100%)',
+  'linear-gradient(170deg,#0C1E1A 0%,#276B52 55%,#C6E0A8 100%)',
+];
+export const thumb = (i) => THUMBS[i % THUMBS.length];
+
+const RAIL = [
+  ['首页', '◈'], ['我的项目', '▦'], ['无限画布', '⧉'], ['AI 创作', '✦'], ['资产', '◇'],
+];
+
+export function rail(active) {
+  return `<div class="rail">
+    <div class="logo"><b></b><b></b></div>
+    ${RAIL.map(([n, ic]) => `<div class="item ${n === active ? 'on' : ''}"><div class="ic">${ic}</div>${n}</div>`).join('')}
+    <div class="bot"><div class="item"><div class="ic">?</div>新手指引</div></div>
+  </div>`;
+}
+
+export function top(o) {
+  return `<div class="top">
+    <div class="h1">${o.title}</div>
+    ${o.crumb ? `<div class="crumb">${o.crumb}</div>` : ''}
+    <div class="sp"></div>
+    ${(o.tags || []).map(t => `<div class="tag ${t.cls || ''}">${t.text}</div>`).join('')}
+    ${o.btn ? `<div class="btn ${o.btn.acc ? 'acc' : ''}" data-a="${o.btn.key || ''}">${o.btn.text}</div>` : ''}
+    ${o.btn2 ? `<div class="btn">${o.btn2}</div>` : ''}
+  </div>`;
+}
+
+export function win(o) {
+  return `<div class="win" style="left:${o.x}px;top:${o.y}px;width:${o.w}px;height:${o.h}px">
+    <div class="tbar"><div class="lights"><i></i><i></i><i></i></div>
+      <div class="ttl">${o.title || '融媒视界'}</div>
+      <div class="rt">${o.rt || ''}</div>
+    </div>
+    <div class="app">${o.rail || ''}<div class="content">${o.top || ''}<div class="body">${o.body || ''}</div></div></div>
+  </div>`;
+}
+
+export function desk(o = {}) {
+  return `<div id="wall"></div><div id="menubar"><b>融媒视界</b><span>文件</span><span>编辑</span><span>视图</span><span>窗口</span><span>帮助</span><div class="r"><span>${o.clock || '10:24'}</span><span>100%</span><span>⌘</span></div></div>`;
+}
+
+/* ---------- 01 项目 ---------- */
+export function projectPage(o = {}) {
+  const cards = [
+    ['城市之光 · 宣传片', '宣传片', '3 天前', 0],
+    ['非遗新生 · 短剧', '短剧', '昨天', 1],
+    ['节气海报 · 小暑', '海报', '上周', 2],
+    ['城市清晨 · 短剧', '短剧', '2 周前', 3],
+    ['品牌广告 · 30s', '宣传片', '3 周前', 4],
+  ].map(([nm, ty, t, i]) => `<div class="pcard"><div class="th" style="background:${thumb(i)}">
+      <div class="badge tag">${ty}</div></div>
+      <div class="meta"><div class="nm">${nm}</div><div class="sub"><span>${t}</span><span>·</span><span>已导出</span></div></div></div>`).join('');
+  return `<div class="pgrid">
+    ${o.newFirst ? `<div class="newcard" data-a="new"><div class="plus">+</div>新建项目</div>` : ''}
+    ${cards}
+    ${o.newFirst ? '' : `<div class="newcard" data-a="new"><div class="plus">+</div>新建项目</div>`}
+  </div>`;
+}
+
+/* ---------- 02 剧本 ---------- */
+export const SCRIPT = [
+  '场景一 · 外景 · 清晨',
+  '城市还没醒，第一班地铁驶出站台。',
+  '字幕：有人说，城市是钢筋水泥。',
+  '镜头推近，天桥上一个人的剪影。',
+  '他按下快门，城市的第一束光落在镜头里。',
+  '字幕：也有人说，城市是每一个醒来的瞬间。',
+  '场景二 · 内景 · 剪辑室',
+  '屏幕亮着，分镜一格一格排开。',
+  '字幕：融媒视界，让创意被看见。',
+];
+
+export function scriptPage(o = {}) {
+  const hl = o.hl || 0;
+  return `<div class="script"><div class="hd">剧本文本 · city-of-light.txt</div>
+    ${SCRIPT.map((l, i) => `<div class="ln ${i <= hl ? 'hl' : ''}" data-a="ln${i}">${l}</div>`).join('')}
+  </div>
+  <div class="ai">
+    <div class="ttl">AI 智能解析</div>
+    <div class="big"><div class="n" data-a="count">${o.count ?? 0}</div><div class="u">个分镜</div></div>
+    <div class="bar"><i style="width:${o.prog || 0}%"></i></div>
+    <div class="row"><span>场景</span><b>${o.scenes ?? 0}</b></div>
+    <div class="row"><span>角色</span><b>${o.roles ?? 0}</b></div>
+    <div class="row"><span>台词</span><b>${o.lines ?? 0}</b></div>
+    <div class="row"><span>预估成片</span><b>02:30</b></div>
+    ${o.done ? `<div class="ok">✓ 解析完成 · 40 个分镜已生成</div>` : ''}
+    <div class="btn ${o.parsing ? '' : 'acc'}" data-a="parse" style="justify-content:center">${o.parsing ? '解析中…' : '智能解析'}</div>
+  </div>`;
+}
+
+/* ---------- 03 分镜 ---------- */
+export const SHOTS = [
+  ['01', '3.2s', '城市还没醒，地铁驶出站台', 0],
+  ['02', '2.4s', '天桥上，一个人的剪影', 1],
+  ['03', '1.8s', '他按下快门', 3],
+  ['04', '3.6s', '第一束光落在镜头里', 2],
+  ['05', '2.2s', '字幕：有人说，城市是钢筋水泥', 4],
+  ['06', '2.8s', '镜头掠过楼群', 5],
+  ['07', '2.6s', '剪辑室，屏幕亮着', 6],
+  ['08', '3.0s', '分镜一格一格排开', 7],
+  ['09', '2.2s', '字幕：也有人说，城市是醒来的瞬间', 0],
+  ['10', '2.4s', '成片预览，光落在画面上', 1],
+];
+
+export function storyboardPage(o = {}) {
+  const n = o.shown || SHOTS.length;
+  return `<div class="sbwrap">
+    <div class="sbgrid">
+      ${SHOTS.slice(0, n).map(([no, du, line, ti], i) => `<div class="sb ${o.hot === i ? 'hot' : ''}" data-a="sb${i}">
+        <div class="th" style="background:${thumb(ti)}"><div class="no">SHOT ${no}</div><div class="du">${du}</div></div>
+        <div class="meta"><b>镜头 ${no}</b><br>${line}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ---------- 04 无限画布 ---------- */
+export const NODES = [
+  ['剧本节点', 'city-of-light.txt · 9 段', 0, 380, 110, '#CFAAFF'],
+  ['分镜节点', '40 个分镜', 1, 740, 110, '#3DDCFF'],
+  ['生图节点', '4 张 · 16:9', 2, 740, 330, '#CFAAFF'],
+  ['视频节点', '5s · 720p', 3, 1100, 330, '#3DDCFF'],
+  ['配音节点', '林声 · 男声', 4, 740, 560, '#FFB547'],
+  ['音乐节点', '城市清晨', 5, 1100, 560, '#3BE08A'],
+];
+
+export function canvasPage(o = {}) {
+  const on = o.on || [];
+  const nodes = NODES.map(([nm, sub, i, x, y, col]) => `<div class="node ${on.includes(i) ? 'on' : ''}" style="left:${x}px;top:${y}px;width:264px" data-a="n${i}">
+      ${i === 0 ? '<div class="badge">剧本</div>' : ''}
+      <div class="nh"><span class="dot" style="background:${col}"></span>${nm}</div>
+      <div class="nc" style="font-size:12.5px">${sub}</div>
+      ${i >= 2 && i <= 3 ? `<div class="thumb" style="height:104px;background:${thumb(i)}"></div>` : ''}
+    </div>`).join('');
+  const wire = (a, b) => {
+    const A = NODES[a], B = NODES[b];
+    const x1 = A[3] + 264, y1 = A[4] + 40, x2 = B[3], y2 = B[4] + 40;
+    return `<path d="M${x1} ${y1} C${x1 + 70} ${y1}, ${x2 - 70} ${y2}, ${x2} ${y2}" stroke="#5A4A82" stroke-width="2" fill="none"/>`;
+  };
+  return `<div class="cv" data-a="cv">
+    <svg class="wires">${wire(0, 1)}${wire(1, 2)}${wire(2, 3)}${wire(1, 4)}${wire(4, 5)}${wire(3, 5)}</svg>
+    <div class="cvbar"><div class="tag">组镜模式</div><div class="tag">6 个节点</div><div class="tag acc">自动布局</div></div>
+    ${nodes}
+    <div class="cvzoom">100% · 已保存</div>
+  </div>`;
+}
+
+/* ---------- 05 生成 ---------- */
+export function generatePage(o = {}) {
+  return `<div class="gen">
+    <div class="gcol" style="flex:1.05">
+      <div class="card grow"><div class="ch">生图节点 · 4 张候选<span class="sp"></span><span class="tag cy">720p</span></div>
+        <div class="img4">${[0, 1, 2, 3].map(i => `<div class="im" style="background:${thumb(i)}"><span class="num">0${i + 1}</span></div>`).join('')}</div>
+      </div>
+      <div class="card"><div class="ch">视频节点 · 5s<span class="sp"></span><span class="tag">首尾帧生视频</span></div>
+        <div class="vidcard"><div class="vidframe" style="background:${thumb(0)}">
+          <div class="play">▶</div><div class="prog"><i style="width:${o.vprog || 72}%"></i></div><div class="pt">${o.vprog || 72}% · 3.6s</div>
+        </div></div>
+      </div>
+    </div>
+    <div class="gcol">
+      <div class="card"><div class="ch">配音工作台<span class="sp"></span><span class="tag acc">林声 · 男声</span></div>
+        <div class="wave"><div class="wv">${Array.from({ length: 48 }, (_, i) => `<i style="height:${18 + Math.round(28 * Math.abs(Math.sin(i * 0.7 + 1))) + (i % 5) * 4}%"></i>`).join('')}</div>
+        <div class="who"><span>00:06 / 00:24</span><span>·</span><span>语速 1.0×</span><span>·</span><span>已对齐字幕</span></div></div>
+      </div>
+      <div class="card"><div class="ch">音乐创作 · 3 条候选<span class="sp"></span><span class="tag">AI 生成</span></div>
+        <div class="tracks">${['城市清晨 · 温暖叙事', '钢筋森林 · 低频脉冲', '第一束光 · 钢琴独奏'].map((n, i) => `<div class="trk ${i === 0 ? 'on' : ''}"><span class="nm">${n}</span><span class="sp"></span><span class="eq">${[10, 16, 12, 18, 14].map(h => `<i style="height:${h}px"></i>`).join('')}</span><span class="tag ${i === 0 ? 'acc' : ''}">${i === 0 ? '选用' : '试听'}</span></div>`).join('')}</div>
+      </div>
+      <div class="card grow"><div class="ch">成片节点 · 待合成<span class="sp"></span><span class="tag acc">8 个镜头已就绪</span></div>
+        <div style="flex:1;padding:10px"><div style="height:100%;border-radius:9px;background:${thumb(0)};position:relative">
+          <div style="position:absolute;left:12px;bottom:10px;font-family:Mono;font-size:11px;color:#fff;opacity:.85">02:30 · 1080p · 待导出</div>
+        </div></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- 06 团队 ---------- */
+export function teamPage(o = {}) {
+  return `<div class="team">
+    <div class="avrow">
+      ${[['王', '#9747FF'], ['李', '#3DDCFF'], ['陈', '#FFB547'], ['赵', '#3BE08A']].map(([n, c]) => `<div class="av" style="background:${c}">${n}</div>`).join('')}
+      <span class="nm">4 人在线 · 导演 / 剪辑 / 配音 / 运营</span>
+      <span style="flex:1"></span>
+      <div class="vchip">版本 <b>v1</b><b class="on">v2</b><b>v3</b></div>
+    </div>
+    <div style="display:flex;gap:16px;flex:1;min-height:0">
+      <div style="flex:1.25;display:flex;flex-direction:column;gap:12px;min-width:0">
+        <div class="card grow"><div class="ch">分镜 · 40 个镜头<span class="sp"></span><span class="tag acc">v2 当前</span></div>
+          <div class="sbgrid" style="grid-template-columns:repeat(4,1fr);padding:14px;gap:12px">
+            ${SHOTS.slice(0, 8).map(([no, du, line, ti], i) => `<div class="sb ${i === 3 ? 'hot' : ''}">
+              <div class="th" style="height:96px;background:${thumb(ti)}"><div class="no">SHOT ${no}</div><div class="du">${du}</div></div>
+              <div class="meta" style="height:46px"><b>镜头 ${no}</b><br>${line}</div></div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div style="width:500px;flex:none;display:flex;flex-direction:column;gap:12px">
+        <div class="card"><div class="ch">批注 · 2<span class="sp"></span><span class="tag">实时</span></div>
+          <div style="padding:14px;display:flex;flex-direction:column;gap:12px">
+            <div class="cmt" data-a="cmt1"><div class="pin"></div><div class="who"><span class="av" style="width:22px;height:22px;font-size:11px;background:#9747FF">王</span>王导 · 2 分钟前</div>第 04 个镜头的转场再慢 0.4 秒，让光落下来。</div>
+            <div class="cmt"><div class="pin"></div><div class="who"><span class="av" style="width:22px;height:22px;font-size:11px;background:#3DDCFF">李</span>李剪辑 · 刚刚</div>配音已对齐，第 09 句重录了一版，听一下。</div>
+          </div>
+        </div>
+        <div class="card grow"><div class="ch">版本</div>
+          <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+            <div class="trk on"><span class="nm">v2 · 当前</span><span class="sp"></span><span class="tag acc">正在编辑</span></div>
+            <div class="trk"><span class="nm">v1 · 3 小时前</span><span class="sp"></span><span class="tag">王导</span></div>
+            <div class="trk"><span class="nm">v3 · 待合并</span><span class="sp"></span><span class="tag">李剪辑</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- 07 成片预览 ---------- */
+export function previewPage(o = {}) {
+  const clips = [0, 1, 2, 3, 4, 5, 6, 7];
+  const ph = o.ph ?? 0.68;
+  const CITY = [[0, 150, 120], [130, 90, 150], [230, 60, 190], [300, 120, 130], [430, 80, 165], [520, 55, 210], [585, 130, 140], [730, 70, 180], [810, 110, 155], [930, 60, 200], [1000, 130, 135], [1140, 75, 170], [1220, 120, 145], [1350, 65, 185], [1430, 140, 120]];
+  const CCOL = ['#141828', '#1B2138', '#0F1322', '#181C30', '#12162A'];
+  return `<div class="pv">
+    <div class="pvframe">
+      <div class="film">
+        <div class="sky"></div><div class="sun"></div>
+        <div class="city">${CITY.map(([l, w, h], idx) => `<i style="left:${l}px;width:${w}px;height:${h}px;background:${CCOL[idx % CCOL.length]}"></i>`).join('')}</div>
+        <div class="fog"></div><div class="vign"></div>
+      </div>
+      <div class="ttl">城市之光 · 成片预览</div>
+      <div class="play">▶</div>
+      <div class="dur">02:30 · 1080p</div>
+    </div>
+    <div class="tl">
+      <div class="ruler"><span>00:00</span><span>00:30</span><span>01:00</span><span>01:30</span><span>02:00</span><span>02:30</span></div>
+      <div class="row">
+        ${clips.map(i => `<div class="clip" style="background:${thumb(i)}"><span class="lab">SHOT 0${i + 1}</span></div>`).join('')}
+        <div class="phd" style="left:${ph * 100}%"></div>
+      </div>
+      <div class="tl2">${clips.map(() => '<div class="a"></div>').join('')}</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- 08 片尾 ---------- */
+export function endCard() {
+  return `<div class="endcard">
+    <img src="assets/logo.svg" style="width:240px;filter:drop-shadow(0 18px 46px rgba(151,71,255,.45))" alt="">
+    <div class="nm">融媒视界</div>
+    <div class="en">MEDIA VISION</div>
+    <div class="slog">让创意被看见　让价值被连接</div>
+  </div>`;
+}
+
+/* ---------- 01 主页（落地页） ---------- */
+const QUICK = [['✦', '海报制作', '一键生成精美海报'], ['▣', '视频生成', 'AI 智能生成视频'], ['◫', '宣传片', '专业级宣传片制作'],
+['☺', '数字人主播', '数字人智能播报'], ['♪', 'AI 音频制作', 'AI 生成原创音乐'], ['⌘', '工作流', '自定义创作流程'],
+['⌫', '视频擦除', '智能去除视频元素'], ['⤢', '视频超分', '提升视频清晰度']];
+const WORKS = [['视频', '三根杆子', '高品质短剧', 0], ['视频', '起征·晨光', '高品质短剧', 4], ['视频', '动物园宣传', '动物园宣传', 2],
+['视频', '哈尔滨啤酒', '哈尔滨啤酒', 3], ['视频', '短剧', '高品质短剧', 5]];
+
+export function homePage(o = {}) {
+  const panels = (flip) => Array.from({ length: 6 }, (_, i) => {
+    const col = i % 2, row = (i / 2) | 0;
+    const x = col * 150 + (flip ? 0 : 0), y = row * 168;
+    return `<div class="pane" style="left:${flip ? 'auto' : x + 'px'};right:${flip ? x + 'px' : 'auto'};top:${y}px;
+      transform:rotateY(${flip ? -26 : 26}deg) translateZ(${-col * 26}px)"><div class="in" style="background:${thumb(i + (flip ? 3 : 0))}"><i></i></div></div>`;
+  }).join('');
+  const streaks = Array.from({ length: 9 }, (_, i) => {
+    const y = 240 + i * 46, w = 420 + (i % 3) * 180, rot = -14 + (i % 5) * 7;
+    return `<i style="left:${18 + (i % 4) * 20}%;top:${y}px;width:${w}px;transform:rotate(${rot}deg);opacity:${.28 + (i % 3) * .12}"></i>`;
+  }).join('');
+  return `<div class="homewrap"><div class="home">
+    <div class="glow g1"></div><div class="glow g2"></div>
+    <div class="streaks">${streaks}</div>
+    <div class="tags"><span>AI 驱动创意</span><span>数据赋能决策</span><span>内容连接价值</span></div>
+    <div class="wall">${panels(false)}${panels(true)}</div>
+    <div class="mark"><img src="assets/logo.svg" alt=""><div class="nm">融媒视界</div><div class="en">MEDIA VISION</div></div>
+    <div class="orb">AI</div>
+    <div class="cta" data-a="start">✦ 开始创作</div>
+    <div class="slogan">让创意被看见　让价值被连接</div>
+    <div class="quick">${QUICK.map(([ic, nm, sub]) => `<div class="q"><div class="ic">${ic}</div><div class="nm">${nm}</div><div class="sub">${sub}</div></div>`).join('')}</div>
+    <div class="works">${WORKS.map(([t, nm, sub, ti]) => `<div class="w" style="background:${thumb(ti)}"><span class="lab">${t}</span></div>`).join('')}</div>
+  </div></div>`;
+}
+
+/* ---------- 02 AI 创作 ---------- */
+const MODES = ['视频生成', '图片生成', '音乐创作', '配音工作台', '视频处理', '漫画生成'];
+export function aiCreatePage(o = {}) {
+  return `<div class="ai2">
+    <div class="modes">${MODES.map((m, i) => `<div class="mode ${i === (o.mode ?? 0) ? 'on' : ''}">${m}</div>`).join('')}</div>
+    <div class="prompt">
+      <div class="ptxt">${o.text || '描述你想做的片子：<b>城市清晨</b>，镜头从楼群推近到天桥上的人，暖调，24 fps'}<span class="caret"></span></div>
+      <div class="row"><div class="tag">16:9</div><div class="tag">1080p</div><div class="tag">24 fps</div><div class="tag acc">Seedance 2.0</div><div style="flex:1"></div><div class="gen" data-a="gen">生成</div></div>
+    </div>
+    <div class="recent">${[0, 1, 2, 3].map(i => `<div class="rc"><div class="th" style="background:${thumb(i)}"></div><div class="mt">${['海报 · 小暑', '短剧 · 城市清晨', '宣传片 · 品牌', '音乐 · 城市清晨'][i]}</div></div>`).join('')}</div>
+    ${o.pet ? pet() : ''}
+    ${o.drawer ? chatDrawer({ stage: o.drawer }) : ''}
+  </div>`;
+}
+
+/* ---------- 03 无限画布列表 ---------- */
+export function canvasListPage(o = {}) {
+  const items = [['城市之光 · 宣传片', '8 个节点', 0], ['非遗新生 · 短剧', '12 个节点', 1], ['节气海报 · 小暑', '5 个节点', 2], ['品牌广告 · 30s', '9 个节点', 3], ['文旅长沙 · 海报', '6 个节点', 4]];
+  return `<div class="cvlist">
+    <div class="grid" style="grid-template-columns:repeat(3,1fr)">${items.map(([nm, n, ti], i) => `<div class="cc" ${o.hot === i ? 'style="border-color:var(--acc);box-shadow:0 0 0 2px rgba(151,71,255,.35)"' : ''}>
+      <div class="th" style="background:${thumb(ti)};opacity:.92"><div class="mini">${Array.from({ length: 6 }, () => '<i></i>').join('')}</div></div>
+      <div class="mt"><span>${nm}</span><span class="t">${n}</span></div></div>`).join('')}</div>
+  </div>`;
+}
+
+/* ---------- 04 画布 v2 ---------- */
+export function canvas2Page(o = {}) {
+  const st = o.stage || 'empty';
+  const nodes = [];
+  if (st !== 'empty') nodes.push(`<div class="node on" style="left:300px;top:110px;width:250px" data-a="n0"><div class="nh"><span class="dot" style="background:#CFAAFF"></span>提示词节点</div><div class="nc">城市清晨，镜头从楼群推近到天桥上的人，暖调</div></div>`);
+  if (st === 'imgbtn') nodes.push(`<div class="node" style="left:300px;top:300px;width:250px" data-a="nbtn"><div class="nh"><span class="dot" style="background:#3DDCFF"></span>生图节点</div><div class="btn" data-a="startimg">开始生成图片</div></div>`);
+  if (st === 'images' || st === 'wired' || st === 'video' || st === 'videoGen') {
+    nodes.push(`<div class="node" style="left:300px;top:300px;width:250px" data-a="nbtn"><div class="nh"><span class="dot" style="background:#3DDCFF"></span>生图节点</div><div class="nc">4 张 · 16:9 · 已生成</div></div>`);
+    [0, 1, 2, 3].forEach(i => nodes.push(`<div class="node ${i === 0 ? 'on' : ''}" style="left:${620 + (i % 2) * 210}px;top:${150 + ((i / 2) | 0) * 190}px;width:190px" data-a="img${i}"><div class="nh"><span class="dot" style="background:#CFAAFF"></span>图片 ${i + 1}</div><div class="thumb" style="height:112px;background:${thumb(i)}"></div></div>`));
+  }
+  if (st === 'video' || st === 'videoGen') {
+    nodes.push(`<div class="node ${st === 'video' ? 'on' : ''}" style="left:1080px;top:330px;width:300px" data-a="nv"><div class="nh"><span class="dot" style="background:#3BE08A"></span>视频节点</div><div class="promptbox">${st === 'videoGen' ? '生成中…<span class="caret"></span>' : '城市清晨，镜头推近，5s'}</div>${st === 'video' ? `<div class="thumb" style="height:150px;background:${thumb(0)}"></div>` : ''}</div>`);
+  }
+  const wire = (x1, y1, x2, y2) => `<path d="M${x1} ${y1} C${x1 + 60} ${y1}, ${x2 - 60} ${y2}, ${x2} ${y2}" stroke="#6A5A92" stroke-width="2" fill="none"/>`;
+  const wires = st === 'wired' || st === 'video' || st === 'videoGen' ? `<svg class="wires">${wire(550, 340, 620, 250)}${wire(550, 340, 620, 440)}${wire(550, 340, 830, 250)}${wire(550, 340, 830, 440)}${wire(1010, 250, 1080, 400)}</svg>` : '';
+  return `<div class="cv2" data-a="cv">${wires}${nodes.join('')}
+    <div class="cvbar"><div class="tag">组镜模式</div><div class="tag">自动连线</div><div class="tag acc">已保存</div></div>
+    <div class="cvzoom">100%</div>
+  </div>`;
+}
+
+/* ---------- 05 视频特写 ---------- */
+export function videoView(o = {}) {
+  const CITY = [[0, 150, 120], [130, 90, 150], [230, 60, 190], [300, 120, 130], [430, 80, 165], [520, 55, 210], [585, 130, 140], [730, 70, 180], [810, 110, 155], [930, 60, 200], [1000, 130, 135], [1140, 75, 170], [1220, 120, 145], [1350, 65, 185], [1430, 140, 120]];
+  const CCOL = ['#141828', '#1B2138', '#0F1322', '#181C30', '#12162A'];
+  return `<div class="vzoom">
+    <div class="film"><div class="sky"></div><div class="sun"></div>
+      <div class="city">${CITY.map(([l, w, h], idx) => `<i style="left:${l}px;width:${w}px;height:${h}px;background:${CCOL[idx % CCOL.length]}"></i>`).join('')}</div>
+      <div class="fog"></div><div class="vign"></div></div>
+    <div class="badge">✦ 视频节点 · 5s · 1080p</div>
+    <div class="bar"><div class="pl">▶</div><div class="tl"><i style="width:${o.p ?? 60}%"></i></div><div class="tm">${o.t || '00:03'} / 00:05</div></div>
+  </div>`;
+}
+
+/* ---------- 智能体小宠物 + 对话框 ---------- */
+export function pet(o = {}) {
+  return `<div class="pet" data-a="pet"><div class="halo"></div><div class="bd"><span class="eye l"></span><span class="eye r"></span><span class="mo"></span></div></div>`;
+}
+
+const SKILLS = [
+  ['◈', '剧本解析', '把剧本文本拆成场景与分镜'],
+  ['▦', '分镜生成', '一个剧本，自动拆出 40 个镜头'],
+  ['♪', '配音合成', '多音色中文配音，自动对齐字幕'],
+  ['♬', '音乐创作', '按片子的情绪生成配乐'],
+  ['◫', '海报生成', '从成片里出一张海报'],
+];
+export function chatDrawer(o = {}) {
+  const st = o.stage || 'open';
+  const skillList = st === 'open' ? '' : `<div class="skills">${SKILLS.map(([ic, nm, ds], i) => {
+    const installing = st === 'installing' && i === 1;
+    const done = (st === 'done') && i === 1;
+    return `<div class="sk"><div class="ic">${ic}</div><div><div class="nm">${nm}</div><div class="ds">${ds}</div></div><div class="sp"></div>
+      <div class="btn2 ${done ? 'done' : installing ? 'on' : ''}">${done ? '✓ 已安装' : installing ? '安装中…' : '安装'}</div></div>`;
+  }).join('')}</div>`;
+  return `<div class="drawer" data-a="drawer">
+    <div class="dh"><div class="ava"></div><div><div class="nm">Mambo · 智能助手</div><div class="sub">官方技能 12 个 · 已装 3 个</div></div><div class="x">✕</div></div>
+    <div class="msgs">
+      <div class="bub"><div class="who">Mambo</div>你好，我是 Mambo。要不要装一个技能？装好之后我就能直接帮你拆剧本、出分镜。</div>
+      ${st === 'open' ? '' : `<div class="bub me"><div class="who">你</div>装一个分镜技能。</div>`}
+      ${st === 'open' ? '' : `<div class="bub"><div class="who">Mambo</div>官方技能里这几个最常用，点「安装」就能用：</div>`}
+      ${skillList}
+      ${st === 'done' ? `<div class="bub"><div class="who">Mambo</div>装好了。「分镜生成」已经在你左侧的技能栏里，随时可以用。</div>` : ''}
+    </div>
+    <div class="input"><div class="box">和 Mambo 说点什么…</div><div class="snd">↑</div></div>
+  </div>`;
+}

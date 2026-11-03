@@ -1,0 +1,82 @@
+// 小视 — 融媒视界的像素吉祥物：一台小小的取景器（16×12 像素网格，与 UI 的高分辨率形成对比）
+export const PX = '#FFD54A', PXD = '#C99C1F', EYE = '#201A08', CY = '#3DDCFF';
+
+export function grid({ eyes = 'n', arms = 'down', legs = 'stand', screen = 1 } = {}) {
+  const P = new Map(), put = (c, r, v = 1) => P.set(c + ',' + r, v);
+  // 机身 3..12 / 2..9，圆角
+  for (let r = 2; r <= 9; r++) for (let c = 3; c <= 12; c++) put(c, r);
+  for (const [c, r] of [[3, 2], [12, 2], [3, 9], [12, 9]]) P.delete(c + ',' + r);
+  // 取景屏（深色内框）
+  if (screen) for (let r = 3; r <= 8; r++) for (let c = 4; c <= 11; c++) put(c, r, 3);
+  // 天线
+  put(7, 0, 1); put(7, 1, 1); put(6, 0, 3); put(8, 0, 3);
+  // 手臂
+  if (arms === 'up') for (let r = 3; r <= 6; r++) { put(1, r); put(2, r); put(13, r); put(14, r); }
+  else if (arms === 'wave') { for (let r = 6; r <= 7; r++) { put(1, r); put(2, r); } for (let r = 3; r <= 6; r++) { put(13, r); put(14, r); } }
+  else if (arms === 'point') { for (let r = 6; r <= 7; r++) { put(1, r); put(2, r); put(13, r); put(14, r); put(15, r); put(15, 5, 2); } }
+  else if (arms === 'none') { /* 收起 */ }
+  else for (let r = 6; r <= 7; r++) { put(1, r); put(2, r); put(13, r); put(14, r); }
+  // 腿
+  const L = { stand: [[4, 2], [5, 2], [10, 2], [11, 2]], walkA: [[4, 2], [5, 1], [10, 2], [11, 1]], walkB: [[4, 1], [5, 2], [10, 1], [11, 2]], jump: [[4, 1], [5, 1], [10, 1], [11, 1]], none: [] }[legs];
+  for (const [c, h] of L) for (let r = 10; r < 10 + h; r++) put(c, r);
+  // 眼睛（屏内）
+  const E = {
+    n: [[5, 5], [6, 5], [9, 5], [10, 5]],
+    r: [[6, 5], [7, 5], [10, 5], [11, 5]],
+    l: [[4, 5], [5, 5], [8, 5], [9, 5]],
+    u: [[5, 4], [6, 4], [9, 4], [10, 4]],
+    d: [[5, 6], [6, 6], [9, 6], [10, 6]],
+    happy: [[5, 5], [6, 4], [9, 4], [10, 5]],
+    shut: [[5, 5], [6, 5], [9, 5], [10, 5]],
+    wide: [[5, 4], [5, 5], [6, 4], [6, 5], [9, 4], [9, 5], [10, 4], [10, 5]],
+    blink: [[5, 5], [6, 5], [9, 5], [10, 5]],
+  }[eyes];
+  for (const [c, r] of E) put(c, r, 2);
+  return [...P].map(([k, v]) => { const [c, r] = k.split(',').map(Number); return [c, r, v]; });
+}
+
+export function sprite({ x, y, px = 8, flip = false, sq = 0, rot = 0, op = 1, shadow = 0, ...pose }) {
+  const G = grid(pose); let s = '';
+  for (let [c, r, v] of G) {
+    if (flip) c = 17 - c;
+    const col = v === 2 ? EYE : v === 3 ? '#2E2408' : v === 4 ? CY : PX;
+    s += `<rect x="${c}" y="${r}" width="1.05" height="1.05" fill="${col}"/>`;
+  }
+  // 机身底部一暗排，给体积感
+  for (let c = 4; c <= 11; c++) s += `<rect x="${c}" y="8" width="1.05" height="1.05" fill="${PXD}" opacity=".45"/>`;
+  const sy = 1 - sq, sx = 1 + sq * .7, w = 16 * px * sx, h = 12 * px * sy;
+  const sh = shadow > 0 ? `<div style="position:absolute;left:${x - 6 * px}px;top:${y - px * .35}px;width:${12 * px}px;height:${px * .7}px;border-radius:50%;background:rgba(0,0,0,${.22 * shadow})"></div>` : '';
+  return sh + `<svg class="px" viewBox="0 0 16 12" width="${w}" height="${h}" style="left:${x - w / 2}px;top:${y - h}px;opacity:${op};transform:rotate(${rot}rad);transform-origin:50% 70%" shape-rendering="crispEdges">${s}</svg>`;
+}
+
+export function pixart(rows, { x, y, px = 7, pal, op = 1 }) {
+  let s = ''; rows.forEach((row, r) => [...row].forEach((ch, c) => { if (pal[ch]) s += `<rect x="${c}" y="${r}" width="1.05" height="1.05" fill="${pal[ch]}"/>`; }));
+  const W = rows[0].length, H = rows.length;
+  return `<svg class="px" viewBox="0 0 ${W} ${H}" width="${W * px}" height="${H * px}" style="left:${x}px;top:${y}px;opacity:${op}" shape-rendering="crispEdges">${s}</svg>`;
+}
+
+export const BANG = (x, y, px = 7, op = 1) => pixart(['.kkk.', 'kwwwk', 'kwkwk', 'kwkwk', 'kwwwk', 'kwkwk', 'kwwwk', '.kkk.', '..k..'], { x, y, px, op, pal: { w: '#fff', k: EYE } });
+export const CHECK = (x, y, px = 7, op = 1) => pixart(['.....g', '....gg', 'g..gg.', 'gggg..', '.gg...'], { x, y, px, op, pal: { g: '#3BE08A' } });
+export const SPARK = (x, y, px = 6, col = CY, op = 1) => pixart(['..y..', '..y..', 'yy.yy', '..y..', '..y..'], { x: x - 2.5 * px, y: y - 2.5 * px, px, op, pal: { y: col } });
+export const HEART = (x, y, px = 5, op = 1) => pixart(['.rr.rr.', 'rrrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...'], { x: x - 3.5 * px, y: y - 3 * px, px, op, pal: { r: '#FF5C7A' } });
+export const PENCIL = (x, y, px = 6, op = 1) => pixart(['......kk', '.....yyk', '....yyy.', '...yyy..', '..yyy...', '.pyy....', 'ppy.....', 'k.......'], { x, y, px, op, pal: { y: '#FFD54A', k: EYE, p: '#E8A898' } });
+
+export function dust(x, y, t, px = 5, n = 6, seed = 1) {
+  if (t <= 0 || t >= 1) return ''; let s = '';
+  for (let i = 0; i < n; i++) {
+    const side = i % 2 ? 1 : -1, k = (i >> 1) + 1, e = 1 - Math.pow(1 - t, 2);
+    const dx = side * (16 + k * 14 + ((seed * 7 + i * 13) % 9)) * e, dy = -(7 + k * 5) * Math.sin(Math.PI * t * .9);
+    const sz = px * (1 - t * .7);
+    s += `<div style="position:absolute;left:${x + dx - sz / 2}px;top:${y + dy - sz}px;width:${sz}px;height:${sz}px;background:${PXD};opacity:${1 - t}"></div>`;
+  }
+  return s;
+}
+
+export function speedlines(x, y, dir, t, px = 5) {
+  if (t <= 0 || t >= 1) return ''; let s = '';
+  for (let i = 0; i < 4; i++) {
+    const len = (3 + (i % 2) * 3) * px, off = (i * 23 + 11) % 60 - 30;
+    s += `<div style="position:absolute;left:${x - dir * (36 + i * 12) - (dir > 0 ? len : 0)}px;top:${y - 36 + off}px;width:${len}px;height:${px}px;background:${PX};opacity:${(1 - t) * .7}"></div>`;
+  }
+  return s;
+}
