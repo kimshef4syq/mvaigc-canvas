@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Setup Rust
@@ -76,6 +76,9 @@ jobs:
 
       - name: Type-check frontend
         run: npx tsc --noEmit
+
+      - name: Build production frontend
+        run: npm run build
 
       - name: Check Rust formatting
         working-directory: src-tauri
@@ -134,7 +137,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Setup Rust
@@ -179,6 +182,9 @@ jobs:
 
       - name: Type-check frontend
         run: npx tsc --noEmit
+
+      - name: Build production frontend
+        run: npm run build
 
       - name: Check Rust formatting
         working-directory: src-tauri
