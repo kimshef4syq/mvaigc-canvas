@@ -447,7 +447,13 @@ export function applyMvaigcProviders(
  * the settings panel.
  */
 export function syncMvaigcProvidersFromSettings(
-  settings: { account: string; password: string; port: number },
+  settings: {
+    account: string;
+    password: string;
+    port: number;
+    tenantId?: number | null;
+    tenantName?: string;
+  },
   actions: ProviderStoreActions,
 ): void {
   const account = settings.account.trim();
@@ -455,6 +461,9 @@ export function syncMvaigcProvidersFromSettings(
   if (!account || !password) {
     return;
   }
-  applyMvaigcProviders(settings.port, `${account}:${password}`, actions);
+  const credentials = settings.tenantId
+    ? `${account}:${password}:${settings.tenantId}`
+    : `${account}:${password}`;
+  applyMvaigcProviders(settings.port, credentials, actions);
 }
 

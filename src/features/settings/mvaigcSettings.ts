@@ -17,3 +17,22 @@ export function normalizeMvaigcPort(raw: string | number): number {
 export function isMvaigcCredentialsComplete(account: string, password: string): boolean {
   return account.trim().length > 0 && password.trim().length > 0;
 }
+
+export interface MvaigcTeam {
+  id: number;
+  tenantId: number;
+  name: string;
+  tenantName: string;
+  roleType: string;
+  roleLabel: string;
+}
+
+export interface MvaigcFetchTeamsResult {
+  status: string;
+  currentTenantId?: number | null;
+  currentTenantName?: string;
+  points?: number | null;
+  consumePoints?: number | null;
+  teams: MvaigcTeam[];
+  userInfo?: Record<string, unknown>;
+}

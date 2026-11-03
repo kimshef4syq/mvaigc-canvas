@@ -250,6 +250,8 @@ pub fn run() {
             commands::custom_http_request,
             commands::mvaigc_proxy::mvaigc_set_credentials,
             commands::mvaigc_proxy::mvaigc_proxy_status,
+            commands::mvaigc_proxy::mvaigc_fetch_teams,
+            commands::mvaigc_proxy::mvaigc_switch_team,
             commands::custom_http_stream_request,
             image::split_image,
             image::split_image_source,

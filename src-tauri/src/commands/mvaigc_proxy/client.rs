@@ -19,6 +19,7 @@ pub const DEFAULT_BASE_URL: &str = "https://www.mvaigc.cn";
 pub struct CachedToken {
     pub token: String,
     pub user_id: String,
+    pub active_tenant_id: Option<i64>,
 }
 
 /// Decode a `data:<mime>;base64,<payload>` URL into `(mime, bytes)`.
@@ -116,7 +117,16 @@ impl MvaigcClient {
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string();
-        let cached = CachedToken { token, user_id };
+        let active_tenant_id = data.get("tenantId").and_then(|v| match v {
+            Value::Number(n) => n.as_i64(),
+            Value::String(s) => s.trim().parse::<i64>().ok(),
+            _ => None,
+        });
+        let cached = CachedToken {
+            token,
+            user_id,
+            active_tenant_id,
+        };
         self.tokens
             .lock()
             .expect("token cache poisoned")
@@ -126,13 +136,47 @@ impl MvaigcClient {
 
     /// Return a cached token for the account, logging in if needed.
     pub async fn ensure_token(&self, account: &str, password: &str) -> Result<String, AIError> {
-        {
+        self.ensure_token_with_tenant(account, password, None).await
+    }
+
+    /// Return a token and ensure it is associated with `target_tenant`.
+    pub async fn ensure_token_with_tenant(
+        &self,
+        account: &str,
+        password: &str,
+        target_tenant: Option<i64>,
+    ) -> Result<String, AIError> {
+        let cached_opt = {
             let cache = self.tokens.lock().expect("token cache poisoned");
-            if let Some(cached) = cache.get(account) {
-                return Ok(cached.token.clone());
+            cache
+                .get(account)
+                .map(|cached| (cached.token.clone(), cached.active_tenant_id))
+        };
+
+        let (token, current_tenant) = match cached_opt {
+            Some(pair) => pair,
+            None => {
+                let cached = self.login(account, password).await?;
+                (cached.token, cached.active_tenant_id)
+            }
+        };
+
+        if let Some(target) = target_tenant {
+            if current_tenant != Some(target) {
+                self.switch_tenant(token.clone(), target).await?;
+                self.update_cached_tenant(account, target);
             }
         }
-        Ok(self.login(account, password).await?.token)
+
+        Ok(token)
+    }
+
+    /// Update the cached tenant ID for an account.
+    pub fn update_cached_tenant(&self, account: &str, tenant_id: i64) {
+        let mut cache = self.tokens.lock().expect("token cache poisoned");
+        if let Some(cached) = cache.get_mut(account) {
+            cached.active_tenant_id = Some(tenant_id);
+        }
     }
 
     /// Drop a cached token (used after a 401/103 to force a re-login).
@@ -225,6 +269,43 @@ impl MvaigcClient {
             .http
             .get(format!("{}/ma/v1/videoPlatform/getVideoApi", self.base))
             .query(&[("type", scene)])
+            .header("X-User-Token", token)
+            .send()
+            .await?;
+        let body: Value = response.json().await?;
+        parse_envelope(body).map_err(AIError::Provider)
+    }
+
+    /// Query the list of teams / tenants the user belongs to.
+    pub async fn list_tenants(&self, token: String) -> Result<Value, AIError> {
+        let response = self
+            .http
+            .get(format!("{}/ma/v1/user/tenantMenu", self.base))
+            .header("X-User-Token", token)
+            .send()
+            .await?;
+        let body: Value = response.json().await?;
+        parse_envelope(body).map_err(AIError::Provider)
+    }
+
+    /// Query the current user profile, active tenant ID, points, etc.
+    pub async fn get_user_info(&self, token: String) -> Result<Value, AIError> {
+        let response = self
+            .http
+            .get(format!("{}/ma/v1/user/userInfo", self.base))
+            .header("X-User-Token", token)
+            .send()
+            .await?;
+        let body: Value = response.json().await?;
+        parse_envelope(body).map_err(AIError::Provider)
+    }
+
+    /// Switch the active team / tenant for the current user session.
+    pub async fn switch_tenant(&self, token: String, tenant_id: i64) -> Result<Value, AIError> {
+        let response = self
+            .http
+            .get(format!("{}/ma/v1/user/tenantSwitch", self.base))
+            .query(&[("tenantId", tenant_id.to_string())])
             .header("X-User-Token", token)
             .send()
             .await?;
@@ -500,6 +581,7 @@ mod tests {
             CachedToken {
                 token: "T1".into(),
                 user_id: "u".into(),
+                active_tenant_id: None,
             },
         );
         client.forget_token_if("acct", "T2"); // mismatch → no-op

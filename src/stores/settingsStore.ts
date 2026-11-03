@@ -284,12 +284,22 @@ interface SettingsState {
   mvaigcPassword: string;
   /** Local port for the built-in mvaigc reverse proxy. */
   mvaigcPort: number;
+  /** Selected mvaigc team/tenant ID. */
+  mvaigcTenantId?: number | null;
+  /** Selected mvaigc team/tenant display name. */
+  mvaigcTenantName?: string;
   /** Claude Code project directory that external-agent connections write descriptors into. */
   claudeCodeProjectDir: string;
   /** Per-panel memory of the model/provider/ratio picker selection. */
   lastModelConfigByPanel?: Record<string, { entryId: string; ratio: string; extraParams?: Record<string, unknown> } | undefined>;
   setProviderApiKey: (providerId: string, key: string) => void;
-  setMvaigcCredentials: (account: string, password: string, port: number) => void;
+  setMvaigcCredentials: (
+    account: string,
+    password: string,
+    port: number,
+    tenantId?: number | null,
+    tenantName?: string,
+  ) => void;
   setClaudeCodeProjectDir: (value: string) => void;
   setAgnesApiKey: (key: string) => void;
   setGrsaiNanoBananaProModel: (model: string) => void;
@@ -1047,6 +1057,8 @@ export const useSettingsStore = create<SettingsState>()(
       mvaigcAccount: '',
       mvaigcPassword: '',
       mvaigcPort: DEFAULT_MVAIGC_PORT,
+      mvaigcTenantId: null,
+      mvaigcTenantName: '',
       claudeCodeProjectDir: DEFAULT_CLAUDE_CODE_PROJECT_DIR,
       lastModelConfigByPanel: {},
       setProviderApiKey: (providerId, key) =>
@@ -1057,12 +1069,14 @@ export const useSettingsStore = create<SettingsState>()(
           },
         })),
       setAgnesApiKey: (key) => set({ agnesApiKey: normalizeApiKey(key) }),
-      setMvaigcCredentials: (account, password, port) =>
-        set({
+      setMvaigcCredentials: (account, password, port, tenantId, tenantName) =>
+        set((state) => ({
           mvaigcAccount: account,
           mvaigcPassword: password,
           mvaigcPort: normalizeMvaigcPort(port),
-        }),
+          mvaigcTenantId: tenantId !== undefined ? tenantId : state.mvaigcTenantId ?? null,
+          mvaigcTenantName: tenantName !== undefined ? tenantName : state.mvaigcTenantName ?? '',
+        })),
       setClaudeCodeProjectDir: (value) =>
         set({ claudeCodeProjectDir: normalizeClaudeCodeProjectDir(value) }),
       setGrsaiNanoBananaProModel: (model) =>
@@ -1419,6 +1433,8 @@ export const useSettingsStore = create<SettingsState>()(
           mvaigcAccount?: string;
           mvaigcPassword?: string;
           mvaigcPort?: number;
+          mvaigcTenantId?: number | null;
+          mvaigcTenantName?: string;
           claudeCodeProjectDir?: string;
         };
         const persistedWithoutPricing = { ...((persistedState ?? {}) as Record<string, unknown>) };
@@ -1517,6 +1533,8 @@ export const useSettingsStore = create<SettingsState>()(
             mvaigcAccount: state.mvaigcAccount ?? '',
             mvaigcPassword: state.mvaigcPassword ?? '',
             mvaigcPort: normalizeMvaigcPort(state.mvaigcPort ?? DEFAULT_MVAIGC_PORT),
+            mvaigcTenantId: state.mvaigcTenantId ?? null,
+            mvaigcTenantName: state.mvaigcTenantName ?? '',
             claudeCodeProjectDir: normalizeClaudeCodeProjectDir(
               state.claudeCodeProjectDir ?? DEFAULT_CLAUDE_CODE_PROJECT_DIR
             ),
@@ -1570,6 +1588,8 @@ export const useSettingsStore = create<SettingsState>()(
           mvaigcAccount: state.mvaigcAccount ?? '',
           mvaigcPassword: state.mvaigcPassword ?? '',
           mvaigcPort: normalizeMvaigcPort(state.mvaigcPort ?? DEFAULT_MVAIGC_PORT),
+          mvaigcTenantId: state.mvaigcTenantId ?? null,
+          mvaigcTenantName: state.mvaigcTenantName ?? '',
           claudeCodeProjectDir: normalizeClaudeCodeProjectDir(
             state.claudeCodeProjectDir ?? DEFAULT_CLAUDE_CODE_PROJECT_DIR
           ),

@@ -35,7 +35,13 @@ export async function openVideoAgent(options: {
     };
     const settings = useSettingsStore.getState();
     if (!settings.mvaigcAccount || !settings.mvaigcPassword) throw new Error('请先在设置中登录 mvaigc；只需配置一次');
-    await invoke('mvaigc_set_credentials', { account: settings.mvaigcAccount, password: settings.mvaigcPassword, port: settings.mvaigcPort });
+    await invoke('mvaigc_set_credentials', {
+      account: settings.mvaigcAccount,
+      password: settings.mvaigcPassword,
+      port: settings.mvaigcPort,
+      tenantId: settings.mvaigcTenantId ?? null,
+      tenantName: settings.mvaigcTenantName ?? null,
+    });
     ensureCurrent();
     options.onPhase?.('connecting');
     let connection = await inspectExternalAgentConnection();

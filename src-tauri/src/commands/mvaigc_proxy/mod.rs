@@ -49,6 +49,8 @@ struct LocalGrant {
 pub struct ProxyState {
     client: MvaigcClient,
     credentials: RwLock<Option<(String, String)>>,
+    target_tenant_id: RwLock<Option<i64>>,
+    target_tenant_name: RwLock<Option<String>>,
     reserved: std::sync::Mutex<Option<u16>>,
     grants: RwLock<HashMap<String, LocalGrant>>,
     missing_since: std::sync::Mutex<HashMap<String, u64>>,
@@ -65,6 +67,8 @@ impl ProxyState {
         Self {
             client: MvaigcClient::new(),
             credentials: RwLock::new(None),
+            target_tenant_id: RwLock::new(None),
+            target_tenant_name: RwLock::new(None),
             reserved: std::sync::Mutex::new(None),
             grants: RwLock::new(HashMap::new()),
             missing_since: std::sync::Mutex::new(HashMap::new()),
@@ -73,6 +77,45 @@ impl ProxyState {
 
     pub async fn set_credentials(&self, account: String, password: String) {
         *self.credentials.write().await = Some((account, password));
+    }
+
+    pub async fn set_credentials_and_tenant(
+        &self,
+        account: String,
+        password: String,
+        tenant_id: Option<i64>,
+        tenant_name: Option<String>,
+    ) {
+        *self.credentials.write().await = Some((account, password));
+        *self.target_tenant_id.write().await = tenant_id;
+        *self.target_tenant_name.write().await = tenant_name;
+    }
+
+    pub async fn target_tenant_id(&self) -> Option<i64> {
+        *self.target_tenant_id.read().await
+    }
+
+    pub fn target_tenant_id_sync(&self) -> Option<i64> {
+        self.target_tenant_id
+            .try_read()
+            .ok()
+            .and_then(|guard| *guard)
+    }
+
+    pub async fn target_tenant_name(&self) -> Option<String> {
+        self.target_tenant_name.read().await.clone()
+    }
+
+    pub fn target_tenant_name_sync(&self) -> Option<String> {
+        self.target_tenant_name
+            .try_read()
+            .ok()
+            .and_then(|guard| guard.clone())
+    }
+
+    pub async fn set_tenant(&self, tenant_id: Option<i64>, tenant_name: Option<String>) {
+        *self.target_tenant_id.write().await = tenant_id;
+        *self.target_tenant_name.write().await = tenant_name;
     }
 
     /// A revocable local-only grant; never duplicates the upstream password.
@@ -164,12 +207,14 @@ fn local_now() -> u64 {
         .as_millis() as u64
 }
 
-/// Pull `account`/`password` from the `Authorization: Bearer account:password`
-/// header, falling back to the state's stored credentials.
+/// Pull `account`/`password` and optional `tenant_id` from the
+/// `Authorization: Bearer <account>:<password>[:<tenant_id>]` header,
+/// falling back to the state's stored credentials and target tenant.
 async fn resolve_credentials(
     state: &SharedState,
     headers: &HeaderMap,
-) -> Result<(String, String), Response> {
+) -> Result<(String, String, Option<i64>), Response> {
+    let configured_tenant = state.target_tenant_id().await;
     if let Some(raw) = headers
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
@@ -181,7 +226,7 @@ async fn resolve_credentials(
                 if grant.expires_at > local_now() && (grant.active)() {
                     if let Some(pair) = state.stored_credentials().await {
                         if pair.0 == grant.account {
-                            return Ok(pair);
+                            return Ok((pair.0, pair.1, configured_tenant));
                         }
                     }
                 }
@@ -191,9 +236,14 @@ async fn resolve_credentials(
                 "本地工程授权已失效，请从视频节点重新打开智能体",
             ));
         }
-        if let Some((account, password)) = token.split_once(':') {
-            if !account.is_empty() && !password.is_empty() {
-                return Ok((account.to_string(), password.to_string()));
+        if let Some((account, rest)) = token.split_once(':') {
+            if let Some((password, tenant_part)) = rest.split_once(':') {
+                if !account.is_empty() && !password.is_empty() {
+                    let tenant_id = tenant_part.trim().parse::<i64>().ok().or(configured_tenant);
+                    return Ok((account.to_string(), password.to_string(), tenant_id));
+                }
+            } else if !account.is_empty() && !rest.is_empty() {
+                return Ok((account.to_string(), rest.to_string(), configured_tenant));
             }
         }
     }
@@ -203,12 +253,16 @@ async fn resolve_credentials(
             "无效的本地服务授权",
         ));
     }
-    state.stored_credentials().await.ok_or_else(|| {
-        error_response(
-            StatusCode::UNAUTHORIZED,
-            "缺少账号密码（Authorization: Bearer <账号>:<密码>）",
-        )
-    })
+    state
+        .stored_credentials()
+        .await
+        .map(|(acc, pwd)| (acc, pwd, configured_tenant))
+        .ok_or_else(|| {
+            error_response(
+                StatusCode::UNAUTHORIZED,
+                "缺少账号密码（Authorization: Bearer <账号>:<密码>）",
+            )
+        })
 }
 
 /// Build an error response in the `{"error":{"message":...}}` shape.
@@ -272,6 +326,7 @@ async fn with_token<T, F, Fut>(
     state: &SharedState,
     account: &str,
     password: &str,
+    tenant_id: Option<i64>,
     op: F,
 ) -> Result<T, String>
 where
@@ -280,7 +335,7 @@ where
 {
     let token = state
         .client
-        .ensure_token(account, password)
+        .ensure_token_with_tenant(account, password, tenant_id)
         .await
         .map_err(|err| err.to_string())?;
     match op(token.clone()).await {
@@ -289,7 +344,7 @@ where
             state.client.forget_token_if(account, &token);
             let token = state
                 .client
-                .ensure_token(account, password)
+                .ensure_token_with_tenant(account, password, tenant_id)
                 .await
                 .map_err(|err| err.to_string())?;
             op(token).await
@@ -298,13 +353,67 @@ where
     }
 }
 
+/// Coerce a JSON number or string to i64.
+pub fn parse_json_i64(value: &Value) -> Option<i64> {
+    match value {
+        Value::Number(n) => n.as_i64(),
+        Value::String(s) => s.trim().parse::<i64>().ok(),
+        _ => None,
+    }
+}
+
+/// Format the raw tenant array from mvaigc's `tenantMenu` into standardized team records.
+pub fn format_team_list(raw: &Value) -> Vec<Value> {
+    let list = match raw {
+        Value::Array(items) => items.as_slice(),
+        _ => &[],
+    };
+    list.iter()
+        .filter_map(|item| {
+            let tenant_id = item.get("tenantId").and_then(parse_json_i64)?;
+            let tenant_name = item
+                .get("tenantName")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            let role_type = item
+                .get("roleType")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            let role_label = match role_type.as_str() {
+                "SUPER_ADMIN" => "团队负责人",
+                "ADMIN" => "团队管理员",
+                _ => "团队成员",
+            };
+            let display_name = if tenant_name.is_empty() {
+                format!("团队 #{tenant_id}")
+            } else if tenant_name.ends_with("的团队") {
+                tenant_name.clone()
+            } else {
+                format!("{tenant_name}的团队")
+            };
+            Some(json!({
+                "id": tenant_id,
+                "tenantId": tenant_id,
+                "name": display_name,
+                "tenantName": tenant_name,
+                "roleType": role_type,
+                "roleLabel": role_label,
+            }))
+        })
+        .collect()
+}
+
 /// `GET /v1/models` — aggregate image and video models into OpenAI's shape.
 async fn list_models(State(state): State<SharedState>, headers: HeaderMap) -> Response {
-    let (account, password) = match resolve_credentials(&state, &headers).await {
-        Ok(pair) => pair,
+    let (account, password, tenant_id) = match resolve_credentials(&state, &headers).await {
+        Ok(triple) => triple,
         Err(response) => return response,
     };
-    let result = with_token(&state, &account, &password, |token| {
+    let result = with_token(&state, &account, &password, tenant_id, |token| {
         let state = state.clone();
         async move {
             let image = state
@@ -351,8 +460,8 @@ async fn image_generations(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Response {
-    let (account, password) = match resolve_credentials(&state, &headers).await {
-        Ok(pair) => pair,
+    let (account, password, tenant_id) = match resolve_credentials(&state, &headers).await {
+        Ok(triple) => triple,
         Err(response) => return response,
     };
     let model = body
@@ -366,7 +475,7 @@ async fn image_generations(
         .map(str::to_string)
         .unwrap_or_else(|| model.clone());
     let payload = map_image_request(&body, &model_name);
-    let result = with_token(&state, &account, &password, |token| {
+    let result = with_token(&state, &account, &password, tenant_id, |token| {
         let state = state.clone();
         let mut payload = payload.clone();
         async move {
@@ -395,8 +504,8 @@ async fn video_generations(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Response {
-    let (account, password) = match resolve_credentials(&state, &headers).await {
-        Ok(pair) => pair,
+    let (account, password, tenant_id) = match resolve_credentials(&state, &headers).await {
+        Ok(triple) => triple,
         Err(response) => return response,
     };
     let model = body
@@ -412,7 +521,7 @@ async fn video_generations(
     // Start/end-frame mode is requested via `frames: true`.
     let frames = body.get("frames").and_then(Value::as_bool).unwrap_or(false);
     let payload = map_video_request(&body, &api_name);
-    let result = with_token(&state, &account, &password, |token| {
+    let result = with_token(&state, &account, &password, tenant_id, |token| {
         let state = state.clone();
         let mut payload = payload.clone();
         async move {
@@ -445,11 +554,11 @@ async fn task_status(
         Some(pair) => pair,
         None => return error_response(StatusCode::BAD_REQUEST, format!("无效的任务号: {id}")),
     };
-    let (account, password) = match resolve_credentials(&state, &headers).await {
-        Ok(pair) => pair,
+    let (account, password, tenant_id) = match resolve_credentials(&state, &headers).await {
+        Ok(triple) => triple,
         Err(response) => return response,
     };
-    let result = with_token(&state, &account, &password, |token| {
+    let result = with_token(&state, &account, &password, tenant_id, |token| {
         let state = state.clone();
         let oper_type = oper_type.clone();
         let oper_id = oper_id.clone();
@@ -492,6 +601,119 @@ async fn task_status(
     }
 }
 
+/// `GET /v1/teams` — list teams for the authenticated account and report current active team.
+async fn get_teams(State(state): State<SharedState>, headers: HeaderMap) -> Response {
+    let (account, password, tenant_id) = match resolve_credentials(&state, &headers).await {
+        Ok(triple) => triple,
+        Err(response) => return response,
+    };
+    let result = with_token(&state, &account, &password, tenant_id, |token| {
+        let state = state.clone();
+        async move {
+            let tenants = state
+                .client
+                .list_tenants(token.clone())
+                .await
+                .map_err(|err| err.to_string())?;
+            let user_info = state
+                .client
+                .get_user_info(token)
+                .await
+                .unwrap_or(Value::Null);
+            Ok((tenants, user_info))
+        }
+    })
+    .await;
+
+    match result {
+        Ok((tenants, user_info)) => {
+            let current_tenant_id = user_info
+                .get("tenantId")
+                .and_then(parse_json_i64)
+                .or(tenant_id);
+            let current_tenant_name = user_info
+                .get("tenantName")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+                .or_else(|| state.target_tenant_name_sync());
+            let points = user_info.get("sumIncomePoint").and_then(parse_json_i64);
+            let consume_points = user_info.get("sumConsumePoint").and_then(parse_json_i64);
+
+            let teams = format_team_list(&tenants);
+            Json(json!({
+                "status": "ok",
+                "currentTenantId": current_tenant_id,
+                "currentTenantName": current_tenant_name,
+                "points": points,
+                "consumePoints": consume_points,
+                "teams": teams,
+                "userInfo": user_info,
+            }))
+            .into_response()
+        }
+        Err(err) => error_response(StatusCode::BAD_GATEWAY, err),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct SwitchTeamPayload {
+    #[serde(alias = "tenantId", alias = "tenant_id", alias = "id")]
+    tenant_id: i64,
+    #[serde(alias = "tenantName", alias = "tenant_name", alias = "name")]
+    tenant_name: Option<String>,
+}
+
+/// `POST /v1/teams/switch` — switch active team for the authenticated account.
+async fn switch_team_endpoint(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<SwitchTeamPayload>,
+) -> Response {
+    let (account, password, _) = match resolve_credentials(&state, &headers).await {
+        Ok(triple) => triple,
+        Err(response) => return response,
+    };
+    let target_tenant = body.tenant_id;
+    let tenant_name = body.tenant_name.clone();
+
+    let result = with_token(&state, &account, &password, Some(target_tenant), |token| {
+        let state = state.clone();
+        async move {
+            state
+                .client
+                .switch_tenant(token.clone(), target_tenant)
+                .await
+                .map_err(|err| err.to_string())?;
+            let user_info = state
+                .client
+                .get_user_info(token)
+                .await
+                .unwrap_or(Value::Null);
+            Ok(user_info)
+        }
+    })
+    .await;
+
+    match result {
+        Ok(user_info) => {
+            state
+                .set_tenant(Some(target_tenant), tenant_name.clone())
+                .await;
+            state.client.update_cached_tenant(&account, target_tenant);
+            let points = user_info.get("sumIncomePoint").and_then(parse_json_i64);
+            Json(json!({
+                "status": "ok",
+                "tenantId": target_tenant,
+                "tenantName": tenant_name,
+                "points": points,
+                "userInfo": user_info,
+            }))
+            .into_response()
+        }
+        Err(err) => error_response(StatusCode::BAD_GATEWAY, err),
+    }
+}
+
 /// Build the proxy router.
 pub fn router(state: SharedState) -> Router {
     Router::new()
@@ -499,6 +721,10 @@ pub fn router(state: SharedState) -> Router {
         .route("/v1/images/generations", post(image_generations))
         .route("/v1/videos", post(video_generations))
         .route("/v1/tasks/{id}", get(task_status))
+        .route("/v1/teams", get(get_teams))
+        .route("/v1/teams/switch", post(switch_team_endpoint))
+        .route("/v1/tenants", get(get_teams))
+        .route("/v1/tenants/switch", post(switch_team_endpoint))
         // Reference images/videos arrive as base64 inside the JSON body and
         // can exceed axum's 2 MB default, which would reject them with 413.
         .layer(DefaultBodyLimit::max(MAX_REQUEST_BODY_BYTES))
@@ -538,12 +764,147 @@ pub async fn mvaigc_set_credentials(
     account: String,
     password: String,
     port: u16,
+    tenant_id: Option<i64>,
+    tenant_name: Option<String>,
 ) -> Result<String, String> {
-    state.state.set_credentials(account, password).await;
+    state
+        .state
+        .set_credentials_and_tenant(
+            account.clone(),
+            password.clone(),
+            tenant_id,
+            tenant_name.clone(),
+        )
+        .await;
+
+    if let Some(tid) = tenant_id {
+        if !account.trim().is_empty() && !password.trim().is_empty() {
+            if let Ok(token) = state.state.client.ensure_token(&account, &password).await {
+                let _ = state.state.client.switch_tenant(token, tid).await;
+                state.state.client.update_cached_tenant(&account, tid);
+            }
+        }
+    }
+
     match ensure_started(&state.state, port) {
         Ok(_) => Ok(format!("running:{port}")),
         Err(err) => Err(err),
     }
+}
+
+/// Tauri command: query available teams and current active team for an account.
+#[tauri::command]
+pub async fn mvaigc_fetch_teams(
+    state: tauri::State<'_, MvaigcProxyState>,
+    account: String,
+    password: String,
+) -> Result<Value, String> {
+    let account = account.trim().to_string();
+    let password = password.trim().to_string();
+    if account.is_empty() || password.is_empty() {
+        return Err("请先填写账号和密码".to_string());
+    }
+
+    let target_tenant = state.state.target_tenant_id().await;
+    let token = state
+        .state
+        .client
+        .ensure_token_with_tenant(&account, &password, target_tenant)
+        .await
+        .map_err(|err| err.to_string())?;
+
+    let tenants_raw = state
+        .state
+        .client
+        .list_tenants(token.clone())
+        .await
+        .map_err(|err| err.to_string())?;
+
+    let user_info_raw = state
+        .state
+        .client
+        .get_user_info(token)
+        .await
+        .unwrap_or(Value::Null);
+
+    let current_tenant_id = user_info_raw
+        .get("tenantId")
+        .and_then(parse_json_i64)
+        .or(target_tenant);
+    let current_tenant_name = user_info_raw
+        .get("tenantName")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .or_else(|| state.state.target_tenant_name_sync());
+    let points = user_info_raw.get("sumIncomePoint").and_then(parse_json_i64);
+    let consume_points = user_info_raw
+        .get("sumConsumePoint")
+        .and_then(parse_json_i64);
+
+    let teams = format_team_list(&tenants_raw);
+
+    Ok(json!({
+        "status": "ok",
+        "currentTenantId": current_tenant_id,
+        "currentTenantName": current_tenant_name,
+        "points": points,
+        "consumePoints": consume_points,
+        "teams": teams,
+        "userInfo": user_info_raw,
+    }))
+}
+
+/// Tauri command: switch active team for an account.
+#[tauri::command]
+pub async fn mvaigc_switch_team(
+    state: tauri::State<'_, MvaigcProxyState>,
+    account: String,
+    password: String,
+    tenant_id: i64,
+    tenant_name: Option<String>,
+) -> Result<Value, String> {
+    let account = account.trim().to_string();
+    let password = password.trim().to_string();
+    if account.is_empty() || password.is_empty() {
+        return Err("请先填写账号和密码".to_string());
+    }
+
+    let token = state
+        .state
+        .client
+        .ensure_token_with_tenant(&account, &password, Some(tenant_id))
+        .await
+        .map_err(|err| err.to_string())?;
+
+    state
+        .state
+        .client
+        .switch_tenant(token.clone(), tenant_id)
+        .await
+        .map_err(|err| err.to_string())?;
+
+    state
+        .state
+        .set_tenant(Some(tenant_id), tenant_name.clone())
+        .await;
+    state.state.client.update_cached_tenant(&account, tenant_id);
+
+    let user_info_raw = state
+        .state
+        .client
+        .get_user_info(token)
+        .await
+        .unwrap_or(Value::Null);
+
+    let points = user_info_raw.get("sumIncomePoint").and_then(parse_json_i64);
+
+    Ok(json!({
+        "status": "ok",
+        "tenantId": tenant_id,
+        "tenantName": tenant_name,
+        "points": points,
+        "userInfo": user_info_raw,
+    }))
 }
 
 /// Tauri command: report the proxy status.
@@ -558,6 +919,49 @@ pub fn mvaigc_proxy_status(state: tauri::State<'_, MvaigcProxyState>) -> String 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn format_team_list_maps_mvaigc_tenants() {
+        let raw = json!([
+            {
+                "tenantId": 1001,
+                "tenantName": "SYQ-TES",
+                "roleType": "SUPER_ADMIN"
+            },
+            {
+                "tenantId": "1002",
+                "tenantName": "深度视界团队",
+                "roleType": "ADMIN"
+            },
+            {
+                "tenantId": 1003,
+                "tenantName": "合作实验室的团队",
+                "roleType": "USER"
+            }
+        ]);
+        let formatted = format_team_list(&raw);
+        assert_eq!(formatted.len(), 3);
+        assert_eq!(formatted[0]["id"], 1001);
+        assert_eq!(formatted[0]["name"], "SYQ-TES的团队");
+        assert_eq!(formatted[0]["roleLabel"], "团队负责人");
+
+        assert_eq!(formatted[1]["id"], 1002);
+        assert_eq!(formatted[1]["name"], "深度视界团队的团队");
+        assert_eq!(formatted[1]["roleLabel"], "团队管理员");
+
+        assert_eq!(formatted[2]["id"], 1003);
+        assert_eq!(formatted[2]["name"], "合作实验室的团队");
+        assert_eq!(formatted[2]["roleLabel"], "团队成员");
+    }
+
+    #[test]
+    fn parse_json_i64_handles_numbers_and_numeric_strings() {
+        assert_eq!(parse_json_i64(&json!(123)), Some(123));
+        assert_eq!(parse_json_i64(&json!("456")), Some(456));
+        assert_eq!(parse_json_i64(&json!(" 789 ")), Some(789));
+        assert_eq!(parse_json_i64(&json!("invalid")), None);
+        assert_eq!(parse_json_i64(&json!(null)), None);
+    }
 
     #[test]
     fn inline_media_url_key_covers_image_and_video_shapes() {

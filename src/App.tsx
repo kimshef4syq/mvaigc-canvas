@@ -125,13 +125,30 @@ function App() {
     const settings = useSettingsStore.getState();
     const providers = useCustomProvidersStore.getState();
     syncMvaigcProvidersFromSettings(
-      { account: settings.mvaigcAccount, password: settings.mvaigcPassword, port: settings.mvaigcPort },
+      {
+        account: settings.mvaigcAccount,
+        password: settings.mvaigcPassword,
+        port: settings.mvaigcPort,
+        tenantId: settings.mvaigcTenantId,
+        tenantName: settings.mvaigcTenantName,
+      },
       {
         addProvider: providers.addProvider,
         updateProvider: providers.updateProvider,
         hasProvider: (id) => useCustomProvidersStore.getState().providers.some((p) => p.id === id),
       },
     );
+    if (settings.mvaigcAccount && settings.mvaigcPassword) {
+      void invoke('mvaigc_set_credentials', {
+        account: settings.mvaigcAccount,
+        password: settings.mvaigcPassword,
+        port: settings.mvaigcPort,
+        tenantId: settings.mvaigcTenantId ?? null,
+        tenantName: settings.mvaigcTenantName ?? null,
+      }).catch((err) => {
+        console.warn('Failed to sync mvaigc credentials on app launch:', err);
+      });
+    }
   }, []);
 
   useEffect(() => {
