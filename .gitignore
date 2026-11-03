@@ -54,3 +54,6 @@ output/
 # Local browser/debug output
 .playwright-cli/
 output/
+
+# Generated SuperSplat distribution
+/public/supersplat/

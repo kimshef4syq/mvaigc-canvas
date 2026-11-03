@@ -1444,6 +1444,7 @@
   },
   "node": {
     "menu": {
+      "gaussian": "3D 高斯",
       "uploadImage": "上传图片",
       "generateImage": "生成图片",
       "uploadMaterial": "上传素材",

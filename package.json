@@ -21,8 +21,9 @@
     "tauri": "tauri",
     "sync:version": "node scripts/sync-version.mjs",
     "release": "node scripts/release.mjs",
-    "prebuild": "node scripts/build-hypit-provider.mjs",
-    "predev": "node scripts/build-hypit-provider.mjs"
+    "prebuild": "npm run supersplat:build && node scripts/build-hypit-provider.mjs",
+    "predev": "node scripts/build-hypit-provider.mjs",
+    "supersplat:build": "node scripts/build-supersplat.mjs"
   },
   "dependencies": {
     "@openai/agents": "0.14.3",

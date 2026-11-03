@@ -682,6 +682,17 @@ const blueprintNodeDefinition: CanvasNodeDefinition<BlueprintNodeData> = {
   }),
 };
 
+const gaussianNodeDefinition: CanvasNodeDefinition = {
+  type: CANVAS_NODE_TYPES.gaussian,
+  menuLabelKey: 'node.menu.gaussian',
+  menuIcon: 'sparkles',
+  visibleInMenu: true,
+  defaultSize: { width: 440, height: 680 },
+  capabilities: { toolbar: false, selectionToolbar: 'deleteOnly', promptInput: false },
+  connectivity: { sourceHandle: false, targetHandle: true, connectMenu: { fromSource: false, fromTarget: true } },
+  createDefaultData: () => ({ displayName: '3D 高斯' }),
+};
+
 export const canvasNodeDefinitions: Record<CanvasNodeType, CanvasNodeDefinition> = {
   [CANVAS_NODE_TYPES.upload]: uploadNodeDefinition,
   [CANVAS_NODE_TYPES.imageEdit]: imageEditNodeDefinition,
@@ -699,6 +710,7 @@ export const canvasNodeDefinitions: Record<CanvasNodeType, CanvasNodeDefinition>
   [CANVAS_NODE_TYPES.storyboardSplit]: storyboardSplitDefinition,
   [CANVAS_NODE_TYPES.storyboardGen]: storyboardGenNodeDefinition,
   [CANVAS_NODE_TYPES.panorama]: panoramaNodeDefinition,
+  [CANVAS_NODE_TYPES.gaussian]: gaussianNodeDefinition,
   [CANVAS_NODE_TYPES.blueprint]: blueprintNodeDefinition,
 };
 

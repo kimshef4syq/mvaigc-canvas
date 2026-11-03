@@ -22,6 +22,7 @@ export const DEFAULT_NODE_DISPLAY_NAME: Record<CanvasNodeType, string> = {
   [CANVAS_NODE_TYPES.storyboardSplit]: '切割结果',
   [CANVAS_NODE_TYPES.storyboardGen]: '分镜生成',
   [CANVAS_NODE_TYPES.panorama]: '全景图',
+  [CANVAS_NODE_TYPES.gaussian]: '3D 高斯',
   [CANVAS_NODE_TYPES.blueprint]: '导演台',
 };
 

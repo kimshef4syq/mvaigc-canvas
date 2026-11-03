@@ -9,6 +9,7 @@ import { GroupNode } from './GroupNode';
 import { ImageEditNode } from './ImageEditNode';
 import { ImageNode } from './ImageNode';
 import { JsonCardNode } from './JsonCardNode';
+import { GaussianNode } from './GaussianNode';
 import { PanoramaNode } from './PanoramaNode';
 import { StoryboardGenNode } from './StoryboardGenNode';
 import { StoryboardNode } from './StoryboardNode';
@@ -30,6 +31,7 @@ export const nodeTypes: NodeTypes = {
   imageNode: withNodeRenderErrorBoundary(ImageEditNode),
   jsonCardNode: withNodeRenderErrorBoundary(JsonCardNode),
   panoramaNode: withNodeRenderErrorBoundary(PanoramaNode),
+  gaussianNode: withNodeRenderErrorBoundary(GaussianNode),
   storyboardGenNode: withNodeRenderErrorBoundary(StoryboardGenNode),
   storyboardNode: withNodeRenderErrorBoundary(StoryboardNode),
   textAnnotationNode: withNodeRenderErrorBoundary(TextAnnotationNode),

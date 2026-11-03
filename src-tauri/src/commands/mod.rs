@@ -25,3 +25,5 @@ pub use image::*;
 pub use project_state::*;
 pub use system::*;
 pub use update::*;
+
+pub mod supersplat;

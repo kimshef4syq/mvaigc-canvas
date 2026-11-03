@@ -123,6 +123,7 @@ export const canvasNodeCapabilityManifest = {
     directCreateReason: 'Storyboard split nodes require validated frame data from the split workflow.',
   },
   [CANVAS_NODE_TYPES.storyboardGen]: { status: 'supported', commands: GENERATION_NODE_COMMANDS, directCreate: true },
+  [CANVAS_NODE_TYPES.gaussian]: { status: 'supported', commands: COMMON_NODE_COMMANDS, directCreate: true },
   [CANVAS_NODE_TYPES.panorama]: {
     status: 'supported',
     commands: [...COMMON_NODE_COMMANDS, 'panorama.update', 'asset.list', 'asset.locate', 'generation.submit', 'generation.status', 'generation.locateResult'],

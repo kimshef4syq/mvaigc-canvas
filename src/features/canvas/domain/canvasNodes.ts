@@ -17,6 +17,7 @@ export const CANVAS_NODE_TYPES = {
   storyboardSplit: 'storyboardNode',
   storyboardGen: 'storyboardGenNode',
   panorama: 'panoramaNode',
+  gaussian: 'gaussianNode',
   blueprint: 'blueprintNode',
 } as const;
 
@@ -828,7 +829,16 @@ export interface BlueprintNodeData extends NodeDisplayData {
   [key: string]: unknown;
 }
 
+export interface GaussianNodeData extends NodeDisplayData {
+  assetId?: string;
+  gaussianProviderId?: string;
+  gaussianGeneration?: import('../application/gaussianGeneration').GaussianGenerationTask;
+  views?: import('@/features/supersplat/protocol').SavedView[];
+  previewImageUrl?: string;
+}
+
 export type CanvasNodeData =
+  | GaussianNodeData
   | UploadImageNodeData
   | ExportImageNodeData
   | VideoNodeData

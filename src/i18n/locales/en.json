@@ -1448,6 +1448,7 @@
   },
   "node": {
     "menu": {
+      "gaussian": "3D Gaussian",
       "uploadImage": "Upload Image",
       "generateImage": "Generate Image",
       "uploadMaterial": "Upload Material",

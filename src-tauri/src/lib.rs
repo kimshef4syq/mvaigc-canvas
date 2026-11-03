@@ -83,6 +83,7 @@ pub fn run() {
     let external_agent_state = external_agent::ExternalAgentState::new();
 
     tauri::Builder::default()
+        .manage(commands::supersplat::SplatSessions::default())
         .manage(commands::startup::StartupSoundState::default())
         .manage(project_state::ProjectDb::new())
         .manage(agent_history_commands::AgentHistoryDb::new())
@@ -194,6 +195,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             frontend_ready,
+            commands::supersplat::supersplat_open,
+            commands::supersplat::supersplat_import_folder,
+            commands::supersplat::supersplat_results,
+            commands::supersplat::supersplat_download_ply,
             commands::startup::play_startup_sound,
             commands::startup::stop_startup_sound,
             commands::video_caption::burn_video_caption,

@@ -66,6 +66,12 @@ export function validateCanvasConnection(
   if (!nodeHasSourceHandle(source.type) || !nodeHasTargetHandle(target.type)) {
     return { valid: false, code: 'unsupported', message: `Nodes ${source.id} and ${target.id} are not connectable.` };
   }
+  if (target.type === CANVAS_NODE_TYPES.gaussian) {
+    const imageTypes: CanvasNode['type'][] = [CANVAS_NODE_TYPES.upload, CANVAS_NODE_TYPES.exportImage, CANVAS_NODE_TYPES.imageEdit];
+    if (!imageTypes.includes(source.type) || edges.some(edge => edge.target === target.id && edge.source !== source.id)) {
+      return { valid: false, code: 'unsupported', message: '3D 高斯节点只接收一张生成图片或素材图片。' };
+    }
+  }
   if (isTagGroupNode(source) && !TAG_GROUP_REFERENCE_TARGET_TYPES.has(target.type)) {
     return {
       valid: false,
