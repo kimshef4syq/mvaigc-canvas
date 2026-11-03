@@ -3,7 +3,7 @@
 > 新会话 / 新接手的人：读这一份就知道**已经做完什么、在哪、怎么验证、下一步**。
 > 不必重新问"我们之前干了哪些活"。
 >
-> 最后更新：2026-10-17
+> 最后更新：2026-11-03
 
 ---
 
@@ -25,7 +25,7 @@
 | 分支 | `main`（原 `feat/mvaigc-proxy` 已改名；远程 `origin/main` 同步） |
 | 提交总数 | 84 |
 | 基线提交 | `7a78240` chore: 建立 Git 仓库，导入 mvaigc-canvas 工作副本基线 |
-| 最新提交 | `e8bc5b4` docs(brand): 关于页与 README 改为 mvaigc 桌面画布 |
+| 最新提交 | `c82602a` Merge branch 'kimshef4syq/guasssplat'（3DGS 分支并入 main） |
 
 **Tag（按时间）**：
 
@@ -36,6 +36,8 @@
 | `图片节点OK` | 10-08 | `51e62a7` | 图片节点验收通过 |
 | `视频参考-之前` | 10-09 | `259f89f` | 视频参考改造前的存档 |
 | `视频参考-接通未测` | 10-09 | `e81fd38` | 视频参考已接通、**尚未端到端验证** |
+| `框选节点全部连线` | 11-02 | `9883a0c` | 框选连线方案确认前的锚点 |
+| `pre-guasssplat-merge` | 11-03 | `eeb4f59` | 合并 guasssplat（3DGS）之前的安全锚点 |
 
 > 回退示例：`git reset --hard milestone-2026-10-07`
 
@@ -177,6 +179,23 @@ drag-and-drop 从"一次只建一个节点"扩成"一批文件建一批节点"�
 - 验证：`npx tsc --noEmit`、`npm test`（1381/1381，新增 10 条用例：`canvasDropArrangement.test.ts`、`selectionConnectRules.test.ts`）、`npm run build`。
 - ⚠️ **真机界面未验证**：多选拖入网格、框选连接点连「生成视频」/「生成图片」的类型过滤，均待手动确认。
 
+### N. 3D 高斯（3DGS）节点 + SuperSplat 编辑器（合并自 `kimshef4syq/guasssplat`）
+
+`274eb6c` → `648f477`，2026-11-03 以 merge commit `c82602a` 并入 `main`（无冲突；仅 `zh.json`/`en.json` 两边都加 key，自动合并）。
+
+- 新节点类型 `gaussianNode`（「3D 高斯」）：`nodes/GaussianNode.tsx`（175 行）+ `nodeRegistry.ts` / `canvasNodes.ts` / `nodeDisplay.ts` / `canvasCapabilities.ts` 注册。
+  - 默认尺寸 440×680；`sourceHandle: false`、`targetHandle: true`，只能作为终点。
+  - 连线约束（`application/canvasConnectionRules.ts`）：**只接收一张**上传素材 / 生成图片 / AI 图片，且**只允许一条入边**。
+- 生成链路 `application/gaussianGeneration.ts`：走 **ComfyUI 工作流**（1 图 → 3DGS），`SaveGaussianSplat` 输出节点被 `suggestComfyUIOutputNodes` 识别；结果 PLY 经桌面端 `supersplat_download_ply` 取回，存进 **IndexedDB**（`features/supersplat/assets.ts`，库名 `canvas-gaussian-assets`）。
+- ComfyUI 媒体类型扩为 `'image' | 'video' | 'audio' | 'gaussian'`，贯穿 `comfyuiGateway.ts`、`customImageProviderConfig.ts`、`customProvidersStore.ts`、设置面板。
+- 编辑器：`vendor/supersplat/`（SuperSplat 3.7.0 MIT 源码，**294 个文件入库**；`node_modules`/`dist` 走 gitignore，约 473MB 本地安装）。构建：`npm ci --prefix vendor/supersplat` → `npm run supersplat:build` → 产出 `public/supersplat/`（27MB，已 gitignore）。
+  - ⚠️ **`prebuild` 已改为先跑 `supersplat:build`**，所以新克隆必须先装 vendor 依赖，否则 `npm run build` 会失败。
+- 桌面端 `src-tauri/src/commands/supersplat.rs`（129 行）：起 127.0.0.1 随机端口 axum 服务（随机 token、4 小时生命周期、目录穿越防护含单测），然后**用 Google Chrome 新窗口全屏打开**编辑器；另有 `supersplat_import_folder`（导入含单个 `.lcc2` 的完整文件夹，拒绝符号链接）。
+- 附带（`648f477`）：用户手册 md/html/pdf（`docs/mvaigc-canvas-user-manual.*`）、`scripts/build_manual_pdf.py`、`model-test/gaussian/toy-cat.sog`。
+- 已知限制（来自 `vendor/supersplat/INTEGRATION.md`）：3DGS 资产与可编辑文档只存 IndexedDB，**项目打包portability 未实现**；PLY 经 Tauri 命令以 base64 跨越边界，超大模型吃内存；必须装 Chrome。
+- 验证：`npx tsc --noEmit`、`npm test`（1390/1390，183 文件）、`npm run build`、`cargo check`、`cargo test`（175 passed / 1 ignored）。
+- ⚠️ **真机未验证**：3DGS 生成端到端、Chrome 编辑器打开/保存、以及合并后框选连线与 3DGS 节点共存（按连线规则 3DGS 不入框选连线）。
+
 ---
 
 ## 3. 关键文件落点
@@ -188,6 +207,8 @@ drag-and-drop 从"一次只建一个节点"扩成"一批文件建一批节点"�
 | 电影技法（内容抓取+视图） | `scripts/scrape-cinematic-techniques.mjs`、`src/features/cinematicTechniques/` |
 | 画布 / 节点 / 生成流程 | `src/features/canvas/`（`nodes/`、`ui/`、`application/`） |
 | 框选连线规则 / 拖入网格排布 | `application/selectionConnectRules.ts`、`application/canvasDropArrangement.ts` |
+| 3D 高斯节点 / 生成链路 | `nodes/GaussianNode.tsx`、`application/gaussianGeneration.ts`、`features/supersplat/` |
+| SuperSplat 编辑器源码与构建 | `vendor/supersplat/`、`scripts/build-supersplat.mjs`、`src-tauri/src/commands/supersplat.rs` |
 | 共享组件与设置页 | `src/components/`（`TitleBar.tsx`、`SettingsDialog.tsx`、`settings/`） |
 | i18n | `src/i18n/locales/zh.json`、`en.json` |
 | 本项目设计/计划文档 | `docs/superpowers/specs/`、`docs/superpowers/plans/` |
@@ -202,11 +223,13 @@ drag-and-drop 从"一次只建一个节点"扩成"一批文件建一批节点"�
 cd mvaigc-canvas
 
 npx tsc --noEmit     # 类型检查
-npm test             # 全量测试（当前 1381 通过 / 180 测试文件）
+npm test             # 全量测试（当前 1390 通过 / 183 测试文件）
 npm run tauri dev    # 桌面应用，手动看界面
 ```
 
-最近一次全量测试：**1381/1381 通过、180 个测试文件**（`npx tsc --noEmit` 与 `npm run build` 亦通过）。
+最近一次全量测试：**前端 1390/1390 通过（183 个测试文件）、Rust 175 passed / 1 ignored**（`npx tsc --noEmit`、`npm run build`、`cargo check` 亦通过）。
+
+> 含 3DGS 后，构建前需先装 SuperSplat 依赖：`npm ci --prefix vendor/supersplat`（一次即可）。
 
 ---
 
