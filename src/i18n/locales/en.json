@@ -1861,6 +1861,7 @@
     "canvasProjects": "Canvas Projects",
     "promptLibrary": "Prompt Library",
     "cinematicTechniques": "Cinematic Techniques",
+    "mediaNews": "Media Empowerment",
     "views": "Workspace views",
     "canvasProjectsHint": "Manage local canvas projects",
     "promptLibraryHint": "Browse community prompts, save favorites, and apply them to canvases",
@@ -1872,6 +1873,13 @@
     "backgroundNone": "Background off",
     "pauseBackground": "Pause background animation",
     "resumeBackground": "Play background animation"
+  },
+  "mediaNews": {
+    "title": "Media Empowerment",
+    "description": "Prefecture and county media empowerment research station: daily media news, benchmark cases and monetization paths.",
+    "refresh": "Refresh",
+    "loadFailed": "Failed to load the news page",
+    "retry": "Retry"
   },
   "cinematicTechniques": {
     "title": "Cinematic Techniques",

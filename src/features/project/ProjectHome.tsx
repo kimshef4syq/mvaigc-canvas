@@ -1,12 +1,12 @@
 import { Suspense, lazy, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Clapperboard, FolderKanban, Library, type LucideIcon } from 'lucide-react';
+import { Clapperboard, FolderKanban, Library, Newspaper, type LucideIcon } from 'lucide-react';
 import { ProjectManager } from './ProjectManager';
 import { PixelBackground } from './backgrounds/PixelBackground';
 import { BackgroundPicker } from './backgrounds/BackgroundPicker';
 import './projectHome.css';
 
-type HomeBranch = 'projects' | 'prompts' | 'cinematic';
+type HomeBranch = 'projects' | 'prompts' | 'cinematic' | 'media';
 
 const PromptLibrary = lazy(() =>
   import('@/features/promptLibrary/PromptLibrary').then((module) => ({
@@ -20,6 +20,12 @@ const CinematicTechniques = lazy(() =>
   }))
 );
 
+const MediaNews = lazy(() =>
+  import('@/features/mediaNews/MediaNews').then((module) => ({
+    default: module.MediaNews,
+  }))
+);
+
 export function ProjectHome() {
   const { t } = useTranslation();
   const [activeBranch, setActiveBranch] = useState<HomeBranch>('projects');
@@ -27,6 +33,7 @@ export function ProjectHome() {
     projects: null,
     prompts: null,
     cinematic: null,
+    media: null,
   });
 
   const branches: Array<{
@@ -48,6 +55,11 @@ export function ProjectHome() {
       id: 'cinematic',
       label: t('mainHome.cinematicTechniques'),
       icon: Clapperboard,
+    },
+    {
+      id: 'media',
+      label: t('mainHome.mediaNews'),
+      icon: Newspaper,
     },
   ];
 
@@ -130,7 +142,13 @@ export function ProjectHome() {
               </div>
             }
           >
-            {activeBranch === 'cinematic' ? <CinematicTechniques /> : <PromptLibrary />}
+            {activeBranch === 'cinematic' ? (
+              <CinematicTechniques />
+            ) : activeBranch === 'media' ? (
+              <MediaNews />
+            ) : (
+              <PromptLibrary />
+            )}
           </Suspense>
         )}
       </div>
