@@ -1857,6 +1857,7 @@
     "canvasProjects": "画布项目",
     "promptLibrary": "提示词库",
     "cinematicTechniques": "电影技法",
+    "mediaNews": "融媒赋能",
     "views": "工作区视图",
     "canvasProjectsHint": "管理本地画布工程",
     "promptLibraryHint": "浏览社区提示词、收藏灵感并应用到画布",
@@ -1868,6 +1869,13 @@
     "backgroundNone": "关闭背景",
     "pauseBackground": "暂停背景动画",
     "resumeBackground": "播放背景动画"
+  },
+  "mediaNews": {
+    "title": "融媒赋能",
+    "description": "地市县融媒体赋能研究站：每日自动采集的融媒资讯、标杆案例与变现路径。",
+    "refresh": "刷新",
+    "loadFailed": "资讯页面加载失败",
+    "retry": "重试"
   },
   "cinematicTechniques": {
     "title": "电影技法",
