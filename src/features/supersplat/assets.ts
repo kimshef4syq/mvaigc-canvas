@@ -1,5 +1,10 @@
 /** Local, cross-project storage for source models and editable documents. */
 export interface GaussianAsset { id: string; name: string; sourceName?: string; folderPath?: string; source: Blob; document?: Blob; updatedAt: number }
+/** The display name may be changed; the editor needs the original file extension. */
+export function gaussianSourceName(asset: GaussianAsset): string {
+  const storedFileName = 'name' in asset.source && typeof asset.source.name === 'string' ? asset.source.name : undefined;
+  return asset.sourceName || storedFileName || asset.name;
+}
 const DATABASE = 'canvas-gaussian-assets';
 function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

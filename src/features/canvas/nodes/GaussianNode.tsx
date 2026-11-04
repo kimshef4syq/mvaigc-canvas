@@ -2,6 +2,7 @@ import { open as selectFolder } from '@tauri-apps/plugin-dialog';
 import { Box, CheckCircle2, ChevronDown, Chrome, ExternalLink, FileText, FolderOpen, ImageIcon, Pencil, Trash2 } from 'lucide-react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { memo, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Position, type NodeProps } from '@xyflow/react';
 import { NodeConnectionHandle } from '@/features/canvas/ui/NodeConnectionHandle';
 import { GenerationProgressOverlay } from '@/features/canvas/ui/GenerationProgressOverlay';
@@ -12,7 +13,7 @@ import { resolveImageDisplayUrl } from '../application/imageData';
 import { generateGaussian, recoverGaussian, type GaussianGenerationTask } from '../application/gaussianGeneration';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { persistImageSource } from '@/commands/image';
-import { gaussianAssets, type GaussianAsset } from '@/features/supersplat/assets';
+import { gaussianAssets, gaussianSourceName, type GaussianAsset } from '@/features/supersplat/assets';
 import type { CameraView, SavedView } from '@/features/supersplat/protocol';
 
 type Data = { assetId?: string; views?: SavedView[]; previewImageUrl?: string; gaussianProviderId?: string; gaussianGeneration?: GaussianGenerationTask };
@@ -49,7 +50,11 @@ export const GaussianNode = memo(({ id, data, width, height, selected }: NodePro
   const [assets, setAssets] = useState<GaussianAsset[]>([]);
   const [asset, setAsset] = useState<GaussianAsset>();
   const [session, setSession] = useState<string>();
-  useEffect(() => { setSession(undefined); }, [state.assetId]);
+  const sessionValid = useRef(false);
+  const [dialog, setDialog] = useState<'rename' | 'delete'>();
+  const [nameDraft, setNameDraft] = useState('');
+  useEffect(() => { setDialog(undefined); }, [state.assetId]);
+  useEffect(() => { sessionValid.current = false; setSession(undefined); }, [state.assetId]);
   const reload = async () => setAssets(await gaussianAssets.list());
   useEffect(() => { void reload().catch(e => setError(String(e))); }, []);
   useEffect(() => { if (state.assetId) void gaussianAssets.get(state.assetId).then(value => { setAsset(value); void reload(); }).catch(e => setError(String(e))); else setAsset(undefined); }, [state.assetId]);
@@ -57,9 +62,12 @@ export const GaussianNode = memo(({ id, data, width, height, selected }: NodePro
   const openChrome = async () => {
     if (!asset) return;
     if (!isTauri()) throw new Error('请在桌面 App 中使用 Chrome 编辑入口');
+    const filename = asset.document ? 'scene.ssproj' : gaussianSourceName(asset);
+    if (!asset.document && !/\.(ply|splat|sog|spz|ksplat|ssproj|lcc2)$/i.test(filename)) throw new Error('资产的原始文件名已丢失，请重新导入原始 3DGS 文件');
     const file = asset.document ?? asset.source;
     const contents = asset.folderPath && !asset.document ? '' : await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve((reader.result as string).split(',')[1]); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); });
-    const token = await invoke<string>('supersplat_open', { name: asset.document ? 'scene.ssproj' : asset.sourceName ?? asset.name, contents, folderPath: asset.document ? null : asset.folderPath ?? null, views: state.views ?? [] });
+    const token = await invoke<string>('supersplat_open', { name: filename, contents, folderPath: asset.document ? null : asset.folderPath ?? null, views: state.views ?? [] });
+    sessionValid.current = true;
     setSession(token);
   };
   useEffect(() => {
@@ -70,9 +78,12 @@ export const GaussianNode = memo(({ id, data, width, height, selected }: NodePro
       try {
         const results = await invoke<Array<{ type: string; data: string | CameraView }>>('supersplat_results', { token: session });
         for (const result of results) {
+          if (!sessionValid.current) break;
           if (result.type === 'save' && typeof result.data === 'string') {
             const bytes = Uint8Array.from(atob(result.data), c => c.charCodeAt(0));
-            const next = { ...asset, document: new Blob([bytes], { type: 'application/x-supersplat' }), updatedAt: Date.now() };
+            const currentAsset = await gaussianAssets.get(asset.id);
+            if (!sessionValid.current || !currentAsset) break;
+            const next = { ...currentAsset, document: new Blob([bytes], { type: 'application/x-supersplat' }), updatedAt: Date.now() };
             await gaussianAssets.put(next); setAsset(next);
           } else if (result.type === 'capture' && typeof result.data === 'string') {
             const url = await persistImageSource('data:image/png;base64,' + result.data);
@@ -151,8 +162,8 @@ export const GaussianNode = memo(({ id, data, width, height, selected }: NodePro
         <input ref={fileInput} type="file" hidden accept=".ply,.splat,.sog,.spz,.ksplat,.ssproj" onChange={e => { const file = e.target.files?.[0]; if (file) void run(() => importFile(file)); e.target.value = ''; }} />
         {state.assetId && !asset && <p className="text-xs text-amber-500">资产缺失，请重新导入</p>}
         {asset && <div className="flex items-center justify-center gap-3 py-1 text-sm">
-          <button disabled={busy} className="nodrag flex items-center gap-1.5 rounded-md px-2 py-1.5 text-text-muted hover:bg-[var(--canvas-node-menu-hover)] hover:text-text-dark" onClick={() => void run(async () => { const name = window.prompt('资产名称', asset.name); if (name?.trim()) { const next = { ...asset, name: name.trim() }; await gaussianAssets.put(next); setAsset(next); await reload(); } })}><Pencil size={15} />重命名</button>
-          <button disabled={busy} className="nodrag flex items-center gap-1.5 rounded-md px-2 py-1.5 text-red-400 hover:bg-[var(--canvas-node-menu-hover)]" onClick={() => void run(async () => { if (window.confirm('删除资产将影响所有引用它的项目，确定删除？')) { await gaussianAssets.remove(asset.id); update(id, { assetId: undefined, views: [] }); setAsset(undefined); await reload(); } })}><Trash2 size={15} />删除资产</button>
+          <button disabled={busy} className="nodrag flex items-center gap-1.5 rounded-md px-2 py-1.5 text-text-muted hover:bg-[var(--canvas-node-menu-hover)] hover:text-text-dark" onClick={() => { setNameDraft(asset.name); setDialog('rename'); }}><Pencil size={15} />重命名</button>
+          <button disabled={busy} className="nodrag flex items-center gap-1.5 rounded-md px-2 py-1.5 text-red-400 hover:bg-[var(--canvas-node-menu-hover)]" onClick={() => setDialog('delete')}><Trash2 size={15} />删除资产</button>
         </div>}
       </section>
       <div className="mt-auto space-y-3 pt-1">
@@ -161,6 +172,20 @@ export const GaussianNode = memo(({ id, data, width, height, selected }: NodePro
         {session && <p className="flex items-start justify-center gap-1.5 text-xs leading-5 text-emerald-500"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Chrome 编辑会话已启动，保存和截图会回传此节点</p>}
       </div>
     </div>
+    {dialog && asset && createPortal(
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 p-4" onClick={() => !busy && setDialog(undefined)}>
+        <div role="dialog" aria-modal="true" aria-labelledby="gaussian-asset-dialog-title" className="nodrag w-full max-w-sm rounded-xl border border-[var(--canvas-node-border)] bg-[var(--canvas-node-bg)] p-5 text-text-dark shadow-xl" onClick={e => e.stopPropagation()} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape' && !busy) setDialog(undefined); }}>
+          <h3 id="gaussian-asset-dialog-title" className="text-base font-semibold">{dialog === 'rename' ? '重命名资产' : '删除资产'}</h3>
+          {dialog === 'rename' ? <form onSubmit={e => { e.preventDefault(); const name = nameDraft.trim(); if (!name || busy) return; void run(async () => { const next = { ...asset, sourceName: gaussianSourceName(asset), name, updatedAt: Date.now() }; await gaussianAssets.put(next); setAsset(next); await reload(); setDialog(undefined); }); }}>
+            <label className="mt-4 block text-sm">资产名称<input autoFocus aria-label="资产名称" className="nodrag mt-2 w-full rounded-lg border border-[var(--canvas-node-field-border)] bg-[var(--canvas-node-field-bg)] px-3 py-2 outline-none focus:border-accent" value={nameDraft} onChange={e => setNameDraft(e.target.value)} /></label>
+            <div className="mt-5 flex justify-end gap-2"><button type="button" className={secondaryClass} disabled={busy} onClick={() => setDialog(undefined)}>取消</button><button type="submit" disabled={busy || !nameDraft.trim()} className="nodrag rounded-lg bg-accent px-4 py-2 text-sm text-white disabled:opacity-40">保存</button></div>
+          </form> : <>
+            <p className="mt-4 text-sm leading-6">删除“{asset.name}”将影响所有引用它的项目，确定删除？</p>
+            <div className="mt-5 flex justify-end gap-2"><button autoFocus className={secondaryClass} disabled={busy} onClick={() => setDialog(undefined)}>取消</button><button disabled={busy} className="nodrag rounded-lg bg-red-500 px-4 py-2 text-sm text-white disabled:opacity-40" onClick={() => void run(async () => { sessionValid.current = false; setSession(undefined); await gaussianAssets.remove(asset.id); update(id, { assetId: undefined, views: [] }); setAsset(undefined); await reload(); setDialog(undefined); })}>删除</button></div>
+          </>}
+        </div>
+      </div>, document.body
+    )}
     {generating && task && <>
       <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-[inherit]">
         <GenerationProgressOverlay startedAt={task.startedAt} />
