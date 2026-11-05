@@ -121,6 +121,8 @@ GET  /v1/tasks/{id}         → { status: processing|succeeded|failed, output[0]
 
 用户裁定：**「768 720 都是按 minimax_h3_768」** —— Hypit 的 `768P` 与画布的 720p 都映射到 mvaigc 的 `minimax_h3_768p`。
 
+> **更正（2026-11-05，见 `docs/bugfixes/2026-11-05-hypit-h3-billing-unit.md`）**：上表的「对应模型 id」已不成立。mvaigc 目录改为**单模型 + 分辨率档位**：实时 `GET /v1/models` 只有 `minimax_h3`，`minimax_h3_768p` 已不在目录内，提交它会被上游以 `1147 找不到此API计费单元信息` 拒绝。`768P` / `2K` 一律发 `model: minimax_h3`，档位放在 `resolution` 字段（缺省会落到反代的 720p 兜底）。§6.4 里「档位→模型 id」的换算式同样作废，以 `mvaigcVideoTier()` 为准。
+
 ### 5.5 Hypit Model 端口表
 
 **`@hypit/minimax-h3@1#minimax-h3`**：
@@ -185,6 +187,12 @@ export const videoCapability = {
   module: { name: "@hypit/minimax-h3", version: "1" }, name: "minimax-h3",
 } as const;
 ```
+
+> **增补（2026-11-05）**：视频能力改为**按模型各一个**，由智能体在对话里问用户后选择，不在映射里写死：
+> `@hypit/minimax-h3@1#minimax-h3`（4–15s、`768P`/`2K`）与
+> `@hypit/seedance@1#seedance-2.5`（4–30s、`480p`/`720p`/`1080p`，带 `generateAudio`）。
+> WAN 视频在 mvaigc 有模型 id，但 Hypit 只有 `@hypit/wan` 图片模块，无法作为真实能力出现，故不提供。
+> 实现与证据见 `docs/bugfixes/2026-11-05-hypit-h3-billing-unit.md`。
 
 ### 6.4 视频映射
 

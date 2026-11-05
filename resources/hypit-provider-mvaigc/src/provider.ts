@@ -17,6 +17,17 @@ export const videoCapability = {
   name: 'minimax-h3',
 } as const;
 
+/**
+ * The second video model the canvas serves through the same account. It is a
+ * separate Hypit capability, not a config knob: Hypit plans and reports the
+ * exact model, so the adapter must declare the model it can actually carry
+ * (mvaigc has no WAN video id whose Hypit module exists, so WAN is not offered).
+ */
+export const seedanceVideoCapability = {
+  module: { name: '@hypit/seedance', version: '1' },
+  name: 'seedance-2.5',
+} as const;
+
 export const imageCapability = {
   module: { name: '@hypit/nano-banana', version: '1' },
   name: 'nano-banana-pro',
@@ -69,25 +80,69 @@ export interface MvaigcVideoPorts {
   lastFrameUrl?: string;
 }
 
+/** Ports only the Seedance surface declares. */
+export interface MvaigcSeedancePorts extends MvaigcVideoPorts {
+  generateAudio: boolean;
+  webSearch: boolean;
+  /** Any reference/frame item authored as a Seedance person reference. */
+  usesPersonReference: boolean;
+}
+
 /**
- * mvaigc distinguishes the tier by model id, not by a resolution field: the
- * 768p tier is its own model. Hypit's `768P` and the canvas's 720p both mean
- * the 768p tier (user ruling, spec §5.4).
+ * mvaigc serves both MiniMax H3 tiers from one model id; the tier travels in
+ * `resolution`, not in the model id.
+ *
+ * The per-tier ids this adapter used to send (`minimax_h3_768p`) are gone from
+ * mvaigc's live catalogue — `videoPlatform/getVideoApi` lists `minimax_h3`
+ * alone — and submitting one still lands on upstream billing:
+ * `1147 找不到此API计费单元信息`. Upstream matches the billing unit by
+ * `api`/`apiName`, which the proxy copies from `model`.
+ *
+ * The canvas's own successful H3 jobs send `model=minimax_h3` with
+ * `resolution=768P`; this adapter now reproduces that shape exactly.
  */
-export function mvaigcVideoModelForTier(tier: string | undefined): string {
-  if (tier === undefined || tier === '768P') return 'minimax_h3_768p';
-  if (tier === '2K') return 'minimax_h3';
+export const VIDEO_MODEL = 'minimax_h3';
+
+/** mvaigc's id for Seedance 2.5 — one id, tiers carried by `resolution`. */
+export const SEEDANCE_VIDEO_MODEL = 'maas_seedance_2_5';
+
+/** Hypit's H3 tier spelling → the tier string mvaigc accepts. */
+export function mvaigcVideoTier(tier: string | undefined): '768P' | '2K' {
+  if (tier === undefined || tier === '768P') return '768P';
+  if (tier === '2K') return '2K';
   throw new Error(`mvaigc cannot serve resolution ${tier}; minimax-h3 offers 768P or 2K`);
 }
 
-export function buildVideoPayload(ports: MvaigcVideoPorts): {
+/**
+ * Hypit spells Seedance tiers lowercase (`480p` / `720p` / `1080p`) while
+ * mvaigc's catalogue spells them `480P` / `720P` / `1080P`; the canvas sends
+ * the uppercase form, so normalize rather than forward the author's casing.
+ * `4k` is a Seedance surface value mvaigc does not sell on this model.
+ */
+export function mvaigcSeedanceTier(tier: string | undefined): '480P' | '720P' | '1080P' {
+  const raw = tier === undefined ? '720p' : tier.trim();
+  const match = /^(\d+)[kKpP]$/.exec(raw);
+  const normalized = match === null ? undefined : `${match[1]}${raw.slice(-1).toUpperCase()}`;
+  if (normalized === '480P' || normalized === '720P' || normalized === '1080P') return normalized;
+  throw new Error(`mvaigc cannot serve resolution ${tier}; Seedance-2.5 offers 480P, 720P or 1080P`);
+}
+
+interface VideoWireSpec {
   model: string;
-  body: Record<string, unknown>;
-} {
-  const model = mvaigcVideoModelForTier(ports.resolution);
-  // Hypit declares first/last frame as two ports; mvaigc takes one switch plus
-  // one image array (first at [0], last at [1]). Hypit's own port constraints
-  // keep frames and reference images mutually exclusive, so the mode is clear.
+  resolution: string;
+  audio: boolean;
+}
+
+/**
+ * Shared wire composer. Hypit declares first/last frame as two ports; mvaigc
+ * takes one switch plus one image array (first at [0], last at [1]). Hypit's
+ * own port constraints keep frames and reference images mutually exclusive, so
+ * the mode is clear.
+ */
+function composeVideoBody(
+  ports: MvaigcVideoPorts,
+  spec: VideoWireSpec,
+): { model: string; body: Record<string, unknown> } {
   const frames = ports.firstFrameUrl !== undefined || ports.lastFrameUrl !== undefined;
   const frameUrls = [ports.firstFrameUrl, ports.lastFrameUrl].filter(
     (url): url is string => url !== undefined,
@@ -95,16 +150,49 @@ export function buildVideoPayload(ports: MvaigcVideoPorts): {
   const body: Record<string, unknown> = {
     prompt: ports.prompt,
     seconds: ports.durationSeconds,
+    // The tier must be sent explicitly: the proxy defaults a missing
+    // `resolution` to 720p, so dropping it would submit a different (and
+    // differently billed) job than the author asked for.
+    resolution: spec.resolution,
     frames,
     reference_images: frames ? frameUrls : ports.referenceImages,
     reference_videos: ports.referenceVideos,
     reference_audios: ports.referenceAudioUrls,
-    // minimax-h3 declares no generate-audio port, so this is a mapping
-    // constant: mvaigc expects the field, the Model has no opinion on it.
-    audio: VIDEO_MAPPING_CONSTANTS.audio,
+    audio: spec.audio,
   };
   if (ports.aspectRatio !== undefined) body.aspect_ratio = ports.aspectRatio;
-  return { model, body };
+  return { model: spec.model, body };
+}
+
+export function buildVideoPayload(ports: MvaigcVideoPorts): {
+  model: string;
+  body: Record<string, unknown>;
+} {
+  // minimax-h3 declares no generate-audio port, so this is a mapping
+  // constant: mvaigc expects the field, the Model has no opinion on it.
+  return composeVideoBody(ports, {
+    model: VIDEO_MODEL,
+    resolution: mvaigcVideoTier(ports.resolution),
+    audio: VIDEO_MAPPING_CONSTANTS.audio,
+  });
+}
+
+export function buildSeedanceVideoPayload(ports: MvaigcSeedancePorts): {
+  model: string;
+  body: Record<string, unknown>;
+} {
+  if (ports.webSearch) {
+    throw new Error('mvaigc cannot carry Seedance web search; disable it instead of dropping it silently');
+  }
+  if (ports.usesPersonReference) {
+    throw new Error('mvaigc has no Seedance person-reference switch; clear it instead of dropping it silently');
+  }
+  return composeVideoBody(ports, {
+    model: SEEDANCE_VIDEO_MODEL,
+    resolution: mvaigcSeedanceTier(ports.resolution),
+    // Seedance declares generate-audio as a port; H3 does not.
+    audio: ports.generateAudio,
+  });
 }
 
 /**
@@ -113,7 +201,7 @@ export function buildVideoPayload(ports: MvaigcVideoPorts): {
  * field must refuse it, never discard it silently.
  */
 export function assertSupportedVideoPorts(ports: MvaigcVideoPorts): void {
-  // Unreachable through Hypit: minimax-h3's own port table forbids the
+  // Unreachable through Hypit: the model's own port table forbids the
   // combination (atMostOneOf referenceAudio/firstFrame and /lastFrame), so the
   // platform rejects it before a Provider sees the request. Kept as defence in
   // depth for a direct caller, and because mvaigc's frames-audio behaviour is
@@ -138,6 +226,8 @@ export const VIDEO_PORTS = [
   'prompt', 'duration', 'resolution', 'aspectRatio',
   'referenceImage', 'referenceVideo', 'referenceAudio', 'firstFrame', 'lastFrame',
 ] as const;
+/** Seedance's table adds the two switches H3 does not declare. */
+export const SEEDANCE_VIDEO_PORTS = [...VIDEO_PORTS, 'generateAudio', 'webSearch'] as const;
 
 /**
  * Port → wire field. Every declared port must appear, including ones mvaigc
@@ -167,6 +257,21 @@ export const videoMappingFields = {
   lastFrame: { as: 'url', field: 'last_frame' },
 } as const;
 
+export const seedanceVideoMappingFields = {
+  ...videoMappingFields,
+  referenceImage: { as: 'urlArray', field: 'reference_images', resourceFields: ['personReference'] },
+  referenceVideo: { as: 'urlArray', field: 'reference_videos', resourceFields: ['personReference'] },
+  firstFrame: { as: 'url', field: 'first_frame', resourceFields: ['personReference'] },
+  lastFrame: { as: 'url', field: 'last_frame', resourceFields: ['personReference'] },
+  generateAudio: { as: 'value', field: 'audio' },
+  // Declared so the mapping covers Seedance's table; mvaigc has no web-search
+  // field, so `buildSeedanceVideoPayload` refuses `true` instead of sending it.
+  webSearch: { as: 'value', field: 'web_search' },
+  // Seedance's media ports carry a required `personReference` item field
+  // (declared here the same way @hypit/provider-hypihub declares it). mvaigc
+  // has no equivalent switch, so `true` is refused in the builder.
+} as const;
+
 /**
  * minimax-h3 declares no port for a "generate audio" switch, so it is a
  * mapping constant rather than a port: mvaigc expects the field, the Model
@@ -184,9 +289,16 @@ export const imageMapping: GenerationWireMapping = {
 export const videoMapping: GenerationWireMapping = {
   capability: videoCapability,
   result: 'video',
-  routes: [{ model: 'minimax_h3_768p' }],
+  routes: [{ model: VIDEO_MODEL }],
   fields: videoMappingFields,
   constants: VIDEO_MAPPING_CONSTANTS,
+};
+
+export const seedanceVideoMapping: GenerationWireMapping = {
+  capability: seedanceVideoCapability,
+  result: 'video',
+  routes: [{ model: SEEDANCE_VIDEO_MODEL }],
+  fields: seedanceVideoMappingFields,
 };
 
 /**

@@ -10,8 +10,11 @@ import type { AsyncEndpoint, CredentialRef, EndpointInstance, EndpointRequest } 
 import { generationTypes, mappingSupportsRequest } from '@hypit/generation';
 import type { GenerationRequest, GenerationWireMapping } from '@hypit/generation';
 
-import { createMvaigcImageEndpoint, createMvaigcVideoEndpoint } from './lifecycle.js';
-import { imageCapability, imageMapping, portsOfConstraints, videoCapability, videoMapping } from './provider.js';
+import { createMvaigcImageEndpoint, createMvaigcSeedanceEndpoint, createMvaigcVideoEndpoint } from './lifecycle.js';
+import {
+  imageCapability, imageMapping, portsOfConstraints, seedanceVideoCapability, seedanceVideoMapping,
+  videoCapability, videoMapping,
+} from './provider.js';
 
 export interface MvaigcProviderOptions {
   instance: string;
@@ -29,6 +32,7 @@ export interface MvaigcProviderOptions {
  */
 export function createMvaigcEndpoints(options: MvaigcProviderOptions): {
   video: AsyncEndpoint;
+  seedance: AsyncEndpoint;
   image: AsyncEndpoint;
 } {
   const shared = {
@@ -38,6 +42,7 @@ export function createMvaigcEndpoints(options: MvaigcProviderOptions): {
   };
   return {
     video: createMvaigcVideoEndpoint(shared),
+    seedance: createMvaigcSeedanceEndpoint(shared),
     image: createMvaigcImageEndpoint(shared),
   };
 }
@@ -68,13 +73,26 @@ function supportFor(mapping: GenerationWireMapping) {
         return { status: 'unsupported' as const, reason: `mvaigc renders 768P or 2K, not ${tier}` };
       }
     }
+    if (mapping === seedanceVideoMapping) {
+      if (tiers !== undefined) {
+        const tier = String(tiers[0]).toLowerCase();
+        if (tier !== '480p' && tier !== '720p' && tier !== '1080p') {
+          return { status: 'unsupported' as const, reason: `mvaigc Seedance-2.5 renders 480P, 720P or 1080P, not ${String(tiers[0])}` };
+        }
+      }
+      // mvaigc's video submit has no web-search field; sending `true` would be
+      // dropped upstream, so it is refused at plan time instead.
+      if (ports.webSearch !== undefined && Boolean(ports.webSearch[0])) {
+        return { status: 'unsupported' as const, reason: 'mvaigc cannot carry Seedance web search' };
+      }
+    }
     return { status: 'supported' as const };
   };
 }
 
-/** The Endpoint instance Hypit loads, covering both capabilities on one account. */
+/** The Endpoint instance Hypit loads, covering every capability on one account. */
 export function createMvaigcProvider(options: MvaigcProviderOptions): EndpointInstance {
-  const { video, image } = createMvaigcEndpoints(options);
+  const { video, seedance, image } = createMvaigcEndpoints(options);
   return defineEndpoint({
     instance: options.instance,
     pool: options.pool,
@@ -91,6 +109,8 @@ export function createMvaigcProvider(options: MvaigcProviderOptions): EndpointIn
         lifecycle: 'asynchronous', supports: supportFor(imageMapping), endpoint: image },
       { capability: videoCapability, returns: generationTypes.videoSet,
         lifecycle: 'asynchronous', supports: supportFor(videoMapping), endpoint: video },
+      { capability: seedanceVideoCapability, returns: generationTypes.videoSet,
+        lifecycle: 'asynchronous', supports: supportFor(seedanceVideoMapping), endpoint: seedance },
     ],
   });
 }

@@ -1085,6 +1085,14 @@ function groupImportedNodes(
     height: Math.max(140, Math.round(maxY + 54)),
   };
 
+  // Place the whole batch as one rectangle so its final layout clears every
+  // existing card and group, including children with parent-relative positions.
+  groupNode.position = findRelatedCanvasNodePositions({
+    nodes: draft.nodes,
+    desired: created[0].position,
+    size: getNodeSize(groupNode),
+  })[0];
+
   // The group is pushed first so it paints behind its members; the created
   // nodes do not exist in the draft yet, so they are appended here rather than
   // found in a draft pass.
