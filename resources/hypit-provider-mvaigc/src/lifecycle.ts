@@ -19,8 +19,10 @@ import {
   portsOfConstraints,
   secretFor,
   buildImagePayload,
+  buildSeedanceVideoPayload,
   buildVideoPayload,
   type MvaigcImagePorts,
+  type MvaigcSeedancePorts,
   type MvaigcVideoPorts,
 } from './provider.js';
 
@@ -133,6 +135,36 @@ async function videoPorts(
   if (firstFrame[0] !== undefined) resolved.firstFrameUrl = firstFrame[0];
   if (lastFrame[0] !== undefined) resolved.lastFrameUrl = lastFrame[0];
   return resolved;
+}
+
+/** Seedance's port table shares the video ports and adds two switches. */
+async function seedancePorts(context: EndpointStartContext): Promise<MvaigcSeedancePorts> {
+  const base = await videoPorts(context);
+  const ports = portsOf(context);
+  return {
+    ...base,
+    generateAudio: Boolean(firstOf<boolean>(ports, 'generateAudio')),
+    webSearch: Boolean(firstOf<boolean>(ports, 'webSearch')),
+    usesPersonReference: anyPersonReference(ports),
+  };
+}
+
+/**
+ * Seedance marks a media item as a person reference through its required
+ * `personReference` item field. mvaigc has no such switch, so the builder needs
+ * to know whether the author relied on it; `false` is the model's default and
+ * carries no intent to preserve.
+ */
+const PERSON_MEDIA_PORTS = ['referenceImage', 'referenceVideo', 'firstFrame', 'lastFrame'] as const;
+function anyPersonReference(ports: Record<string, unknown[]>): boolean {
+  for (const name of PERSON_MEDIA_PORTS) {
+    const supplied = ports[name];
+    if (!Array.isArray(supplied)) continue;
+    for (const value of supplied as GenerationMediaValue[]) {
+      if (value?.fields?.personReference === true) return true;
+    }
+  }
+  return false;
 }
 
 async function imagePorts(context: EndpointStartContext): Promise<MvaigcImagePorts> {
@@ -268,6 +300,15 @@ export function createMvaigcVideoEndpoint(options: MvaigcEndpointOptions): Async
     return buildVideoPayload(ports);
   }, async (context) => {
     assertSupportedVideoPorts(await videoPorts(context));
+  });
+}
+
+export function createMvaigcSeedanceEndpoint(options: MvaigcEndpointOptions): AsyncEndpoint {
+  return createLifecycle(options, '/v1/videos', 'video', async (context) => {
+    const ports = await seedancePorts(context);
+    return buildSeedanceVideoPayload(ports);
+  }, async (context) => {
+    assertSupportedVideoPorts(await seedancePorts(context));
   });
 }
 

@@ -53,7 +53,15 @@ export function mergeRuntime(original, baseUrl) {
       'image.opencv.local': original.endpoints?.['image.opencv.local'] ?? { use: '@hypit/provider-image-opencv-local' },
       'canvas.mvaigc': { use: 'mvaigc-provider', config: { baseUrl, apiKey: { store: 'env', key: 'OSC_MVAIGC_TOKEN' } } },
     },
-    bindings: { ...original.bindings, '@hypit/nano-banana@1#nano-banana-pro': 'canvas.mvaigc', '@hypit/minimax-h3@1#minimax-h3': 'canvas.mvaigc' },
+    bindings: {
+      ...original.bindings,
+      '@hypit/nano-banana@1#nano-banana-pro': 'canvas.mvaigc',
+      '@hypit/minimax-h3@1#minimax-h3': 'canvas.mvaigc',
+      // Seedance 2.5 is a second exact model on the same mvaigc account. The
+      // composer decides the element, so the binding must exist or Hypit
+      // refuses to plan the request.
+      '@hypit/seedance@1#seedance-2.5': 'canvas.mvaigc',
+    },
   };
 }
 async function copySkill(source, target) {
@@ -70,6 +78,46 @@ async function copySkill(source, target) {
     await copyFile(source, target);
   }
 }
+// npm can retain a file: dependency from the old lock entry even when its
+// source directory changes. Evict only this managed package during an upgrade.
+export async function installManagedProvider(projectDir, manifest, next) {
+  const manifestPath = join(projectDir, 'package.json');
+  const lockPath = join(projectDir, 'package-lock.json');
+  const installedPath = join(projectDir, 'node_modules', 'mvaigc-provider');
+  const savedPath = join(projectDir, '.canvas-agent', 'provider-install-backup');
+  let oldLock;
+  try { oldLock = await readFile(lockPath); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  await mkdir(dirname(savedPath), { recursive: true });
+  // Never overwrite a recovery copy from an interrupted install.
+  try { await access(savedPath); throw new Error('A provider install backup exists; restore it before retrying.'); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  let moved = false;
+  try {
+    await rename(installedPath, savedPath);
+    moved = true;
+  } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  try {
+    if (oldLock) {
+      const lock = JSON.parse(oldLock);
+      if (lock.packages) {
+        delete lock.packages['node_modules/mvaigc-provider'];
+        if (lock.packages['']?.dependencies) lock.packages[''].dependencies['mvaigc-provider'] = next.dependencies['mvaigc-provider'];
+      }
+      if (lock.dependencies) delete lock.dependencies['mvaigc-provider'];
+      await atomicJson(lockPath, lock);
+    }
+    await atomicJson(manifestPath, next);
+    await run('npm', ['install', '--install-links', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], projectDir);
+    if (moved) await rm(savedPath, { recursive: true, force: true });
+  } catch (error) {
+    await atomicJson(manifestPath, manifest);
+    if (oldLock) await writeFile(lockPath, oldLock); else await rm(lockPath, { force: true });
+    await rm(installedPath, { recursive: true, force: true });
+    if (moved) await rename(savedPath, installedPath);
+    throw error;
+  }
+}
+
 export async function prepareProject(input) {
   const { projectDir, cacheDir, baseUrl, skillSource } = input;
   const source = dirname(fileURLToPath(import.meta.url));
@@ -104,10 +152,7 @@ export async function prepareProject(input) {
     if (version && version !== hash && !input.upgradeEnvironment) throw new Error('This project has a locked Provider version. Use an explicit environment upgrade before switching versions.');
     await atomicJson(`${manifestPath}.canvas-backup`, manifest);
     const next = { ...manifest, dependencies: { ...manifest.dependencies, '@hypit/hypit': '0.3.1', 'mvaigc-provider': `file:${packageDir}` } };
-    try {
-      await atomicJson(manifestPath, next);
-      await run('npm', ['install', '--install-links', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], projectDir);
-    } catch (error) { await atomicJson(manifestPath, manifest); throw error; }
+    await installManagedProvider(projectDir, manifest, next);
   }
   // Project-local skills: no global writes, both clients discover their own directory.
   for (const client of ['.claude', '.agents']) {

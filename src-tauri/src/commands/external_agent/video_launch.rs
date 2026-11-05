@@ -322,7 +322,20 @@ pub async fn launch_video_agent(
         "nodeId": request.node_id, "assetId": request.asset_id, "referencePath": reference,
         "mode": if request.full_production { "full" } else { "quick" },
         "instructions": include_str!("../../../../resources/hypit-provider-mvaigc/agent-workflow.md"),
-        "capabilities": { "imageResolution": "2K", "imageFormat": "provider-determined", "videoResolutions": ["768P", "2K"] },
+        // Models the canvas account can actually serve through Hypit. The
+        // composer asks the user which one to use; never assume one.
+        "capabilities": {
+            "imageResolution": "2K", "imageFormat": "provider-determined",
+            "videoModels": [
+                { "name": "MiniMax-H3", "module": "@hypit/minimax-h3", "capability": "minimax-h3",
+                  "element": "h3:ReferenceVideo", "durations": "4-15", "resolutions": ["768P", "2K"],
+                  "referenceImages": 9, "referenceVideos": 3, "referenceAudios": 3, "generateAudio": false },
+                { "name": "Seedance-2.5", "module": "@hypit/seedance", "capability": "seedance-2.5",
+                  "element": "seedance:ReferenceVideo", "model": "2.5", "durations": "4-30",
+                  "resolutions": ["480p", "720p", "1080p"],
+                  "referenceImages": 30, "referenceVideos": 10, "referenceAudios": 10, "generateAudio": true },
+            ],
+        },
     })).unwrap(), false)?;
     let mcp = launch_dir.join("mcp.json");
     let host =

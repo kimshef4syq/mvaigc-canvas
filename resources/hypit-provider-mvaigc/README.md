@@ -3,7 +3,13 @@
 让 Hypit 的图片/视频生成走画布那套 mvaigc 账号（本地反代 → mvaigc.cn）。
 
 - **图片**：`@hypit/nano-banana@1#nano-banana-pro`（分辨率固定 2K）
-- **视频**：`@hypit/minimax-h3@1#minimax-h3`（`768P` / `2K`）
+- **视频**：`@hypit/minimax-h3@1#minimax-h3`（4–15 秒，`768P` / `2K`）
+- **视频**：`@hypit/seedance@1#seedance-2.5`（4–30 秒，`480p` / `720p` / `1080p`，可生成音频）
+
+视频模型不是写死的：智能体在对话里问用户用哪个模型、哪一档分辨率、多长，再按对应元素
+（`h3:ReferenceVideo` 或 `seedance:ReferenceVideo model="2.5"`）提交。画布没有 WAN 视频的
+Hypit 模块，所以 WAN 不在此列；Seedance 的 web-search / person-reference 画布不承载，
+需要时明确拒绝而不是静默丢弃。
 
 ## 日常入口（macOS）
 

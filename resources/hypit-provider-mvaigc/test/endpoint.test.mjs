@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 
 import { nanoBananaPorts } from '@hypit/nano-banana';
 import { minimaxH3Ports } from '@hypit/minimax-h3';
+import { seedancePorts } from '@hypit/seedance';
 import { assertMappingCoversPorts } from '@hypit/generation';
-import { imageMapping, videoMapping } from '../dist/provider.js';
+import { imageMapping, seedanceVideoMapping, videoMapping } from '../dist/provider.js';
 import { createMvaigcEndpoints } from '../dist/endpoint.js';
 
 // Against the REAL port tables, not a hand-copied array. The earlier test
@@ -18,6 +19,10 @@ test('the image mapping satisfies the real nano-banana-pro port table', () => {
 
 test('the video mapping satisfies the real minimax-h3 port table', () => {
   assertMappingCoversPorts(minimaxH3Ports, videoMapping);
+});
+
+test('the Seedance mapping satisfies the real seedance-2.5 port table', () => {
+  assertMappingCoversPorts(seedancePorts['seedance-2.5'], seedanceVideoMapping);
 });
 
 function fakeFetch(responses) {
@@ -54,6 +59,30 @@ test('start submits to /v1/videos and checkpoints the task id', async () => {
   assert.equal(checkpointed.handle.id, 'task-1');
   assert.match(calls[0].url, /\/v1\/videos$/);
   assert.equal(calls[0].init.headers.authorization, 'Bearer acct:pw');
+  // The body the proxy actually receives: one `minimax_h3` model plus the tier
+  // as a field. `minimax_h3_768p` produced upstream "1147 找不到此API计费单元
+  // 信息"; omitting the tier silently became the proxy's 720p default.
+  const posted = JSON.parse(calls[0].init.body);
+  assert.equal(posted.model, 'minimax_h3');
+  assert.equal(posted.resolution, '768P');
+});
+
+test('Seedance 2.5 submits its own model id and the normalized tier', async () => {
+  const { fetch, calls } = fakeFetch([{ json: { id: 'task-s', status: 'processing' } }]);
+  const { seedance } = createMvaigcEndpoints(options(fetch));
+  await seedance.start({
+    need: { constraints: { ports: {
+      prompt: ['把左边的人换成 t02'], duration: [7], resolution: ['720p'], aspectRatio: ['9:16'],
+      generateAudio: [true], webSearch: [false],
+    } } },
+    credentials: creds, resources, checkpoint: async () => {},
+  });
+  assert.match(calls[0].url, /\/v1\/videos$/);
+  const posted = JSON.parse(calls[0].init.body);
+  assert.equal(posted.model, 'maas_seedance_2_5');
+  assert.equal(posted.resolution, '720P');
+  assert.equal(posted.audio, true, 'Seedance generate-audio is a real port');
+  assert.equal(posted.seconds, 7);
 });
 
 test('poll reports pending then ready with the output url', async () => {
@@ -150,7 +179,18 @@ test('the actual SDK instance supports valid request constraints and refuses ima
   const provider = createMvaigcProvider(options(async () => { throw new Error('supports must not submit'); }));
   const image = provider.offers.find(offer => offer.capability.name === 'nano-banana-pro');
   const video = provider.offers.find(offer => offer.capability.name === 'minimax-h3');
+  const seedance = provider.offers.find(offer => offer.capability.name === 'seedance-2.5');
   assert.equal(image.supports({ constraints: { ports: { prompt: ['cat'], resolution: ['2K'], outputFormat: ['png'] } } }).status, 'supported');
   assert.equal(image.supports({ constraints: { ports: { prompt: ['cat'], resolution: ['4K'], outputFormat: ['png'] } } }).status, 'unsupported');
   assert.equal(video.supports({ constraints: { ports: { prompt: ['cat'], duration: [5], resolution: ['768P'] } } }).status, 'supported');
+
+  const seedancePortsFor = (patch) => ({ constraints: { ports: {
+    prompt: ['换人'], duration: [7], resolution: ['720p'], aspectRatio: ['9:16'],
+    generateAudio: [false], webSearch: [false], ...patch,
+  } } });
+  assert.equal(seedance.supports(seedancePortsFor({})).status, 'supported');
+  // `4k` is a Seedance surface value mvaigc does not sell on this model.
+  assert.equal(seedance.supports(seedancePortsFor({ resolution: ['4k'] })).status, 'unsupported');
+  // No web-search field exists upstream; refuse rather than drop it after payment.
+  assert.equal(seedance.supports(seedancePortsFor({ webSearch: [true] })).status, 'unsupported');
 });

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mergeRuntime, readJson, atomicJson, run } from '../prepare-project.mjs';
+import { mergeRuntime, readJson, atomicJson, run, installManagedProvider } from '../prepare-project.mjs';
 
 test('managed runtime preserves user endpoints and never stores account/password', () => {
   const user = { format: 'hypit.runtime-local@1', dataRoot: 'custom-data', credentials: { local: { use: 'custom-store' } },
@@ -35,4 +35,25 @@ test('malformed existing configuration is preserved, never treated as an empty p
 test('environment commands return actual worker status output to the caller', async () => {
   const text = await run(process.execPath, ['-e', 'console.log(JSON.stringify({worker:{state:"running"},builds:{working:0}}))'], tmpdir());
   assert.equal(JSON.parse(text).worker.state, 'running');
+});
+
+
+test('managed upgrade replaces an old file dependency and its locked package', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'canvas-provider-upgrade-'));
+  try {
+    for (const [name, version] of [['old', '1.0.0'], ['new', '2.0.0']]) {
+      await atomicJson(join(dir, name, 'package.json'), { name: 'mvaigc-provider', version });
+      await writeFile(join(dir, name, 'model.txt'), name);
+    }
+    const project = join(dir, 'project');
+    const manifest = { name: 'upgrade-test', version: '1.0.0', private: true,
+      dependencies: { 'mvaigc-provider': `file:${join(dir, 'old')}` } };
+    await atomicJson(join(project, 'package.json'), manifest);
+    await run('npm', ['install', '--install-links', '--ignore-scripts', '--no-audit', '--no-fund'], project);
+    const next = { ...manifest, dependencies: { 'mvaigc-provider': `file:${join(dir, 'new')}` } };
+    await installManagedProvider(project, manifest, next);
+    assert.equal(await readFile(join(project, 'node_modules/mvaigc-provider/model.txt'), 'utf8'), 'new');
+    const lock = await readJson(join(project, 'package-lock.json'));
+    assert.equal(lock.packages['node_modules/mvaigc-provider'].version, '2.0.0');
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });
