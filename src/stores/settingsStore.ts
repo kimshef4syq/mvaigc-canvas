@@ -1042,7 +1042,7 @@ export const useSettingsStore = create<SettingsState>()(
       themeTonePreset: 'neutral',
       accentColor: '#f59e0b',
       canvasEdgeRoutingMode: 'spline',
-      autoCheckAppUpdateOnLaunch: false,
+      autoCheckAppUpdateOnLaunch: true,
       enableUpdateDialog: true,
       promptDefaultLanguage: 'zh',
       promptTemplateOverrides: {},
@@ -1502,7 +1502,7 @@ export const useSettingsStore = create<SettingsState>()(
             ),
             hideProviderGuidePopover: state.hideProviderGuidePopover ?? false,
             canvasEdgeRoutingMode: normalizeCanvasEdgeRoutingMode(state.canvasEdgeRoutingMode),
-            autoCheckAppUpdateOnLaunch: state.autoCheckAppUpdateOnLaunch ?? false,
+            autoCheckAppUpdateOnLaunch: state.autoCheckAppUpdateOnLaunch ?? true,
             enableUpdateDialog: state.enableUpdateDialog ?? true,
             enableStoryboardGenGridPreviewShortcut:
               state.enableStoryboardGenGridPreviewShortcut ?? false,
@@ -1557,7 +1557,7 @@ export const useSettingsStore = create<SettingsState>()(
           ),
           hideProviderGuidePopover: state.hideProviderGuidePopover ?? false,
           canvasEdgeRoutingMode: normalizeCanvasEdgeRoutingMode(state.canvasEdgeRoutingMode),
-          autoCheckAppUpdateOnLaunch: state.autoCheckAppUpdateOnLaunch ?? false,
+          autoCheckAppUpdateOnLaunch: state.autoCheckAppUpdateOnLaunch ?? true,
           enableUpdateDialog: state.enableUpdateDialog ?? true,
           enableStoryboardGenGridPreviewShortcut:
             state.enableStoryboardGenGridPreviewShortcut ?? false,

@@ -211,16 +211,17 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!isHydrated || showLaunchIntro) {
+    if (!isHydrated || showLaunchIntro || !autoCheckAppUpdateOnLaunch || !isTauri()) {
       return;
     }
 
     let cancelled = false;
+    let checking = false;
     const runUpdateCheck = async () => {
-      if (!autoCheckAppUpdateOnLaunch) {
-        return;
-      }
+      if (checking) return;
+      checking = true;
       const result = await checkForUpdate();
+      checking = false;
       if (!cancelled && result.hasUpdate && result.latestVersion && enableUpdateDialog) {
         if (isUpdateVersionSuppressed(result.latestVersion)) {
           return;
@@ -232,8 +233,10 @@ function App() {
     };
 
     void runUpdateCheck();
+    const timer = window.setInterval(() => void runUpdateCheck(), 24 * 60 * 60 * 1000);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, [isHydrated, showLaunchIntro, autoCheckAppUpdateOnLaunch, enableUpdateDialog]);
 
@@ -246,9 +249,7 @@ function App() {
     setLatestVersion(result.latestVersion ?? '');
     setCurrentVersion(result.currentVersion ?? '');
 
-    if (enableUpdateDialog) {
-      setShowUpdateDialog(true);
-    }
+    setShowUpdateDialog(true);
 
     return 'has-update';
   };

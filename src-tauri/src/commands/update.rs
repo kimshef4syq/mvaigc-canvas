@@ -2,9 +2,9 @@ use reqwest::{header, redirect, Client, StatusCode};
 use serde::Deserialize;
 
 const GITHUB_RELEASES_LATEST_API: &str =
-    "https://api.github.com/repos/ganbo-gab/open-storyboard-canvas/releases/latest";
+    "https://api.github.com/repos/kimshef4syq/mvaigc-canvas/releases/latest";
 const GITHUB_RELEASES_LATEST_REDIRECT: &str =
-    "https://github.com/ganbo-gab/open-storyboard-canvas/releases/latest";
+    "https://github.com/kimshef4syq/mvaigc-canvas/releases/latest";
 
 #[derive(Debug, Deserialize)]
 struct GithubLatestReleaseResponse {
@@ -54,17 +54,16 @@ async fn fetch_latest_release_tag() -> Result<String, String> {
         .header("X-GitHub-Api-Version", "2022-11-28")
         .header(header::USER_AGENT, "Open-Storyboard-Canvas-Updater")
         .send()
-        .await
-        .map_err(|error| format!("github api request failed: {error}"))?;
+        .await;
 
-    if api_response.status().is_success() {
-        let payload = api_response
-            .json::<GithubLatestReleaseResponse>()
-            .await
-            .map_err(|error| format!("failed to decode github api response: {error}"))?;
-        let tag = normalize_version(payload.tag_name.as_deref().unwrap_or_default());
-        if !tag.is_empty() {
-            return Ok(tag);
+    if let Ok(response) = api_response {
+        if response.status().is_success() {
+            if let Ok(payload) = response.json::<GithubLatestReleaseResponse>().await {
+                let tag = normalize_version(payload.tag_name.as_deref().unwrap_or_default());
+                if !tag.is_empty() {
+                    return Ok(tag);
+                }
+            }
         }
     }
 
