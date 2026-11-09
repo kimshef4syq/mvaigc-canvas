@@ -1,4 +1,4 @@
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke, isTauri } from '@tauri-apps/api/core';
 
 export async function splitImage(
   imageBase64: string,
@@ -328,4 +328,42 @@ export async function saveImageSourceToAppDebugDir(
 
 export async function copyImageSourceToClipboard(source: string): Promise<void> {
   await invoke('copy_image_source_to_clipboard', { source });
+}
+
+export async function loadVideoSourceDataUrl(source: string): Promise<string> {
+  if (source.startsWith('data:video/')) return source;
+  try {
+    return await invoke('load_video_source_data_url', { source });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/command\s+load_video_source_data_url\s+not found/i.test(message)) throw error;
+  }
+  // A dev frontend can hot-reload while the older desktop backend is still running.
+  // Read through the same scoped asset protocol used by canvas video playback.
+  let url = source;
+  if (source.startsWith('file://')) {
+    url = convertFileSrc(decodeURIComponent(new URL(source).pathname).replace(/^\/([A-Za-z]:[\\/])/, '$1'));
+  } else if (/^(?:\/|[A-Za-z]:[\\/])/.test(source)) {
+    url = convertFileSrc(source);
+  }
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    let blob = await response.blob();
+    if (!blob.type.startsWith('video/')) {
+      if (blob.type && blob.type !== 'application/octet-stream') throw new Error('资源没有返回视频数据');
+      const extension = new URL(url, 'http://localhost').pathname.split('.').pop()?.toLowerCase();
+      const mime = ({ mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', m4v: 'video/x-m4v' } as Record<string, string>)[extension ?? ''];
+      if (!mime) throw new Error('无法识别参考视频格式');
+      blob = new Blob([blob], { type: mime });
+    }
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('视频读取失败'));
+      reader.onerror = () => reject(reader.error ?? new Error('视频读取失败'));
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    throw new Error(`当前桌面后端尚未更新，兼容读取视频也失败。请保存工程，完整重启 npm run tauri dev 后重试。${error instanceof Error ? error.message : String(error)}`);
+  }
 }

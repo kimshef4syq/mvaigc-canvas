@@ -2158,6 +2158,7 @@
         "custom": { "title": "自定义工作流", "description": "导入 API 格式 JSON，可选择图片或视频输出。" }
       },
       "h3LocalHelp": "先在 ComfyUI 安装 H3 本地模型及节点，并确认工作流可生成视频，再导入 API JSON。需包含 MiniMaxH3ImageToVideo 或 MiniMaxH3ReferenceToVideo 和视频保存节点。5–15 秒按 24fps 对齐；无需 MiniMax API Key。此入口不支持 Comfy Partner 计费节点，请使用官方直连渠道。",
+      "canvasReferencesOnly": "仅使用画布参考素材：上传本次连接的图片和视频，未传入的参考槽自动断开，不使用工作流预选素材。视频声音需与视频连接同一个 VHS_LoadVideo。",
       "h3WorkflowRequired": "请导入包含本地 MiniMax H3 节点的 API 工作流；Comfy Partner/API 节点不适用于此入口。",
       "durations": "可选时长（秒；需要 duration 绑定）",
       "ratios": "可选比例（需要 aspectRatio 绑定）",

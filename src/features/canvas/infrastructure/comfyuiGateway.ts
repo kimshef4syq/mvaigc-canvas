@@ -1,3 +1,4 @@
+import { referenceVideoHasAudio } from '@/features/canvas/application/referenceVideoAudio';
 import type { CustomHttpMultipartBody, GenerateRequest } from '@/commands/ai';
 import { resolveImageOutputGeometry } from '@/features/canvas/application/imageOutputGeometry';
 import type { VideoInputSchema } from '@/features/canvas/application/videoInputSchema';
@@ -33,6 +34,7 @@ export interface ComfyUIBindings {
   aspectRatio?: ComfyUIInputBinding;
   images: ComfyUIInputBinding[];
   audios: ComfyUIInputBinding[];
+  videos?: ComfyUIInputBinding[];
 }
 
 export type ComfyUIMediaType = 'image' | 'video' | 'audio' | 'gaussian';
@@ -46,6 +48,7 @@ export interface ComfyUIConfig {
   mediaType?: ComfyUIMediaType;
   // True when the stored config maps at least one text slot, so auto-detection must not apply.
   textBindingsExplicit: boolean;
+  canvasReferencesOnly?: boolean;
 }
 
 export interface ComfyUITransport {
@@ -206,6 +209,7 @@ function parseBindings(value: unknown): ComfyUIBindings {
     aspectRatio: parseBinding(raw.aspectRatio, '画幅比例'),
     images: parseBindingList(raw.images, '参考图'),
     audios: parseBindingList(raw.audios, '参考音频'),
+    videos: parseBindingList(raw.videos, '参考视频'),
   };
 }
 
@@ -272,6 +276,7 @@ export function parseComfyUIConfig(cfg: CustomProviderConfig): ComfyUIConfig {
     workflow,
     mediaType: customProviderMediaType(cfg) === 'gaussian' ? 'gaussian' : customProviderMediaType(cfg) === 'audio' ? 'audio' : customProviderMediaType(cfg) === 'video' ? 'video' : 'image',
     textBindingsExplicit,
+    canvasReferencesOnly: raw.canvasReferencesOnly === true,
     bindings: {
       ...bindings,
       prompt: bindings.prompt ?? (unbound ? suggestComfyUIBindings(workflow).prompt : undefined),
@@ -461,13 +466,16 @@ export function suggestComfyUIBindings(workflowInput: unknown): ComfyUIBindings 
     // slots become explicit config and permanently disable detection for that provider.
     texts: [...legacySlot, ...detected, ...abc.texts],
     ...(abc.booleans.length ? { booleans: abc.booleans } : {}),
-    seed: findInput(workflow, /^KSampler$/i, 'seed')
+    seed: findInput(workflow, /^(?:KSampler|SelfLiftH3Sampler)$/i, 'seed')
       ?? findInput(workflow, /^(?:KSamplerAdvanced|RandomNoise)$/i, 'noise_seed'),
     width: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'width') ?? findInput(workflow, /^EmptyLatentImage$/i, 'width'),
     height: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'height') ?? findInput(workflow, /^EmptyLatentImage$/i, 'height'),
     duration: findInput(workflow, LOCAL_H3_GEOMETRY_NODE, 'length')
       ?? findInput(workflow, /^YuE2GenerateMusic$/i, 'max_duration'),
     images: imageNodes.map(([nodeId]) => ({ nodeId, input: 'image' })),
+    videos: Object.entries(workflow).filter(([, node]) => node.class_type === 'VHS_LoadVideo'
+      && Object.prototype.hasOwnProperty.call(asRecord(node.inputs) ?? {}, 'video'))
+      .map(([nodeId]) => ({ nodeId, input: 'video' })),
     audios: audioNodes.map(([nodeId]) => ({ nodeId, input: 'audio' })),
   };
 }
@@ -491,6 +499,12 @@ export function effectiveBindings(config: ComfyUIConfig): ComfyUIBindings {
   }
   result.images = config.bindings.images.length ? config.bindings.images : suggested.images;
   result.audios = config.bindings.audios.length ? config.bindings.audios : suggested.audios;
+  result.videos = config.bindings.videos?.length ? config.bindings.videos : suggested.videos;
+  if (config.canvasReferencesOnly) {
+    const slots = canvasReferenceSlots(config.workflow);
+    result.images = slots.images;
+    result.videos = slots.videos;
+  }
   result.booleans = config.bindings.booleans
     ?? (config.mediaType === 'audio' ? suggested.booleans : undefined);
   // Detected slots are only trusted for audio, the one media type whose workflow shape cannot tell a
@@ -520,10 +534,78 @@ export function effectiveBooleanSlots(config: ComfyUIConfig, bindings = effectiv
   });
 }
 
+function canvasReferenceSlots(workflow: Record<string, JsonRecord>): { images: ComfyUIInputBinding[]; videos: ComfyUIInputBinding[] } {
+  if (!isLocalH3Workflow(workflow)) throw new Error('仅使用画布参考素材模式目前支持本地 MiniMax H3 工作流。');
+  const images: ComfyUIInputBinding[] = [];
+  const videos: ComfyUIInputBinding[] = [];
+  for (const node of Object.values(workflow)) {
+    if (!LOCAL_H3_NODE.test(nonemptyString(node.class_type))) continue;
+    for (const [field, value] of Object.entries(asRecord(node.inputs) ?? {}).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))) {
+      if (!/^ref_(?:images|videos|video_audios|audios)\./.test(field)) continue;
+      const source = linkTarget(value);
+      const image = /^ref_images\.ref_image_\d+$/.test(field);
+      const video = /^ref_videos\.ref_video_\d+$/.test(field);
+      const videoAudio = /^ref_video_audios\.ref_video_audio_\d+$/.test(field);
+      const expected = image ? 'LoadImage' : 'VHS_LoadVideo';
+      if ((!image && !video && !videoAudio) || !source || workflow[source]?.class_type !== expected
+        || !Array.isArray(value) || value[1] !== (videoAudio ? 2 : 0)) {
+        throw new Error(`画布参考槽 ${field} 需直接连接 LoadImage 或 VHS_LoadVideo；请断开独立音频及不支持的参考分支。`);
+      }
+      if (videoAudio) {
+        const index = field.split('_').pop();
+        if (linkTarget(asRecord(node.inputs)?.[`ref_videos.ref_video_${index}`]) !== source) {
+          throw new Error('参考视频与对应声音必须连接同一个 VHS_LoadVideo 节点。');
+        }
+      }
+      if (image || video) {
+        const target = image ? images : videos;
+        if (target.some(slot => slot.nodeId === source)) throw new Error('每个画布参考槽需使用独立的加载节点。');
+        target.push({ nodeId: source, input: image ? 'image' : 'video' });
+      }
+    }
+  }
+  return { images, videos };
+}
+
+function pruneUnusedCanvasReferences(workflow: Record<string, JsonRecord>, config: ComfyUIConfig, imageCount: number, videos: string[]): void {
+  const videoCount = videos.length;
+  const slots = canvasReferenceSlots(workflow);
+  const active = new Set([...slots.images.slice(0, imageCount), ...slots.videos.slice(0, videoCount)].map(slot => slot.nodeId));
+  const silent = new Set(slots.videos.slice(0, videoCount).filter((_, index) => referenceVideoHasAudio(videos[index]) === false).map(slot => slot.nodeId));
+  for (const node of Object.values(workflow)) {
+    if (!LOCAL_H3_NODE.test(nonemptyString(node.class_type))) continue;
+    const inputs = asRecord(node.inputs)!;
+    for (const [field, value] of Object.entries(inputs)) {
+      const source = linkTarget(value) ?? '';
+      if (/^ref_(?:images|videos|video_audios|audios)\./.test(field) && (!active.has(source)
+        || (field.startsWith('ref_video_audios.') && silent.has(source)))) delete inputs[field];
+    }
+  }
+  // Submit only branches reachable from selected outputs, removing unused loaders and their filenames.
+  const roots = config.outputNodeIds.length ? config.outputNodeIds : suggestComfyUIOutputNodes(workflow);
+  if (!roots.length) throw new Error('仅使用画布参考素材模式需要选择输出节点。');
+  const reachable = new Set<string>();
+  const visit = (id: string) => {
+    if (reachable.has(id) || !workflow[id]) return;
+    reachable.add(id);
+    for (const value of Object.values(asRecord(workflow[id].inputs) ?? {})) {
+      const upstream = linkTarget(value);
+      if (upstream) visit(upstream);
+    }
+  };
+  roots.forEach(visit);
+  const unused = [...slots.images.slice(imageCount), ...slots.videos.slice(videoCount)];
+  if (unused.some(slot => reachable.has(slot.nodeId))) throw new Error('未传入的参考加载节点仍被其它分支使用，请移除该分支或补齐画布素材。');
+  if ([...reachable].some(id => /^(?:LoadImage|VHS_LoadVideo|LoadAudio)$/.test(nonemptyString(workflow[id].class_type)) && !active.has(id))) {
+    throw new Error('输出分支含未映射的服务器素材，请移除该分支；仅使用画布参考素材模式不允许回退到服务器文件。');
+  }
+  for (const id of Object.keys(workflow)) if (!reachable.has(id)) delete workflow[id];
+}
+
 export function getComfyUIReferenceRequirements(config: ComfyUIConfig): { min: number; max: number } {
   const images = effectiveBindings(config).images;
   // A server-side filename is usable without a canvas replacement. Empty slots must be supplied in binding order.
-  const min = images.reduce((required, binding, index) => nonemptyString(bindingValue(config, binding)) ? required : index + 1, 0);
+  const min = config.canvasReferencesOnly ? 0 : images.reduce((required, binding, index) => nonemptyString(bindingValue(config, binding)) ? required : index + 1, 0);
   return { min, max: images.length };
 }
 
@@ -548,7 +630,8 @@ export function getComfyUIVideoCapabilities(config: ComfyUIConfig): {
     inputSchema: {
       imageModes: ['reference'],
       images: { enabled: refs.max > 0, ...refs, roles: ['reference'], requireImageHost: false },
-      video: { enabled: false, min: 0, max: 0, field: '' },
+      video: { enabled: config.canvasReferencesOnly === true && (bindings.videos?.length ?? 0) > 0, min: 0,
+        max: config.canvasReferencesOnly ? bindings.videos?.length ?? 0 : 0, field: config.canvasReferencesOnly ? 'reference_videos' : '' },
       audio: { enabled: false, min: 0, max: 0, field: '' },
     },
     supportedDurations: h3 && bindings.duration ? Array.from({ length: 11 }, (_, i) => String(i + 5))
@@ -564,7 +647,7 @@ export function getComfyUIVideoCapabilities(config: ComfyUIConfig): {
 export function suggestComfyUIOutputNodes(workflowInput: unknown): string[] {
   const workflow = cloneWorkflow(workflowInput);
   return Object.entries(workflow)
-    .filter(([, node]) => /(?:SaveGaussianSplat|SaveImage|SaveVideo|SaveAnimated|VideoCombine|VHS_|SaveAudio|SaveAudioMP3|SaveAudioOpus|SaveAudioAdvanced|PreviewAudio)/i.test(nonemptyString(node.class_type)))
+    .filter(([, node]) => /(?:SaveGaussianSplat|SaveImage|SaveVideo|SaveAnimated|VideoCombine|SaveAudio|SaveAudioMP3|SaveAudioOpus|SaveAudioAdvanced|PreviewAudio)/i.test(nonemptyString(node.class_type)))
     .map(([nodeId]) => nodeId);
 }
 
@@ -573,6 +656,7 @@ export function prepareComfyUIWorkflow(
   request: GenerateRequest,
   uploadedNames: string[] = [],
   uploadedAudioNames: string[] = [],
+  uploadedVideoNames: string[] = [],
 ): Record<string, JsonRecord> {
   const workflow = cloneWorkflow(config.workflow);
   const bindings = effectiveBindings(config);
@@ -613,7 +697,7 @@ export function prepareComfyUIWorkflow(
   }
   const h3 = isLocalH3Workflow(workflow);
   const nonImage = config.mediaType === 'video' || config.mediaType === 'audio' || h3;
-  if (nonImage && (request.reference_videos?.length ?? 0) > 0) {
+  if (!config.canvasReferencesOnly && nonImage && (request.reference_videos?.length ?? 0) > 0) {
     throw new Error('ComfyUI 当前只支持画布参考图上传；视频和音频输入请在服务器工作流中配置。');
   }
   if (h3 && bindings.width && bindings.height) {
@@ -622,18 +706,26 @@ export function prepareComfyUIWorkflow(
     if (!explicit && request.aspect_ratio && request.aspect_ratio !== 'auto' && !H3_SIZES[request.aspect_ratio]) {
       throw new Error('本地 MiniMax H3 画幅比例未配置，请选择工作流支持的比例。');
     }
-    const dimensions = explicit ? [Number(explicit[1]), Number(explicit[2])]
-      : H3_SIZES[request.aspect_ratio ?? ''] ?? [Number(bindingValue(config, bindings.width)), Number(bindingValue(config, bindings.height))];
-    const [width, height] = dimensions;
-    if (!Number.isInteger(width) || !Number.isInteger(height) || width < 32 || height < 32
-      || width % 32 !== 0 || height % 32 !== 0 || width * height > 768 * 1344) {
+    const requestedDimensions = explicit ? [Number(explicit[1]), Number(explicit[2])]
+      : H3_SIZES[request.aspect_ratio ?? ''];
+    const workflowWidth = bindingValue(config, bindings.width);
+    const workflowHeight = bindingValue(config, bindings.height);
+    // Linked dimensions are evaluated by ComfyUI. An automatic canvas must preserve
+    // those connections instead of coercing API links to NaN (or replacing them).
+    const preserveLinkedDimensions = !requestedDimensions
+      && (linkTarget(workflowWidth) !== null || linkTarget(workflowHeight) !== null);
+    const [width, height] = requestedDimensions ?? [Number(workflowWidth), Number(workflowHeight)];
+    if (!preserveLinkedDimensions && (!Number.isInteger(width) || !Number.isInteger(height) || width < 32 || height < 32
+      || width % 32 !== 0 || height % 32 !== 0 || width * height > 768 * 1344)) {
       throw new Error('本地 MiniMax H3 画幅需为 32 的倍数，且总像素不超过 768×1344。');
     }
     if (!explicit && size && !['768P', 'workflow'].includes(size)) {
       throw new Error('本地 MiniMax H3 使用 768P 工作流画幅，不支持图片 1K/2K 档位。');
     }
-    setInput(workflow, bindings.width, width);
-    setInput(workflow, bindings.height, height);
+    if (!preserveLinkedDimensions) {
+      setInput(workflow, bindings.width, width);
+      setInput(workflow, bindings.height, height);
+    }
   } else if (config.mediaType !== 'audio' && config.mediaType !== 'gaussian' && (bindings.width || bindings.height)) {
     if (nonImage) {
       const pixels = /^(\d+)x(\d+)$/i.exec(request.size ?? '');
@@ -689,6 +781,13 @@ export function prepareComfyUIWorkflow(
     // Never drop supplied audio silently: a workflow that is not audio output cannot consume it.
     throw new Error('该工作流不是音频输出类型，不能传入参考音频。');
   }
+  const videoCount = request.reference_videos?.length ?? 0;
+  if (config.canvasReferencesOnly) {
+    if (videoCount > (bindings.videos?.length ?? 0)) throw new Error('画布参考视频数量超过工作流的视频输入槽数量。');
+    if (uploadedVideoNames.length !== videoCount) throw new Error('ComfyUI 参考视频上传结果数量不匹配。');
+    uploadedVideoNames.forEach((name, index) => setInput(workflow, bindings.videos![index], name));
+    pruneUnusedCanvasReferences(workflow, config, referenceCount, request.reference_videos ?? []);
+  }
   return workflow;
 }
 
@@ -700,6 +799,7 @@ export function validateComfyUIRequest(config: ComfyUIConfig, request: GenerateR
     request,
     Array.from({ length: count }, (_, index) => `reference-${index + 1}.png`),
     Array.from({ length: audioCount }, (_, index) => `reference-audio-${index + 1}.mp3`),
+    Array.from({ length: request.reference_videos?.length ?? 0 }, (_, index) => `reference-video-${index + 1}.mp4`),
   );
 }
 
@@ -722,6 +822,11 @@ export async function submitComfyUIWorkflow(
   transport: ComfyUITransport,
 ): Promise<{ prompt_id: string }> {
   validateComfyUIRequest(config, request);
+  for (const source of request.reference_videos ?? []) {
+    if (!/^data:video\/(?:mp4|webm|quicktime|x-m4v);base64,[A-Za-z0-9+/=]+$/i.test(source)) {
+      throw new Error('ComfyUI 参考视频必须先转换为本地视频 data URL。');
+    }
+  }
   const uploadedNames: string[] = [];
   for (const [index, source] of (request.reference_images ?? []).entries()) {
     if (!/^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/i.test(source)) {
@@ -749,7 +854,19 @@ export async function submitComfyUIWorkflow(
     });
     uploadedAudioNames.push(uploadedImageName(response));
   }
-  const workflow = prepareComfyUIWorkflow(config, request, uploadedNames, uploadedAudioNames);
+  const uploadedVideoNames: string[] = [];
+  for (const [index, source] of (request.reference_videos ?? []).entries()) {
+    const match = /^data:(video\/(?:mp4|webm|quicktime|x-m4v));base64,([A-Za-z0-9+/=]+)$/i.exec(source);
+    if (!match) throw new Error('ComfyUI 参考视频必须先转换为本地视频 data URL。');
+    const mimeType = match[1];
+    const extension = mimeType.toLowerCase() === 'video/quicktime' ? 'mov' : mimeType.split('/')[1].replace('x-', '');
+    const response = await transport.multipart('/upload/image', {
+      fields: [{ name: 'type', value: 'input' }],
+      files: [{ name: 'image', fileName: `canvas-reference-video-${index + 1}.${extension}`, mimeType, dataUrl: source }],
+    });
+    uploadedVideoNames.push(uploadedImageName(response));
+  }
+  const workflow = prepareComfyUIWorkflow(config, request, uploadedNames, uploadedAudioNames, uploadedVideoNames);
   const parsed = asRecord(await transport.json('/prompt', 'POST', { prompt: workflow }));
   const promptId = nonemptyString(parsed?.prompt_id);
   if (!promptId) {

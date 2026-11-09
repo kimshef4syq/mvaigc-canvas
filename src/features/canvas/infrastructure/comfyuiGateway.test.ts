@@ -1,3 +1,5 @@
+import referenceVideos from './fixtures/referenceVideoAudio.json';
+import pikaCanvasWorkflow from './fixtures/pikaH3CanvasWorkflow.json';
 import { describe, expect, it, vi } from 'vitest';
 import type { CustomProviderConfig } from '@/stores/customProvidersStore';
 import { buildVideoModelCatalog } from '@/features/canvas/application/videoModelCatalog';
@@ -311,6 +313,53 @@ describe('ComfyUI video workflow contracts', () => {
     await expect(submitComfyUIWorkflow(parseComfyUIConfig(h3Provider()), { ...request, size, reference_images: [] }, client)).rejects.toThrow();
     expect(client.json).not.toHaveBeenCalled();
     expect(client.multipart).not.toHaveBeenCalled();
+  });
+
+  it('preserves linked H3 dimensions during import validation and automatic generation', () => {
+    const linkedWorkflow = {
+      ...h3Workflow,
+      '1': { ...h3Workflow['1'], inputs: { ...h3Workflow['1'].inputs, width: ['20', 0], height: ['21', 0] } },
+      '20': { class_type: 'PrimitiveInt', inputs: { value: 1344 } },
+      '21': { class_type: 'PrimitiveInt', inputs: { value: 768 } },
+    };
+    const config = parseComfyUIConfig(provider({ mediaType: 'video', extraParams: { comfyui: { workflow: linkedWorkflow } } }));
+    const preview = { ...request, size: '768P', aspect_ratio: 'auto', reference_images: [] };
+    expect(() => validateComfyUIRequest(config, preview)).not.toThrow();
+    expect(prepareComfyUIWorkflow(config, preview)['1'].inputs).toMatchObject({ width: ['20', 0], height: ['21', 0] });
+    expect(prepareComfyUIWorkflow(config, { ...preview, aspect_ratio: '9:16' })['1'].inputs)
+      .toMatchObject({ width: 768, height: 1344 });
+    expect(() => prepareComfyUIWorkflow(config, { ...preview, size: '1333x768' })).toThrow('32 的倍数');
+    expect(linkedWorkflow['1'].inputs.width).toEqual(['20', 0]);
+  });
+
+  it('imports a Pika H3 graph with a resolution selector, frame expression and SelfLift sampler', () => {
+    const pikaWorkflow = {
+      '115': { class_type: 'ResolutionSelector', inputs: { aspect_ratio: '16:9 (Widescreen)', megapixels: 0.98, multiple: 32 } },
+      '131': { class_type: 'ComfyMathExpression', inputs: { expression: 'frame expression', 'values.a': ['132', 0] } },
+      '132': { class_type: 'PrimitiveFloat', inputs: { value: 10 } },
+      '136': { class_type: 'MiniMaxH3ReferenceToVideo', inputs: {
+        prompt: ['138', 0], width: ['115', 0], height: ['115', 1], length: ['131', 1],
+        'ref_images.ref_image_0': ['149', 0],
+      } },
+      '138': { class_type: 'PrimitiveStringMultiline', inputs: { value: 'original prompt' } },
+      '149': { class_type: 'LoadImage', inputs: { image: 'server.jpg' } },
+      '152': { class_type: 'VHS_VideoCombine', inputs: { frame_rate: 24, images: ['122', 0], save_output: true } },
+      '156': { class_type: 'SelfLiftH3Sampler', inputs: { seed: 42, positive: ['136', 0], latent_image: ['136', 1] } },
+    };
+    const config = parseComfyUIConfig(provider({ mediaType: 'video', extraParams: { comfyui: { workflow: pikaWorkflow } } }));
+    const preview = { ...request, size: '768P', aspect_ratio: 'auto', reference_images: [] };
+    expect(() => validateComfyUIRequest(config, preview)).not.toThrow();
+    expect(prepareComfyUIWorkflow(config, preview)['136'].inputs).toMatchObject({
+      prompt: request.prompt, width: ['115', 0], height: ['115', 1], length: ['131', 1],
+    });
+    const patched = prepareComfyUIWorkflow(config, {
+      ...preview, aspect_ratio: '9:16', reference_images: ['reference'], extra_params: { seconds: 10, seed: 123 },
+    }, ['uploaded.png']);
+    expect(patched['136'].inputs).toMatchObject({ width: 768, height: 1344, length: 243, prompt: request.prompt });
+    expect(patched['156'].inputs).toMatchObject({ seed: 123 });
+    expect(patched['149'].inputs).toMatchObject({ image: 'uploaded.png' });
+    expect(suggestComfyUIOutputNodes(pikaWorkflow)).toEqual(['152']);
+    expect(getComfyUIVideoCapabilities(config).supportedResolutions).toEqual(['768P']);
   });
 
   it('writes explicit generic video duration, resolution and ratio bindings', () => {
@@ -821,5 +870,73 @@ describe('Gaussian ComfyUI output', () => {
     for (const filename of ['preview.png', '../idol.ply']) {
       expect(inspectComfyUIHistory({ p: { status: { completed: true }, outputs: { '16': { '3d': [{ filename, type: 'output' }] } } } }, 'p', config(), 'gaussian').state).toBe('failed');
     }
+  });
+});
+
+
+describe('canvas-only H3 reference templates', () => {
+  const config = (workflow: unknown = pikaCanvasWorkflow) => parseComfyUIConfig(provider({ mediaType: 'video',
+    extraParams: { comfyui: { workflow, canvasReferencesOnly: true } },
+  }));
+  const sample = { ...request, size: '768P', aspect_ratio: '16:9', reference_images: [] };
+
+  it('advertises optional canvas images and video without server-file fallbacks', () => {
+    expect(getComfyUIVideoCapabilities(config()).inputSchema).toMatchObject({
+      images: { enabled: true, min: 0, max: 8 }, video: { enabled: true, min: 0, max: 1 }, audio: { enabled: false },
+    });
+    expect(() => validateComfyUIRequest(config(), sample)).not.toThrow();
+    const prepared = prepareComfyUIWorkflow(config(), sample);
+    expect(Object.keys(prepared['136'].inputs as object).some(key => key.startsWith('ref_images.') || key.startsWith('ref_videos.') || key.startsWith('ref_video_audios.'))).toBe(false);
+    expect(Object.values(prepared).some(node => node.class_type === 'LoadImage' || node.class_type === 'VHS_LoadVideo')).toBe(false);
+  });
+
+  it('uploads only supplied images and one video, sharing its audio output and pruning unused branches', async () => {
+    const client = transport();
+    client.multipart.mockResolvedValueOnce({ name: 'canvas.png' }).mockResolvedValueOnce({ name: 'canvas.mp4' });
+    client.json.mockResolvedValue({ prompt_id: 'pika-task' });
+    await expect(submitComfyUIWorkflow(config(), { ...sample,
+      reference_images: ['data:image/png;base64,AAAA'], reference_videos: ['data:video/mp4;base64,AAAA'],
+    }, client)).resolves.toEqual({ prompt_id: 'pika-task' });
+    expect(client.multipart).toHaveBeenCalledTimes(2);
+    expect(client.multipart.mock.calls[1][1].files[0]).toMatchObject({ name: 'image', mimeType: 'video/mp4' });
+    const prepared = client.json.mock.calls[0][2].prompt;
+    expect(prepared['149'].inputs.image).toBe('canvas.png');
+    expect(prepared['174'].inputs.video).toBe('canvas.mp4');
+    expect(prepared['136'].inputs).toMatchObject({ 'ref_images.ref_image_0': ['149', 0],
+      'ref_videos.ref_video_0': ['174', 0], 'ref_video_audios.ref_video_audio_0': ['174', 2] });
+    expect(prepared['136'].inputs).not.toHaveProperty('ref_images.ref_image_1');
+    expect(prepared['166']).toBeUndefined();
+    expect(pikaCanvasWorkflow['174'].inputs.video).toBe('');
+  });
+
+  it('removes preselected files too and preserves reference order independently of loader IDs', () => {
+    const workflow = structuredClone(pikaCanvasWorkflow);
+    workflow['149'].inputs.image = 'must-not-use.jpg';
+    workflow['166'].inputs.image = 'must-not-use-2.jpg';
+    workflow['136'].inputs['ref_images.ref_image_0'] = ['166', 0];
+    workflow['136'].inputs['ref_images.ref_image_1'] = ['149', 0];
+    const prepared = prepareComfyUIWorkflow(config(workflow), { ...sample, reference_images: ['image'] }, ['uploaded.png']);
+    expect(prepared['166'].inputs).toEqual({ image: 'uploaded.png' });
+    expect(prepared['149']).toBeUndefined();
+    expect(JSON.stringify(prepared)).not.toContain('must-not-use');
+  });
+
+  it.each([['silent', false], ['audio', true]] as const)('connects reference video audio only when the %s MP4 contains an audio track', (kind, hasAudio) => {
+    const prepared = prepareComfyUIWorkflow(config(), { ...sample, reference_videos: [referenceVideos[kind]] }, [], [], ['uploaded.mp4']);
+    expect(prepared['136'].inputs).toMatchObject({ 'ref_videos.ref_video_0': ['174', 0] });
+    expect(Object.prototype.hasOwnProperty.call(prepared['136'].inputs, 'ref_video_audios.ref_video_audio_0')).toBe(hasAudio);
+    expect(prepared['174'].inputs).toMatchObject({ video: 'uploaded.mp4' });
+    expect(pikaCanvasWorkflow['136'].inputs['ref_video_audios.ref_video_audio_0']).toEqual(['174', 2]);
+  });
+
+  it('rejects overflow and independent server audio before uploads', async () => {
+    const client = transport();
+    await expect(submitComfyUIWorkflow(config(), { ...sample, reference_videos: ['video', 'video'] }, client)).rejects.toThrow('视频输入槽');
+    const workflow = structuredClone(pikaCanvasWorkflow) as Record<string, { class_type: string; inputs: Record<string, unknown> }>;
+    workflow['180'] = { class_type: 'LoadAudio', inputs: { audio: 'server.mp3' } };
+    workflow['136'].inputs['ref_audios.ref_audio_0'] = ['180', 0];
+    await expect(submitComfyUIWorkflow(config(workflow), sample, client)).rejects.toThrow('独立音频');
+    expect(client.multipart).not.toHaveBeenCalled();
+    expect(client.json).not.toHaveBeenCalled();
   });
 });

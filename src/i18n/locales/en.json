@@ -2162,6 +2162,7 @@
         "custom": { "title": "Custom workflow", "description": "Import API-format JSON for image or video output." }
       },
       "h3LocalHelp": "Install local H3 models and nodes in ComfyUI and verify video generation, then import API JSON containing MiniMaxH3ImageToVideo or MiniMaxH3ReferenceToVideo and a video saver. Durations of 5–15 seconds align at 24fps. No MiniMax API key is needed. Comfy Partner billing nodes are not supported here; use the direct provider instead.",
+      "canvasReferencesOnly": "Use canvas references only: upload connected images and videos, disconnect unused reference slots, and ignore preselected workflow files. Reference video and its audio must use the same VHS_LoadVideo node.",
       "h3WorkflowRequired": "Import an API workflow containing local MiniMax H3 nodes. Comfy Partner/API nodes are not supported by this entry.",
       "durations": "Durations in seconds (duration binding required)",
       "ratios": "Aspect ratios (aspectRatio binding required)",
