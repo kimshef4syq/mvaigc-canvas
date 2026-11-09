@@ -3838,7 +3838,8 @@ pub async fn save_audio_source_to_path(
 
 #[tauri::command]
 pub async fn load_video_source_data_url(source: String) -> Result<String, String> {
-    let (bytes, extension) = resolve_video_source_bytes_with_headers(source.trim(), None, None).await?;
+    let (bytes, extension) =
+        resolve_video_source_bytes_with_headers(source.trim(), None, None).await?;
     let mime = match extension.as_str() {
         "webm" => "video/webm",
         "mov" => "video/quicktime",
