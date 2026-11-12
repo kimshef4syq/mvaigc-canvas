@@ -34,8 +34,6 @@ Henji-AI/
 .learnings/
 .omc/
 .trellis/
-AGENTS.md
-CLAUDE.md
 
 # Local backups and scratch output
 backups/
@@ -46,11 +44,6 @@ findings.md
 progress.md
 task_plan.md
 
-# Local browser/debug output
-.playwright-cli/
-output/
-
-# Ad-hoc file backups created during iterative UI/provider work
 # Local browser/debug output
 .playwright-cli/
 output/

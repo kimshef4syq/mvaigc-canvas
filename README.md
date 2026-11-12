@@ -140,8 +140,11 @@ src-tauri/
   src/commands/             # Rust Tauri 命令、网络代理与本地系统能力
   src/ai/                   # AI 供应商适配
   tauri.conf.json           # 桌面应用配置
-docs/                       # 使用、开发、发布与授权文档
+docs/                       # 文档中心（见 docs/README.md、PRD/Spec/ADR 与使用手册）
+tasks/                      # 当前迭代规划（plan.md / todo.md）
 ```
+
+> 开发规范与架构索引见 [AGENTS.md](AGENTS.md)、[CONSTRAINTS.md](CONSTRAINTS.md)、[能力与目录地图](docs/specs/CAPABILITY-MAP.md) 与 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 授权与上游归属
 

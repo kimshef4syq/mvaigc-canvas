@@ -1,6 +1,6 @@
-# Contributing to Open Storyboard Canvas
+# Contributing to mvaigc 桌面画布（mvaigc-canvas）
 
-感谢你愿意参与 Open Storyboard Canvas。这个项目仍在快速迭代，最有价值的贡献通常是可复现的问题、清楚的文档修正、稳定的供应商适配和不会破坏画布数据的功能改进。
+感谢你愿意参与 mvaigc 桌面画布（基于 Open Storyboard Canvas 二次开发）。这个项目仍在快速迭代，最有价值的贡献通常是可复现的问题、清楚的文档修正、稳定的供应商适配和不会破坏画布数据的功能改进。
 
 ## 本地开发
 
@@ -76,6 +76,7 @@ cd src-tauri && cargo check
 
 ## 代码与文档约定
 
+- **PRD & Spec 导向开发**：非琐碎的新功能或架构变更，请先遵循 [AGENTS.md](AGENTS.md) 中的 `PRD → Spec → Plan → Tasks → Implement` 流程，在 `docs/prd/` 与 `docs/specs/` 明确需求与验收标准后再编码。
 - 前端使用 React + TypeScript + Zustand + TailwindCSS；桌面端使用 Tauri 2 + Rust。
 - 画布节点、供应商、模型、工具和持久化字段要保持类型、注册表、UI、存储和文档一致。
 - 新 UI 文案需要同步中英文语言包。

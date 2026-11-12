@@ -1,11 +1,11 @@
 # 项目开发环境与注意事项
 
-本文档用于指导开发者快速准备 Storyboard Copilot 的本地开发环境，并了解日常开发注意事项。
+本文档用于指导开发者快速准备 mvaigc 桌面画布（mvaigc-canvas）的本地开发环境，并了解日常开发注意事项。
 
 ## 1. 必备工具
 
 安装与配置教程请先阅读：
-[基础工具安装配置（Windows / macOS）](d:/VibeCode/Storyboard-Copilot/docs/development-guides/base-tools-installation.md)
+[基础工具安装配置（Windows / macOS）](base-tools-installation.md)
 
 ## 1.1 基础工具
 
@@ -33,7 +33,7 @@
 
 ```bash
 git clone <repo-url>
-cd Storyboard-Copilot
+cd mvaigc-canvas
 npm install
 ```
 
@@ -112,7 +112,7 @@ npm run build
 - 新增节点：先改 `domain/nodeRegistry.ts`，避免多处硬编码。
 - 新增工具：按 `tools/types.ts -> builtInTools.ts -> tool-editors -> toolProcessor.ts` 顺序接入。
 - 新增模型/供应商：参考
-  [provider-and-model-extension.md](d:/VibeCode/Storyboard-Copilot/docs/development-guides/provider-and-model-extension.md)
+  [provider-and-model-extension.md](provider-and-model-extension.md)
 
 ## 6.3 性能约束
 

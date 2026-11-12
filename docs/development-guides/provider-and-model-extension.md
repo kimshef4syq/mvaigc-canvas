@@ -1,6 +1,6 @@
 # 供应商与模型扩展指南
 
-本文档用于指导在 Storyboard Copilot 中新增 AI 供应商或新增模型。
+本文档用于指导在 mvaigc 桌面画布（mvaigc-canvas）中新增 AI 供应商或新增模型。
 
 ## 1. 适用范围
 
