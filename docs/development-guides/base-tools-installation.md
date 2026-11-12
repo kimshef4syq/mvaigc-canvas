@@ -1,6 +1,6 @@
 # 基础工具安装配置（Windows / macOS）
 
-本文档提供 Storyboard Copilot 开发所需基础工具的安装与验证步骤。
+本文档提供 mvaigc 桌面画布（mvaigc-canvas）开发所需基础工具的安装与验证步骤。
 
 ## 1. 需要安装的工具
 
