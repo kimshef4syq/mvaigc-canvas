@@ -1,3 +1,4 @@
+import pikaCanvasWorkflow from './fixtures/pikaH3CanvasWorkflow.json';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -6,6 +7,7 @@ const {
   getGenerationJobRecordMock,
   persistAudioSourceMock,
   persistVideoSourceMock,
+  loadVideoSourceDataUrlMock,
   prepareNodeImageSourceWithHeadersMock,
   updateGenerationJobMock,
 } = vi.hoisted(() => ({
@@ -14,6 +16,7 @@ const {
   getGenerationJobRecordMock: vi.fn(),
   persistAudioSourceMock: vi.fn(),
   persistVideoSourceMock: vi.fn(),
+  loadVideoSourceDataUrlMock: vi.fn(),
   prepareNodeImageSourceWithHeadersMock: vi.fn(),
   updateGenerationJobMock: vi.fn(),
 }));
@@ -35,6 +38,7 @@ vi.mock('@/commands/image', async (importOriginal) => {
     ...actual,
     persistAudioSource: persistAudioSourceMock,
     persistVideoSource: persistVideoSourceMock,
+    loadVideoSourceDataUrl: loadVideoSourceDataUrlMock,
     prepareNodeImageSourceWithHeaders: prepareNodeImageSourceWithHeadersMock,
   };
 });
@@ -108,6 +112,7 @@ afterEach(() => {
   persistAudioSourceMock.mockReset();
   persistVideoSourceMock.mockReset();
   prepareNodeImageSourceWithHeadersMock.mockReset();
+  loadVideoSourceDataUrlMock.mockReset();
   updateGenerationJobMock.mockReset();
   updateGenerationJobMock.mockResolvedValue(undefined);
 });
@@ -205,6 +210,35 @@ describe('custom provider submission safety', () => {
       {},
       expect.objectContaining({ configuredProviderOrigin: 'http://127.0.0.1:8188' }),
     );
+  });
+
+  it('reads a local canvas video before uploading and shares its video/audio outputs in H3', async () => {
+    (globalThis as typeof globalThis & { isTauri?: boolean }).isTauri = true;
+    const cfg = comfyProvider('video');
+    cfg.extraParams = { auth: { mode: 'none' }, comfyui: {
+      workflow: pikaCanvasWorkflow, canvasReferencesOnly: true, outputNodeIds: ['152'],
+    } };
+    useCustomProvidersStore.getState().replaceAll([cfg]);
+    loadVideoSourceDataUrlMock.mockResolvedValueOnce('data:video/mp4;base64,AAAA');
+    customHttpRequestMock
+      .mockImplementationOnce(() => response(200, { name: 'uploaded-video.mp4' }))
+      .mockImplementationOnce(() => response(200, { prompt_id: 'canvas-video' }))
+      .mockImplementationOnce(() => response(200, { 'canvas-video': { outputs: { '152': { gifs: [
+        { filename: 'generated.mp4', subfolder: '', type: 'output' },
+      ] } } } }));
+    persistVideoSourceMock.mockResolvedValueOnce('/local/generated.mp4');
+    const result = await waitForTerminalJob(await submitCustomVideoJob({
+      prompt: 'Use <Video 1>', model: 'custom:provider-1:workflow', size: '768P', aspect_ratio: '16:9',
+      reference_videos: ['/local/reference.mp4'],
+    }));
+    expect(result.status).toBe('succeeded');
+    expect(loadVideoSourceDataUrlMock).toHaveBeenCalledWith('/local/reference.mp4');
+    const calls = customHttpRequestMock.mock.calls.map(([call]) => call);
+    expect(calls.filter(call => call.url.endsWith('/upload/image'))).toHaveLength(1);
+    const submitted = calls.find(call => call.url.endsWith('/prompt')).body.prompt;
+    expect(submitted['174'].inputs.video).toBe('uploaded-video.mp4');
+    expect(submitted['136'].inputs['ref_video_audios.ref_video_audio_0']).toEqual(['174', 2]);
+    expect(Object.values(submitted).some((node) => (node as { class_type: string }).class_type === 'LoadImage')).toBe(false);
   });
 
   const comfyAudioWorkflow = {

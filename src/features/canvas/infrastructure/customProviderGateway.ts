@@ -15,6 +15,7 @@ import {
 import { isTauri } from '@tauri-apps/api/core';
 import {
   persistAudioSource,
+  loadVideoSourceDataUrl,
   prepareNodeImageSourceWithHeaders,
   persistVideoSource,
   type MediaNetworkRoute,
@@ -37,6 +38,8 @@ import {
   isLocalFilesystemResultSource,
 } from '@/features/canvas/application/generationRetry';
 import {
+  blobToDataUrl,
+  resolveImageDisplayUrl,
   loadImageElement,
   reduceAspectRatio,
 } from '@/features/canvas/application/imageData';
@@ -4505,7 +4508,21 @@ async function sendVideoGenerationRequest(
   network?: Readonly<GenerationNetworkSettings>,
 ): Promise<unknown> {
   if (isComfyUIProvider(cfg)) {
-    return await submitComfyUIWorkflow(parseComfyUIConfig(cfg), request, createComfyUITransport(cfg, network));
+    const config = parseComfyUIConfig(cfg);
+    validateComfyUIRequest(config, request);
+    const videos: string[] = [];
+    for (const source of request.reference_videos ?? []) {
+      if (source.startsWith('data:')) videos.push(source);
+      else if (isTauri()) videos.push(await loadVideoSourceDataUrl(source));
+      else {
+        const response = await fetch(resolveImageDisplayUrl(source));
+        if (!response.ok) throw new Error(`无法读取画布参考视频：HTTP ${response.status}`);
+        const blob = await response.blob();
+        if (!blob.type.startsWith('video/')) throw new Error('画布参考视频没有有效的视频 MIME 类型。');
+        videos.push(await blobToDataUrl(blob));
+      }
+    }
+    return await submitComfyUIWorkflow(config, { ...request, reference_videos: videos }, createComfyUITransport(cfg, network));
   }
   const method = cfg.httpMethod ?? 'POST';
   if (cfg.extraParams?.requiresDedicatedVideoGateway === true) {

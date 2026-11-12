@@ -3837,6 +3837,20 @@ pub async fn save_audio_source_to_path(
 }
 
 #[tauri::command]
+pub async fn load_video_source_data_url(source: String) -> Result<String, String> {
+    let (bytes, extension) =
+        resolve_video_source_bytes_with_headers(source.trim(), None, None).await?;
+    let mime = match extension.as_str() {
+        "webm" => "video/webm",
+        "mov" => "video/quicktime",
+        "m4v" => "video/x-m4v",
+        "mp4" => "video/mp4",
+        _ => return Err(format!("Unsupported reference video format: {}", extension)),
+    };
+    Ok(format!("data:{};base64,{}", mime, STANDARD.encode(bytes)))
+}
+
+#[tauri::command]
 pub async fn load_audio_source_data_url(source: String) -> Result<String, String> {
     let trimmed_source = source.trim();
     if trimmed_source.is_empty() {

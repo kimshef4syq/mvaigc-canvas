@@ -211,6 +211,7 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
   const [comfyWorkflowText, setComfyWorkflowText] = useState(() => jsonText(initialComfy.workflow));
   const [comfyBindingsText, setComfyBindingsText] = useState(() => jsonText(initialComfy.bindings));
   const [comfyOutputsText, setComfyOutputsText] = useState(() => jsonText(initialComfy.outputNodeIds));
+  const [canvasReferencesOnly, setCanvasReferencesOnly] = useState(false);
   const [comfyChoice, setComfyChoice] = useState<ComfyUIWorkflowChoice>(initialRoute === 'comfyui' ? 'text-to-image' : 'custom');
   const [availableCheckpoints, setAvailableCheckpoints] = useState<string[]>([]);
   const [loadingCheckpoints, setLoadingCheckpoints] = useState(false);
@@ -270,11 +271,13 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
       setComfyWorkflowText(jsonText(record.workflow ?? {}));
       setComfyBindingsText(jsonText(record.bindings ?? { images: [] }));
       setComfyOutputsText(jsonText(record.outputNodeIds ?? []));
+      setCanvasReferencesOnly(record.canvasReferencesOnly === true);
     } else {
       setComfyChoice('custom');
       setComfyWorkflowText('{}');
       setComfyBindingsText('{\n  "images": []\n}');
       setComfyOutputsText('[]');
+      setCanvasReferencesOnly(false);
     }
     setContractIssues([]);
     setError('');
@@ -371,6 +374,7 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
             bindings,
             outputNodeIds,
             templateId: comfyChoice,
+            canvasReferencesOnly,
             pollIntervalMs: Number(nextExtraParams.comfyui && typeof nextExtraParams.comfyui === 'object' ? (nextExtraParams.comfyui as Record<string, unknown>).pollIntervalMs : 1500) || 1500,
             pollTimeoutMs: Number(nextExtraParams.comfyui && typeof nextExtraParams.comfyui === 'object' ? (nextExtraParams.comfyui as Record<string, unknown>).pollTimeoutMs : 600000) || 600000,
           },
@@ -424,6 +428,7 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
 
   const chooseComfyWorkflow = (choice: ComfyUIWorkflowChoice) => {
     setComfyChoice(choice);
+    setCanvasReferencesOnly(choice === 'minimax-h3-local');
     setAvailableCheckpoints([]);
     const template = choice === 'custom' || choice === 'minimax-h3-local'
       ? { workflow: {}, bindings: { images: [] }, outputNodeIds: [] }
@@ -680,6 +685,7 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
                   setComfyBindingsText(JSON.stringify(bindings, null, 2));
                   setComfyOutputsText(JSON.stringify(outputs, null, 2));
                   const localH3 = isLocalH3Workflow(parsed);
+                  setCanvasReferencesOnly(localH3);
                   setComfyChoice(localH3 || comfyChoice === 'minimax-h3-local' ? 'minimax-h3-local' : 'custom');
                   if (localH3) updateDraft((current) => ({ ...current, mediaType: 'video', models: ['minimax-h3-local'], supportedResolutions: ['768P'] }));
                   setError('');
@@ -693,6 +699,10 @@ export function CustomImageProviderWorkbench({ initialRoute }: CustomImageProvid
           <details key={comfyChoice} open={comfyChoice === 'custom' || comfyChoice === 'minimax-h3-local' ? true : undefined} className="rounded-lg border border-border-dark bg-bg-dark/45 px-3 py-2">
             <summary className="cursor-pointer text-xs font-medium text-text-dark">{t('settings.comfyui.advanced')}</summary>
             <div className="mt-3 space-y-3">
+              {comfyChoice === 'minimax-h3-local' && <label className="flex items-start gap-2 text-xs text-text-muted">
+                <UiCheckbox checked={canvasReferencesOnly} onCheckedChange={(checked) => { setCanvasReferencesOnly(checked); setSaved(false); setTestResult(null); setError(''); }} />
+                <span>{t('settings.comfyui.canvasReferencesOnly')}</span>
+              </label>}
               <JsonField label={t('settings.customProviders.workbench.fields.comfyWorkflow')} help={t('settings.customProviders.workbench.help.comfyWorkflow')} value={comfyWorkflowText} onChange={setComfyWorkflowText} />
               <div className="grid gap-3 lg:grid-cols-2">
                 <JsonField label={t('settings.customProviders.workbench.fields.comfyBindings')} help={t('settings.customProviders.workbench.help.comfyBindings')} value={comfyBindingsText} onChange={setComfyBindingsText} />
