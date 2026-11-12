@@ -1,0 +1,92 @@
+name: Docs and Spec Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-and-spec-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-gate:
+    name: Line endings, SSOT & Spec integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Force LF checkout policy
+        run: git config --global core.autocrlf false
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify tracked line endings (LF)
+        run: node scripts/check-line-endings.mjs
+
+      - name: Verify PRD/Spec SSOT structure and dead local paths
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const path = require("node:path");
+
+            const requiredFiles = [
+              "AGENTS.md",
+              "CONSTRAINTS.md",
+              "CHANGELOG.md",
+              "docs/README.md",
+              "docs/prd/_TEMPLATE.md",
+              "docs/specs/_TEMPLATE.md",
+              "docs/specs/CAPABILITY-MAP.md",
+              "docs/decisions/_TEMPLATE.md",
+              "tasks/plan.md",
+              "tasks/todo.md",
+            ];
+            for (const f of requiredFiles) {
+              if (!fs.existsSync(f)) {
+                console.error("Missing required SSOT/Spec file:", f);
+                process.exit(1);
+              }
+            }
+
+            const capMap = fs.readFileSync("docs/specs/CAPABILITY-MAP.md", "utf8");
+            const specRefs = [...capMap.matchAll(/\((SPEC-[a-z0-9-]+\.md)\)/g)].map((m) => m[1]);
+            for (const spec of specRefs) {
+              const p = path.join("docs/specs", spec);
+              if (!fs.existsSync(p)) {
+                console.error("CAPABILITY-MAP references missing Spec:", p);
+                process.exit(1);
+              }
+            }
+
+            const docsToCheck = [
+              "AGENTS.md",
+              "CONSTRAINTS.md",
+              "CONTRIBUTING.md",
+              "SECURITY.md",
+              "docs/README.md",
+              "docs/development-guides/project-development-setup.md",
+              "docs/specs/CAPABILITY-MAP.md",
+            ];
+            const badPathPattern = /(?:[a-zA-Z]:\/VibeCode\/|C:\\Users\\|\/Users\/spic007\/)/;
+            for (const f of docsToCheck) {
+              const content = fs.readFileSync(f, "utf8");
+              if (badPathPattern.test(content)) {
+                console.error("Hardcoded local machine path found in:", f);
+                process.exit(1);
+              }
+            }
+
+            console.log(`SSOT & Spec gate passed (${requiredFiles.length} core files, ${specRefs.length} module specs verified).`);
+          '
